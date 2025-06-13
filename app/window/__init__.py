@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt, QEvent
 from .tree import TreeGraphWidget
 from .command import CommandWidget
 from ..utils import set_app_state
+import logging
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -36,10 +37,10 @@ class MainWindow(QWidget):
 
     def toggle_state(self):
         if self.isVisible():
-            print("Hide window.")
+            logging.info("Hide window.")
             self.to_background()
         else:
-            print("Show window.")
+            logging.info("Show window.")
             self.to_frontground()
 
     def closeEvent(self, event):
