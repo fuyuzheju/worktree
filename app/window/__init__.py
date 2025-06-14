@@ -6,12 +6,12 @@ from ..utils import set_app_state
 import logging
 
 class MainWindow(QWidget):
-    def __init__(self):
+    def __init__(self, work_tree):
         super().__init__()
         self.setWindowTitle("Tree Edit App")
 
-        self.tree_graph_widget = TreeGraphWidget()
-        self.command_widget = CommandWidget(self.tree_graph_widget.work_tree)
+        self.tree_graph_widget = TreeGraphWidget(work_tree)
+        self.command_widget = CommandWidget(work_tree)
         self.main_layout = QHBoxLayout()
         self.main_layout.addWidget(self.tree_graph_widget, stretch=2)
         self.main_layout.addWidget(self.command_widget, stretch=3)

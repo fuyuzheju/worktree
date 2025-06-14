@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 import sys, traceback, logging
+from app.data.tree import WorkTree
 
 HOTKEY = '<ctrl>+f'
 
@@ -47,7 +48,8 @@ if __name__ == '__main__':
     app.setApplicationName("Work Tree")
     sys.excepthook = global_exception_hook
 
-    main_window = MainWindow()
+    work_tree = WorkTree()
+    main_window = MainWindow(work_tree)
     main_window.show()
 
     hotkey_manager = HotkeyManager(HOTKEY, main_window)

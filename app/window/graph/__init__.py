@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
     QWidget, QVBoxLayout
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter
-from ..data.tree import Status, Node, WorkTree
+from ...data.tree import Status, Node, WorkTree
 
 NODE_WIDTH = 80
 NODE_HEIGHT = 18
@@ -74,8 +74,8 @@ class GraphicsNodeItem(QGraphicsObject):
 
 
 class TreeGraphWidget(QWidget):
-    def __init__(self, parent=None):
-        super().__init__()
+    def __init__(self, work_tree, parent=None):
+        super().__init__(parent)
 
         self.setWindowTitle("Tree Graph View")
         self.setGeometry(100, 100, 800, 700)
@@ -83,7 +83,7 @@ class TreeGraphWidget(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
-        self.work_tree = WorkTree()
+        self.work_tree = work_tree
         self.work_tree.edit_signal.connect(self.on_tree_edit)
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
