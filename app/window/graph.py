@@ -1,127 +1,14 @@
-import uuid
-from enum import Enum
-from PyQt5.QtWidgets import QApplication, QGraphicsView, QGraphicsScene, QGraphicsObject, \
+from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
     QWidget, QVBoxLayout
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
-from PyQt5.QtGui import QColor, QPen, QBrush, QPainterPath, QFont, QPainter
+from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter
+from ..data.tree import Status, Node, WorkTree
 
 NODE_WIDTH = 80
 NODE_HEIGHT = 18
 H_SPACING = 25
 V_SPACING = 15 # spacing between two nodes, not including the height of node
 FONT_SIZE = 10
-
-class Status(Enum):
-    """
-    Status Clarification:
-    Waiting: a workstep whose dependencies not completed, but not in current work
-    Current: a workstep in current work (usually only one)
-    Completed: a workstep completed
-    """
-    WAITING = "Waiting"
-    CURRENT = "Current"
-    COMPLETED = "Completed"
-
-
-class Node:
-    def __init__(self, name, parent=None):
-        self.identity = uuid.uuid4().hex
-        self.name = name
-        self.parent = parent
-        self.children = []
-        self.status = Status.WAITING # default status
-
-    def addChild(self, child_node):
-        self.children.append(child_node)
-
-    def is_ready(self):
-        """检查所有前置步骤（子节点）是否都已完成"""
-        for child in self.children:
-            if child.status != Status.COMPLETED:
-                return False
-        return True
-
-    def row(self):
-        """返回该节点在其父节点的子节点列表中的索引"""
-        if self.parent:
-            return self.parent.children.index(self)
-        return 0
-
-
-class WorkTree:
-    """管理整个工作树的逻辑"""
-    def __init__(self):
-        self.root = Node("WorkRoot")
-        self.root.status = Status.CURRENT
-        self.current_node = self.root
-
-    def get_node_by_id(self, identity, start_node=None):
-        if start_node is None:
-            start_node = self.root
-
-        if start_node.identity == identity:
-            return start_node
-        
-        for child in start_node.children:
-            found = self.get_node_by_id(identity, child)
-            if found:
-                return found
-        return None
-
-    def add_node(self, parent_node, new_node_name):
-        new_node = Node(new_node_name, parent=parent_node)
-        parent_node.addChild(new_node)
-        self.current_node.status = Status.WAITING
-        self.current_node = new_node
-        new_node.status = Status.CURRENT
-
-        return new_node
-
-    def complete_step(self, node):
-        if not node.is_ready():
-            return -1
-        node.status = Status.COMPLETED
-        return 0
-
-    def complete_current(self):
-        if not self.current_node.is_ready():
-            return -1
-        self.current_node.status = Status.COMPLETED
-
-        if self.current_node.parent is None:
-            return 0
-        for child in self.current_node.parent.children:
-            if child.status == Status.WAITING:
-                self.current_node = child
-                self.current_node.status = Status.CURRENT
-                return 0
-        else:
-            self.current_node = self.current_node.parent
-            self.current_node.status = Status.CURRENT
-            return 0
-    
-    def switch_to(self, node):
-        if node.status == Status.COMPLETED:
-            return -1
-        self.current_node.status = Status.WAITING
-        self.current_node = node
-        self.current_node.status = Status.CURRENT
-        return 0
-    
-    def remove_node(self, node):
-        if node.children or node == self.root:
-            return -1
-        node.parent.children.remove(node)
-        return 0
-    
-    def remove_subtree(self, node):
-        if node == self.root:
-            return -1
-        node.parent.children.remove(node)
-        for child in node.children:
-            self.remove_subtree(child)
-        return 0
-
 
 class GraphicsNodeItem(QGraphicsObject):
     request_relayout = pyqtSignal()
@@ -151,7 +38,6 @@ class GraphicsNodeItem(QGraphicsObject):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(self.line_pen)
         # linking lines
-        # depth = len(self.prefix)
         for i in range(self.depth):
             status = self.prefix[i]
             x = -(self.depth - i) * H_SPACING + H_SPACING / 2
@@ -185,7 +71,6 @@ class GraphicsNodeItem(QGraphicsObject):
     def mousePressEvent(self, event):
         if event.pos().x() >= 0 and event.pos().y() >= 0 and self.data_node.children:
             self.change_expanded.emit(self)
-        # super().mousePressEvent(event)
 
 
 class TreeGraphWidget(QWidget):
@@ -199,6 +84,7 @@ class TreeGraphWidget(QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.work_tree = WorkTree()
+        self.work_tree.edit_signal.connect(self.on_tree_edit)
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
         self.view.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -214,8 +100,6 @@ class TreeGraphWidget(QWidget):
         item.request_relayout.connect(self.relayout_tree)
 
     def relayout_tree(self):
-        # print("RELAYOUT")
-
         self.scene.clear()
 
         y_cursor = 0 # shared across all recursive calls
@@ -256,57 +140,33 @@ class TreeGraphWidget(QWidget):
         self.expand_status[node_item.data_node] = not self.expand_status[node_item.data_node]
         self.relayout_tree()
     
-    def add_node(self, parent_node, new_node_name):
-        new_node = self.work_tree.add_node(parent_node, new_node_name)
-        self.expand_status[new_node] = True
-        self.relayout_tree()
-
-        return new_node
-
-    def complete_step(self, node_item):
-        res = self.work_tree.complete_step(node_item.data_node)
-        self.scene.update()
-        return res
-
-    def complete_current(self):
-        res = self.work_tree.complete_current()
-        self.scene.update()
-        return res
-
-    def switch_to(self, node):
-        res = self.work_tree.switch_to(node)
-        flag = False
-        def check_expanded(node):
-            nonlocal flag
-            if not self.expand_status[node]:
-                self.expand_status[node] = True
-                flag = True
-            if node.parent:
-                check_expanded(node.parent)
-
-        check_expanded(node)
-        if flag:
+    def on_tree_edit(self, edit_data):
+        """
+        edit_data: a dict of the edit data, which should contain the following keys:
+        - 'type': the type of the edit, which can be 'add', 'remove', 'rename', 'move'
+        - 'args': a list of arguments, which depends on the type of the edit
+        """
+        etype = edit_data['type']
+        if etype in ['remove_node', 'remove_subtree']:
             self.relayout_tree()
-        else:
+        elif etype in ['complete_node', 'complete_current']:
             self.scene.update()
-        return res
+        
+        if etype == 'add_node':
+            new_node = edit_data['args']['new_node']
+            self.expand_status[new_node] = True
+        
+        if etype == 'switch_to':
+            edit_node = edit_data['args']['node']
+            def check_expanded(node):
+                if not self.expand_status[node]:
+                    self.expand_status[node] = True
+                if node.parent:
+                    check_expanded(node.parent)
+
+            check_expanded(edit_node)
+            self.relayout_tree()
     
-    def remove_node(self, node):
-        st = self.work_tree.remove_node(node)
-        if st != 0:
-            return st
-
-        self.relayout_tree()
-        return 0
-    
-    def remove_subtree(self, node_item):
-        st = self.work_tree.remove_subtree(node_item.data_node)
-        if st != 0:
-            return st
-
-        self.relayout_tree()
-        return 0
-
     def create_sample_data(self):
         root = self.work_tree.root
         Node1 = self.add_node(root, "Node1")
@@ -319,19 +179,3 @@ class TreeGraphWidget(QWidget):
         
         self.complete_current()
         self.complete_current()
-        
-        # self.complete_current()
-        # self.complete_current()
-
-# if __name__ == '__main__':
-#     import sys, traceback
-#     def global_exception_hook(exctype, value, tb):
-#         print("Traceback:")
-#         traceback.print_tb(tb)
-#         print("An unhandled exception occurred:", exctype, value)
-#         QApplication.quit()
-#     app = QApplication(sys.argv)
-#     sys.excepthook = global_exception_hook
-#     window = TreeGraphWidget()
-#     window.show()
-#     sys.exit(app.exec_())

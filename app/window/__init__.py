@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout
 from PyQt5.QtCore import Qt, QEvent
-from .tree import TreeGraphWidget
-from .command import CommandWidget
+from .graph import TreeGraphWidget
+from .console import CommandWidget
 from ..utils import set_app_state
 import logging
 
@@ -11,7 +11,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("Tree Edit App")
 
         self.tree_graph_widget = TreeGraphWidget()
-        self.command_widget = CommandWidget(self.tree_graph_widget)
+        self.command_widget = CommandWidget(self.tree_graph_widget.work_tree)
         self.main_layout = QHBoxLayout()
         self.main_layout.addWidget(self.tree_graph_widget, stretch=2)
         self.main_layout.addWidget(self.command_widget, stretch=3)
@@ -27,13 +27,13 @@ class MainWindow(QWidget):
         self.raise_()
         self.activateWindow()
         self.command_widget.command_input.setFocus()
-        # set_app_state(True)
+        set_app_state(True)
         self.setWindowState(self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
 
     def to_background(self):
         self.hide()
         # only one window here, so directly change the application policy
-        # set_app_state(False)
+        set_app_state(False)
 
     def toggle_state(self):
         if self.isVisible():

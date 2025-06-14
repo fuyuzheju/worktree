@@ -18,8 +18,8 @@ class HotkeyManager(QObject):
         logging.info("Hotkey manager created.")
 
     def global_listen(self):
-        def on_press():
-            logging.info("Hotkey Pressed.")
+        def on_press(*args):
+            logging.info(f"Hotkey Pressed. callback function got arguments: {args}")
             self.hotkeyPressed.emit()
         
         hotkeys_config = {

@@ -14,12 +14,6 @@ def global_exception_hook(exctype, value, tb):
     logging.error("An unhandled exception occurred, " + str(exctype) + str(value))
 
 def setup_logging():
-    # log_dir = Path.home() / "Library" / "Logs" / "worktree"
-    # try:
-    #     log_dir.mkdir(parents=True, exist_ok=True)
-    # except Exception as e:
-    #     print(f"Could not create log directory: {e}")
-        # 在这种极端情况下，退回到应用旁边
     if getattr(sys, 'frozen', False):
         log_dir = Path(sys.executable).parent.parent.parent / "logs"
         log_dir.mkdir(exist_ok=True)
@@ -29,11 +23,9 @@ def setup_logging():
             
     log_file = log_dir / "app.log"
 
-    # 获取根记录器
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO) # 设置你想要的最低级别
+    logger.setLevel(logging.INFO)
 
-    # 移除任何可能存在的默认处理器
     if logger.hasHandlers():
         logger.handlers.clear()
 
@@ -43,16 +35,7 @@ def setup_logging():
 
     formatter = logging.Formatter('--- %(asctime)s ---\n## %(levelname)s ## %(name)s: %(message)s')
     handler.setFormatter(formatter)
-
     logger.addHandler(handler)
-
-    # def handle_exception(exc_type, exc_value, exc_traceback):
-    #     if issubclass(exc_type, KeyboardInterrupt):
-    #         sys.__excepthook__(exc_type, exc_value, exc_traceback)
-    #         return
-    #     logging.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-
-    # sys.excepthook = handle_exception
     
     logging.info("Logging configured successfully. Log file: %s", log_file)
 
