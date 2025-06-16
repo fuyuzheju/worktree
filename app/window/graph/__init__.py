@@ -91,7 +91,7 @@ class TreeGraphWidget(QWidget):
         self.view.setDragMode(QGraphicsView.ScrollHandDrag)
         self.layout.addWidget(self.view)
 
-        self.expand_status = {self.work_tree.root: True} # store the expand status of each node item, updated dynamically by signals sent from node items
+        self.expand_status = {self.work_tree.root.identity: True} # store the expand status of each node item, updated dynamically by signals sent from node items
         self.relayout_tree()
         # self.create_sample_data()
 
@@ -111,16 +111,19 @@ class TreeGraphWidget(QWidget):
             - 2: half vertical line
             """
             nonlocal y_cursor
-            # 计算位置并放置
+
             x_pos = depth * H_SPACING
             y_pos = y_cursor
-            is_expanded = self.expand_status.get(node)
+            is_expanded = self.expand_status.get(node.identity, None)
+            if is_expanded is None:
+                is_expanded = True
+                self.expand_status[node.identity] = True
             item = GraphicsNodeItem(node, prefix, is_expanded)
             self.init_item(item)
             self.scene.addItem(item)
             item.setPos(x_pos, y_pos)
             y_cursor += NODE_HEIGHT + V_SPACING
-            # 递归
+
             if is_expanded and node.children:
                 # recusively layout the children
                 for child in node.children:
@@ -137,7 +140,7 @@ class TreeGraphWidget(QWidget):
         recursively_layout_tree(self.work_tree.root, 0, list(), True)
     
     def change_expanded(self, node_item):
-        self.expand_status[node_item.data_node] = not self.expand_status[node_item.data_node]
+        self.expand_status[node_item.data_node.identity] = not self.expand_status[node_item.data_node.identity]
         self.relayout_tree()
     
     def on_tree_edit(self, edit_data):
@@ -147,20 +150,23 @@ class TreeGraphWidget(QWidget):
         - 'args': a list of arguments, which depends on the type of the edit
         """
         etype = edit_data['type']
-        if etype in ['remove_node', 'remove_subtree']:
+        if etype in ['remove_node', 'remove_subtree', 'undo']:
             self.relayout_tree()
         elif etype in ['complete_node', 'complete_current']:
             self.scene.update()
-        
+
         if etype == 'add_node':
-            new_node = edit_data['args']['new_node']
-            self.expand_status[new_node] = True
-        
+            new_node_id = edit_data['args']['new_node_id']
+            new_node = self.work_tree.get_node_by_id(new_node_id)
+            self.expand_status[new_node.identity] = True
+            self.relayout_tree()
+
         if etype == 'switch_to':
-            edit_node = edit_data['args']['node']
+            edit_node_id = edit_data['args']['node_id']
+            edit_node = self.work_tree.get_node_by_id(edit_node_id)
             def check_expanded(node):
-                if not self.expand_status[node]:
-                    self.expand_status[node] = True
+                if not self.expand_status[node.identity]:
+                    self.expand_status[node.identity] = True
                 if node.parent:
                     check_expanded(node.parent)
 

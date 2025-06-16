@@ -32,7 +32,6 @@ class TreeController(QObject):
             return 1
 
         command = command_class(*parts[1:])
-        # print(type(command), dir(command))
         command.output_signal.connect(self.output_signal.emit)
         command.error_signal.connect(self.error_signal.emit)
         command.finish_signal.connect(self.finish_signal.emit)

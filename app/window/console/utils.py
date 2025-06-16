@@ -5,7 +5,6 @@ def path_parser(path: str, tree: "WorkTree") -> "Node":
     :param current: the current node, to which the path is relative, while needless for absolute path
     :return: the node; None when failed to find a node
     """
-    # print(f"PARSING: {path} at current {current.name}")
     if path == "":
         return tree.current_node
 

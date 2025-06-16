@@ -70,7 +70,7 @@ class CompleteCurrentCommand(Command):
         return 0
 
 
-class CheckStateCommand(Command):
+class CheckReadyCommand(Command):
     @classmethod
     def command_str(cls) -> str:
         return "ck"
@@ -95,7 +95,7 @@ class SwitchCommand(Command):
         if target is None:
             self.error_signal.emit("Error: No such node.\n")
             return -1
-        res = tree.switch_to(target)
+        res = tree.switch_to(target.identity)
         if res == -1:
             self.error_signal.emit("Error: Node completed already.\n")
             return -1
@@ -124,10 +124,9 @@ class AddNodeCommand(Command):
                 self.error_signal.emit("Error: Node already exists.\n")
                 return -1
 
-        new_node = tree.add_node(current_node, name)
+        new_node = tree.add_node(current_node.identity, name)
 
         # switch to the new node
-        tree.switch_to(new_node)
         self.output_signal.emit("Node added successfully.\n")
         return 0
 
@@ -160,12 +159,40 @@ class RemoveCommand(Command):
             return -1
 
         if recursive:
-            st = tree.remove_subtree(target)
+            st = tree.remove_subtree(target.identity)
         else:
-            st = tree.remove_node(target)
+            st = tree.remove_node(target.identity)
         if st != 0:
             self.error_signal.emit("Error: Failed to remove node.\n")
             return -1
-        
+
         self.output_signal.emit("Node removed successfully.\n")
+        return 0
+
+
+class CheckStateCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "st"
+    
+    def execute(self, tree: 'WorkTree'):
+        if len(self.args) != 1:
+            self.error_signal.emit("Error: st command requires an argument <node_path>.\n")
+            return -1
+        node_path = self.args[0]
+        node = path_parser(node_path, tree)
+        if node is None:
+            self.error_signal.emit("Error: No such node.\n")
+            return -1
+        self.output_signal.emit("Node state: " + str(node.status) + '\n')
+        return 0
+
+
+class UndoCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "undo"
+    
+    def execute(self, tree: 'WorkTree'):
+        tree.undo()
         return 0

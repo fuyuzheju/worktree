@@ -5,6 +5,8 @@ from .console import CommandWidget
 from ..utils import set_app_state
 import logging
 
+logger = logging.getLogger(__name__)
+
 class MainWindow(QWidget):
     def __init__(self, work_tree):
         super().__init__()
@@ -27,20 +29,20 @@ class MainWindow(QWidget):
         self.raise_()
         self.activateWindow()
         self.command_widget.command_input.setFocus()
-        set_app_state(True)
+        # set_app_state(True)
         self.setWindowState(self.windowState() & ~Qt.WindowMinimized | Qt.WindowActive)
 
     def to_background(self):
         self.hide()
         # only one window here, so directly change the application policy
-        set_app_state(False)
+        # set_app_state(False)
 
     def toggle_state(self):
         if self.isVisible():
-            logging.info("Hide window.")
+            logger.info("Hide window.")
             self.to_background()
         else:
-            logging.info("Show window.")
+            logger.info("Show window.")
             self.to_frontground()
 
     def closeEvent(self, event):
