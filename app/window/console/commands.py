@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import override
 from PyQt5.QtCore import pyqtSignal, QObject
 import time
 from .utils import path_parser

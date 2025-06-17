@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
     QWidget, QVBoxLayout
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter
-from ...data.tree import Status, Node, WorkTree
+from ...data.tree import Status, Node
 
 NODE_WIDTH = 80
 NODE_HEIGHT = 18

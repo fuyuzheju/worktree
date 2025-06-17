@@ -1,7 +1,6 @@
 from PyQt5.QtWidgets import QApplication
 from app.window import MainWindow
 from app.keyboard_listener import HotkeyManager
-from datetime import datetime
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 import sys, logging

@@ -1,7 +1,6 @@
-from tracemalloc import start
-import uuid
 from enum import Enum
 from PyQt5.QtCore import QObject, pyqtSignal
+import uuid
 
 class Status(Enum):
     """

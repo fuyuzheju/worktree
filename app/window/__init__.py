@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar
 from PyQt5.QtCore import Qt, QEvent
 from .graph import TreeGraphWidget
 from .console import CommandWidget
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class MainWindow(QWidget):
     def __init__(self, work_tree):
         super().__init__()
-        self.setWindowTitle("Tree Edit App")
+        self.setWindowTitle("worktree")
 
         self.tree_graph_widget = TreeGraphWidget(work_tree)
         self.command_widget = CommandWidget(work_tree)
@@ -19,6 +19,13 @@ class MainWindow(QWidget):
         self.main_layout.addWidget(self.command_widget, stretch=3)
         self.main_layout.setContentsMargins(5,5,5,5)
         self.main_layout.setSpacing(5)
+
+        self.menu_bar = QMenuBar()
+        self.file_menu = self.menu_bar.addMenu("File")
+        self.file_menu.addAction("Test", lambda: print("test"))
+
+        self.main_layout.setMenuBar(self.menu_bar)
+
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
 

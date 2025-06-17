@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
+from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from .commands import COMMAND_REGISTRY
 
@@ -102,12 +103,15 @@ class CommandWidget(QWidget):
         self.Vlayout.addLayout(self.Hlayout)
     
     def output_callback(self, output):
+        self.output_area.moveCursor(QTextCursor.End)
         self.output_area.insertPlainText(output)
     
     def error_callback(self, error):
+        self.output_area.moveCursor(QTextCursor.End)
         self.output_area.insertPlainText(error)
     
     def finish_callback(self):
+        self.output_area.moveCursor(QTextCursor.End)
         self.command_input.setReadOnly(False)
         self.command_input.setFocus()
         self.command_label.setText(f"({self.work_tree.current_node.name}):")
@@ -117,6 +121,7 @@ class CommandWidget(QWidget):
         if self.tree_controller.is_running_command:
             return -1
         command = self.command_input.text()
+        self.output_area.moveCursor(QTextCursor.End)
         self.output_area.insertPlainText(command + '\n')
         self.command_input.clear()
         self.command_input.update_history(command)
