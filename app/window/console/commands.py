@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import override
 from PyQt5.QtCore import pyqtSignal, QObject
 import time
 from .utils import path_parser
@@ -25,6 +26,11 @@ class Command(ABC, QObject, metaclass=CustomMeta):
     @classmethod
     @abstractmethod
     def command_str(cls) -> str:
+        pass
+    
+    @classmethod
+    @abstractmethod
+    def command_help(cls) -> str:
         pass
 
     @abstractmethod
@@ -60,6 +66,11 @@ class CompleteCurrentCommand(Command):
     def command_str(cls) -> str:
         return "cc"
     
+    @classmethod
+    def command_help(cls) -> str:
+        return "complete the current node.\n" \
+            "Usage: cc"
+    
     def execute(self, tree):
         res = tree.complete_current()
         if res == -1:
@@ -74,6 +85,11 @@ class CheckReadyCommand(Command):
     @classmethod
     def command_str(cls) -> str:
         return "ck"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "check whether if the current node is ready.\n" \
+            "Usage: ck"
 
     def execute(self, tree):
         self.output_signal.emit("Current node is_ready: " + str(tree.current_node.is_ready()) + '\n')
@@ -84,6 +100,11 @@ class SwitchCommand(Command):
     @classmethod
     def command_str(cls) -> str:
         return "cd"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "change current node.\n" \
+            "Usage: cd <path>"
 
     def execute(self, tree):
         if len(self.args) != 1:
@@ -107,6 +128,11 @@ class AddNodeCommand(Command):
     @classmethod
     def command_str(cls) -> str:
         return "add"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "add a node as a child of the current node.\n" \
+            "Usage: add <node_name>"
 
     def execute(self, tree: 'WorkTree'):
         if len(self.args) != 1:
@@ -135,6 +161,11 @@ class RemoveCommand(Command):
     @classmethod
     def command_str(cls) -> str:
         return "rm"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "remove a leaf node or a subtree.\n" \
+            "Usage: rm <path> [-r]"
     
     def execute(self, tree: 'WorkTree'):
         path = None
@@ -175,6 +206,11 @@ class CheckStateCommand(Command):
     def command_str(cls) -> str:
         return "st"
     
+    @classmethod
+    def command_help(cls) -> str:
+        return "view the state of a node.\n" \
+            "Usage: st <node_path>"
+    
     def execute(self, tree: 'WorkTree'):
         if len(self.args) != 1:
             self.error_signal.emit("Error: st command requires an argument <node_path>.\n")
@@ -193,6 +229,40 @@ class UndoCommand(Command):
     def command_str(cls) -> str:
         return "undo"
     
+    @classmethod
+    def command_help(cls) -> str:
+        return "undo the last operation.\n" \
+            "Usage: undo"
+    
     def execute(self, tree: 'WorkTree'):
         tree.undo()
         return 0
+
+class ExitCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "exit"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "exit the whole app.\n" \
+            "Usage: exit"
+    
+    def execute(self, tree: 'WorkTree'):
+        from ...controls import quit_signal
+        quit_signal.emit()
+
+class HelpCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "help"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "view this help message.\n" \
+            "Usage: help"
+    
+    def execute(self, tree: 'WorkTree'):
+        self.output_signal.emit("Available commands:\n")
+        for command_cls in COMMAND_REGISTRY.values():
+            self.output_signal.emit("- " + command_cls.command_str() + "\n" + command_cls.command_help() + "\n\n")

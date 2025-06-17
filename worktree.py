@@ -7,6 +7,7 @@ from logging.handlers import RotatingFileHandler
 import sys, logging
 from app.data.tree import WorkTree
 from app.data.storage import Storage
+from app.controls import quit_signal
 
 HOTKEY = '<ctrl>+f'
 
@@ -36,6 +37,9 @@ def setup_logging(log_dir):
     print("--- Logging configured ---")
     return root_logger
 
+def quit_application(app):
+    app.quit()
+
 if __name__ == '__main__':
     if getattr(sys, 'frozen', False):
         root_dir = Path(sys.executable).parent.parent.parent
@@ -57,14 +61,14 @@ if __name__ == '__main__':
 
     hotkey_manager = HotkeyManager(HOTKEY, main_window)
 
+    quit_signal.connect(app.quit)
     exit_code = app.exec_()
 
+    # cleanup
     if hotkey_manager:
         hotkey_manager.cleanup()
         logger.info("Global listener stopped.")
-    
     logger.info("Application quited.\n\n\n")
-
     sys.exit(exit_code)
 
 
