@@ -30,9 +30,12 @@ class GraphicsNodeItem(QGraphicsObject):
         self.text_pen = QPen(Qt.black)
         self.font = QFont("Arial", FONT_SIZE)
 
+        self.fixed_node_width = NODE_WIDTH
+        self._calculate_width()
+
     def boundingRect(self) -> QRectF:
         return QRectF(-self.depth * H_SPACING, -V_SPACING,
-                      self.depth * H_SPACING + NODE_WIDTH, V_SPACING + NODE_HEIGHT)
+                      self.depth * H_SPACING + self.fixed_node_width, V_SPACING + NODE_HEIGHT)
 
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.Antialiasing)
@@ -58,7 +61,7 @@ class GraphicsNodeItem(QGraphicsObject):
         painter.save()
         bg_color = self.colors.get(self.data_node.status, QColor(Qt.lightGray))
         painter.setBrush(QBrush(bg_color)); painter.setPen(self.rect_pen)
-        node_rect = QRectF(0, 0, NODE_WIDTH, NODE_HEIGHT)
+        node_rect = QRectF(0, 0, self.fixed_node_width, NODE_HEIGHT)
         painter.drawRoundedRect(node_rect, 5, 5)
         painter.setPen(self.text_pen); painter.setFont(self.font)
         text_rect = node_rect.adjusted(10, 5, -10, -5)
@@ -71,6 +74,17 @@ class GraphicsNodeItem(QGraphicsObject):
     def mousePressEvent(self, event):
         if event.pos().x() >= 0 and event.pos().y() >= 0 and self.data_node.children:
             self.change_expanded.emit(self)
+
+    def _calculate_width(self): 
+        """calculate width to adjust long node names"""
+        length = 0
+        for ch in self.data_node.name:
+            if 'a'<=ch<='z' or 'A'<=ch<='Z' or '0'<=ch<='9':
+                length += 1
+            else:
+                length += 2#Chinese Characters have longer width
+        self.fixed_node_width =  max(NODE_WIDTH, length*12)
+        return self.fixed_node_width
 
 
 class TreeGraphWidget(QWidget):
