@@ -1,5 +1,8 @@
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QColor, QKeySequence
+import logging
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_F).toString(),
@@ -26,6 +29,7 @@ class SettingsManager(QObject):
     def __init__(self):
         super().__init__()
         self.settings = QSettings()
+        logger.info(f"SettingsManager initialized. File: {self.settings.fileName()}")
 
     def get(self, key, type=None):
         if type is None:

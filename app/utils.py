@@ -20,7 +20,6 @@ except:
         pass
 
 from pynput import keyboard
-from PyQt5.QtGui import QKeySequence
 import string
 def qkeysequence_to_pynput(qt_str: str) -> str | None:
     """

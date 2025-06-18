@@ -1,12 +1,7 @@
 from PyQt5.QtWidgets import QApplication
-from app.main_window import MainWindow
-from app.keyboard_listener import HotkeyManager
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 import sys, logging
-from app.data.tree import WorkTree
-from app.data.storage import Storage
-from app.controls import quit_signal
 
 def global_exception_hook(exctype, value, tb):
     logging.error("Uncaught exception:", exc_info=(exctype, value, tb))
@@ -16,7 +11,7 @@ def setup_logging(log_dir):
     log_file.touch(exist_ok=True)
 
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.DEBUG)
     if root_logger.handlers:
         root_logger.handlers.clear()
     
@@ -48,8 +43,16 @@ if __name__ == '__main__':
     logger.info("Application started.")
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Work Tree")
+    app.setApplicationName("worktree")
+    app.setOrganizationName("fuyuzheju")
+    app.setOrganizationDomain("fuyuzheju.com")
     sys.excepthook = global_exception_hook
+
+    from app.main_window import MainWindow
+    from app.keyboard_listener import HotkeyManager
+    from app.data.tree import WorkTree
+    from app.data.storage import Storage
+    from app.controls import quit_signal
 
     work_tree = WorkTree()
     storage = Storage(work_tree, root_dir / "storage", 20)
