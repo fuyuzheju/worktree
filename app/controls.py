@@ -1,4 +1,4 @@
-class QuitSignal:
+class GlobalSignal:
     def __init__(self):
         self.callbacks = []
     
@@ -9,4 +9,5 @@ class QuitSignal:
         for callback in self.callbacks:
             callback()
 
-quit_signal = QuitSignal()
+quit_signal = GlobalSignal()
+cleanup_history_signal = GlobalSignal()

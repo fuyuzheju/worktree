@@ -44,6 +44,7 @@ if __name__ == '__main__':
     log_dir = Path(log_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     logger = setup_logging(log_dir)
+    print(f"printing logs in dir {log_dir}.")
     logger.info(f"Logging configured. Dir: {log_dir}")
 
     storage_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
