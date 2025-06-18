@@ -18,28 +18,28 @@ class GraphicsNodeItem(QGraphicsObject):
         self.depth = len(prefix)
 
         self.setFlag(QGraphicsObject.ItemIsSelectable, True)
-        self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor"),
-                        Status.CURRENT: settings_manager.get("graph/currentColor"),
-                        Status.WAITING: settings_manager.get("graph/waitingColor")}
-        self.rect_pen = QPen(settings_manager.get("graph/rectColor"), settings_manager.get("graph/rectPenWidth"))
-        self.line_pen = QPen(settings_manager.get("graph/lineColor"), settings_manager.get("graph/linePenWidth"))
-        self.text_pen = QPen(settings_manager.get("graph/textColor"), settings_manager.get("graph/textPenWidth"))
+        self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor", type=QColor),
+                        Status.CURRENT: settings_manager.get("graph/currentColor", type=QColor),
+                        Status.WAITING: settings_manager.get("graph/waitingColor", type=QColor)}
+        self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
+        self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))
+        self.text_pen = QPen(settings_manager.get("graph/textColor", type=QColor), settings_manager.get("graph/textPenWidth", type=float))
 
     def boundingRect(self) -> QRectF:
-        NODE_WIDTH = settings_manager.get("graph/nodeWidth")
-        NODE_HEIGHT = settings_manager.get("graph/nodeHeight")
-        H_SPACING = settings_manager.get("graph/nodeHSpacing")
-        V_SPACING = settings_manager.get("graph/nodeVSpacing")
+        NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
+        NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
+        H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
+        V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
         return QRectF(-self.depth * H_SPACING, -V_SPACING,
                       self.depth * H_SPACING + NODE_WIDTH, V_SPACING + NODE_HEIGHT)
 
     def paint(self, painter, option, widget=None):
-        NODE_WIDTH = settings_manager.get("graph/nodeWidth")
-        NODE_HEIGHT = settings_manager.get("graph/nodeHeight")
-        H_SPACING = settings_manager.get("graph/nodeHSpacing")
-        V_SPACING = settings_manager.get("graph/nodeVSpacing")
-        FONT_SIZE = settings_manager.get("graph/fontSize")
-        FONT_FAMALY = settings_manager.get("graph/fontFamily")
+        NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
+        NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
+        H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
+        V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
+        FONT_SIZE = settings_manager.get("graph/fontSize", type=int)
+        FONT_FAMALY = settings_manager.get("graph/fontFamily", type=str)
         self.font = QFont(FONT_FAMALY, FONT_SIZE)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(self.line_pen)
@@ -117,9 +117,9 @@ class TreeGraphWidget(QWidget):
         item.request_relayout.connect(self.relayout_tree)
 
     def relayout_tree(self):
-        H_SPACING = settings_manager.get("graph/nodeHSpacing")
-        V_SPACING = settings_manager.get("graph/nodeVSpacing")
-        NODE_HEIGHT = settings_manager.get("graph/nodeHeight")
+        H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
+        V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
+        NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
         self.scene.clear()
 
         y_cursor = 0 # shared across all recursive calls

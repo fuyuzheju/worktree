@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
-    "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_F).toString(),
+    "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
     
     "graph/nodeWidth": 80,
     "graph/nodeHeight": 18,
@@ -19,8 +19,8 @@ DEFAULT_SETTINGS = {
     "graph/rectColor": QColor(Qt.black),
     "graph/lineColor": QColor(Qt.gray),
     "graph/textColor": QColor(Qt.black),
-    "graph/rectPenWidth": 1.5,
-    "graph/linePenWidth": 2,
+    "graph/rectPenWidth": 2,
+    "graph/linePenWidth": 3,
     "graph/textPenWidth": 1,
 }
 
@@ -29,7 +29,7 @@ class SettingsManager(QObject):
     def __init__(self):
         super().__init__()
         self.settings = QSettings()
-        logger.info(f"SettingsManager initialized. File: {self.settings.fileName()}")
+        logger.debug(f"SettingsManager initialized. File: {self.settings.fileName()}")
 
     def get(self, key, type=None):
         if type is None:

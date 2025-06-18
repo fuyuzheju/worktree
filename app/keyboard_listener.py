@@ -43,7 +43,7 @@ class HotkeyManager(QObject):
             self.hotkeyPressed.emit()
 
         logger.debug("Start listening for hotkey.")
-        key_sequence = settings_manager.get(self.key_name) # get a PyQt key sequence string here
+        key_sequence = settings_manager.get(self.key_name, type=str) # get a PyQt key sequence string here
         hotkey = qkeysequence_to_pynput(key_sequence) # transform it into something that pynput can parse
         hotkeys_config = {
             hotkey: on_press
