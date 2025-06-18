@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 import sys, logging
@@ -33,20 +34,21 @@ def quit_application(app):
     app.quit()
 
 if __name__ == '__main__':
-    if getattr(sys, 'frozen', False):
-        root_dir = Path(sys.executable).parent.parent.parent
-    else:
-        root_dir = Path(__file__).parent
-    log_dir = root_dir / "logs"
-    log_dir.mkdir(exist_ok=True)
-    logger = setup_logging(log_dir)
-    logger.info("Application started.")
-
     app = QApplication(sys.argv)
     app.setApplicationName("worktree")
     app.setOrganizationName("fuyuzheju")
     app.setOrganizationDomain("fuyuzheju.com")
     sys.excepthook = global_exception_hook
+
+    log_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+    log_dir = Path(log_dir) / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    logger = setup_logging(log_dir)
+    logger.info(f"Logging configured. Dir: {log_dir}")
+
+    storage_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+    storage_dir = Path(storage_dir) / "storage"
+    storage_dir.mkdir(parents=True, exist_ok=True)
 
     from app.main_window import MainWindow
     from app.keyboard_listener import HotkeyManager
@@ -55,13 +57,17 @@ if __name__ == '__main__':
     from app.controls import quit_signal
 
     work_tree = WorkTree()
-    storage = Storage(work_tree, root_dir / "storage", 20)
+    storage = Storage(work_tree, storage_dir, 20)
+    logger.debug(f"Storage configured. Dir: {storage_dir}")
     main_window = MainWindow(work_tree)
     main_window.show()
+    logger.debug("Main window created.")
 
     mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", main_window)
+    logger.debug("Hotkey manager created.")
 
     quit_signal.connect(app.quit)
+    logger.debug("Application Initialized.")
     exit_code = app.exec_()
 
     # cleanup

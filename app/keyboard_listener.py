@@ -25,7 +25,6 @@ class HotkeyManager(QObject):
         self.check_timer.setInterval(5000)
         self.check_timer.timeout.connect(self.check_and_restart)
         self.check_timer.start()
-        logger.debug("Hotkey manager created.")
     
     def update_settings(self):
         self.check_timer.stop()
@@ -42,7 +41,6 @@ class HotkeyManager(QObject):
             logger.debug(f"Hotkey Pressed.")
             self.hotkeyPressed.emit()
 
-        logger.debug("Start listening for hotkey.")
         key_sequence = settings_manager.get(self.key_name, type=str) # get a PyQt key sequence string here
         hotkey = qkeysequence_to_pynput(key_sequence) # transform it into something that pynput can parse
         hotkeys_config = {
@@ -50,6 +48,7 @@ class HotkeyManager(QObject):
         }
         self.global_hotkey_listener = keyboard.GlobalHotKeys(hotkeys_config, on_error=lambda e:logger.error("Global Hotkey error: {e}"))
         self.global_hotkey_listener.start()
+        logger.debug(f"Started listening for hotkey: {hotkey}.")
     
     def check_and_restart(self):
         if not self.global_hotkey_listener:
