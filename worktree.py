@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication
-from app.window import MainWindow
+from app.main_window import MainWindow
 from app.keyboard_listener import HotkeyManager
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
@@ -8,10 +8,8 @@ from app.data.tree import WorkTree
 from app.data.storage import Storage
 from app.controls import quit_signal
 
-HOTKEY = '<ctrl>+f'
-
 def global_exception_hook(exctype, value, tb):
-    logging.error(exc_info=(exctype, value, tb))
+    logging.error("Uncaught exception:", exc_info=(exctype, value, tb))
 
 def setup_logging(log_dir):
     log_file = log_dir / "app.log"
@@ -28,7 +26,7 @@ def setup_logging(log_dir):
         backupCount=3,
         encoding='utf-8'
     )
-    log_format = "----- %(asctime)s ------\n ### %(levelname)s ### [%(name)s]: %(message)s"
+    log_format = "----- %(asctime)s ------\n ### %(levelname)s ### [%(name)s]: %(message)s\n"
     formatter = logging.Formatter(log_format)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
@@ -58,14 +56,14 @@ if __name__ == '__main__':
     main_window = MainWindow(work_tree)
     main_window.show()
 
-    hotkey_manager = HotkeyManager(HOTKEY, main_window)
+    mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", main_window)
 
     quit_signal.connect(app.quit)
     exit_code = app.exec_()
 
     # cleanup
-    if hotkey_manager:
-        hotkey_manager.cleanup()
+    if mainwindow_hotkey_manager:
+        mainwindow_hotkey_manager.cleanup()
         logger.info("Global listener stopped.")
     logger.info("Application quited.\n\n\n")
     sys.exit(exit_code)

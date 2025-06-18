@@ -3,12 +3,8 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter
 from ...data.tree import Status, Node
-
-NODE_WIDTH = 80
-NODE_HEIGHT = 18
-H_SPACING = 25
-V_SPACING = 15 # spacing between two nodes, not including the height of node
-FONT_SIZE = 10
+from ...settings import settings_manager
+from app import settings
 
 class GraphicsNodeItem(QGraphicsObject):
     request_relayout = pyqtSignal()
@@ -22,19 +18,29 @@ class GraphicsNodeItem(QGraphicsObject):
         self.depth = len(prefix)
 
         self.setFlag(QGraphicsObject.ItemIsSelectable, True)
-        self.colors = {Status.COMPLETED: QColor("#c8e6c9"),
-                        Status.CURRENT: QColor("#bbdefb"),
-                        Status.WAITING: QColor("#fff9c4")}
-        self.rect_pen = QPen(Qt.black, 1.5)
-        self.line_pen = QPen(Qt.gray, 2)
-        self.text_pen = QPen(Qt.black)
-        self.font = QFont("Arial", FONT_SIZE)
+        self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor"),
+                        Status.CURRENT: settings_manager.get("graph/currentColor"),
+                        Status.WAITING: settings_manager.get("graph/waitingColor")}
+        self.rect_pen = QPen(settings_manager.get("graph/rectColor"), settings_manager.get("graph/rectPenWidth"))
+        self.line_pen = QPen(settings_manager.get("graph/lineColor"), settings_manager.get("graph/linePenWidth"))
+        self.text_pen = QPen(settings_manager.get("graph/textColor"), settings_manager.get("graph/textPenWidth"))
 
     def boundingRect(self) -> QRectF:
+        NODE_WIDTH = settings_manager.get("graph/nodeWidth")
+        NODE_HEIGHT = settings_manager.get("graph/nodeHeight")
+        H_SPACING = settings_manager.get("graph/nodeHSpacing")
+        V_SPACING = settings_manager.get("graph/nodeVSpacing")
         return QRectF(-self.depth * H_SPACING, -V_SPACING,
                       self.depth * H_SPACING + NODE_WIDTH, V_SPACING + NODE_HEIGHT)
 
     def paint(self, painter, option, widget=None):
+        NODE_WIDTH = settings_manager.get("graph/nodeWidth")
+        NODE_HEIGHT = settings_manager.get("graph/nodeHeight")
+        H_SPACING = settings_manager.get("graph/nodeHSpacing")
+        V_SPACING = settings_manager.get("graph/nodeVSpacing")
+        FONT_SIZE = settings_manager.get("graph/fontSize")
+        FONT_FAMALY = settings_manager.get("graph/fontFamily")
+        self.font = QFont(FONT_FAMALY, FONT_SIZE)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(self.line_pen)
         # linking lines
@@ -95,11 +101,25 @@ class TreeGraphWidget(QWidget):
         self.relayout_tree()
         # self.create_sample_data()
 
+        settings_manager.settings_changed.connect(self.update_settings)
+    
+    def update_settings(self, keys):
+        flag = False
+        for key in keys:
+            if key.startswith("graph/"):
+                flag = True
+                break
+        if flag:
+            self.relayout_tree()
+
     def init_item(self, item):
         item.change_expanded.connect(self.change_expanded)
         item.request_relayout.connect(self.relayout_tree)
 
     def relayout_tree(self):
+        H_SPACING = settings_manager.get("graph/nodeHSpacing")
+        V_SPACING = settings_manager.get("graph/nodeVSpacing")
+        NODE_HEIGHT = settings_manager.get("graph/nodeHeight")
         self.scene.clear()
 
         y_cursor = 0 # shared across all recursive calls

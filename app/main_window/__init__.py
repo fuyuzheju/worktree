@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QDialog
 from PyQt5.QtCore import Qt, QEvent
+from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
 from ..utils import set_app_state
+from ..settings_window import SettingsDialog
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,9 @@ class MainWindow(QWidget):
         self.main_layout.setSpacing(5)
 
         self.menu_bar = QMenuBar()
-        self.file_menu = self.menu_bar.addMenu("File")
-        self.file_menu.addAction("Test", lambda: print("test"))
+        self.settings_menu = self.menu_bar.addMenu("Settings")
+        self.settings_menu.addAction("Open settings window", self.open_settings_window)
+        self.settings_menu.addAction("Recover to default settings", settings_manager.recover_default)
 
         self.main_layout.setMenuBar(self.menu_bar)
 
@@ -63,3 +66,7 @@ class MainWindow(QWidget):
                     self.command_widget.command_input.setFocus()
                     return True
         return super().eventFilter(obj, event)
+    
+    def open_settings_window(self):
+        dialog = SettingsDialog(self)
+        dialog.exec_()

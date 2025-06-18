@@ -57,7 +57,7 @@ class Storage:
             self.op_count_since_snapshot = 0
     
     def take_snapshot(self):
-        # print("[Storage] Taking snapshot.")
+        logger.debug("Taking snapshot.")
         root_dict = self.work_tree.root.to_dict()
         timestamp = int(time.time())
         snapshot_dir = self.history_dir / f"snapshot_{timestamp}"
@@ -104,7 +104,7 @@ class Storage:
         load the latest snapshot from disk.
         """
         if self.current_snapshot_dir is None:
-            # print("[Storage] No snapshot found. Nothing to load.")
+            logger.debug("[Storage] No snapshot found. Nothing to load.")
             return
         with open(self.current_snapshot_dir / 'snapshot.json', 'r') as f:
             snapshot = json.load(f)
@@ -119,7 +119,7 @@ class Storage:
         """
 
         if self.current_snapshot_dir is None:
-            # print("[Storage] No snapshot found. Nothing to undo.")
+            logger.debug("[Storage] No snapshot found. Nothing to undo.")
             return
         
         with open(self.current_snapshot_dir / 'op.log', 'r') as op_file:
@@ -133,7 +133,7 @@ class Storage:
             self.current_snapshot_dir.rmdir()
             self.current_snapshot_dir, self.op_count_since_snapshot = self.get_latest_snapshot()
             if self.current_snapshot_dir is None:
-                # print("[Storage] No snapshot found. Nothing to undo.")
+                logger.debug("[Storage] No snapshot found. Nothing to undo.")
                 return
             
             with open(self.current_snapshot_dir / 'op.log', 'r') as op_file:

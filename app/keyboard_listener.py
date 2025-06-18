@@ -1,31 +1,52 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer
 from pynput import keyboard
 import logging
+from .settings import settings_manager
+from .utils import qkeysequence_to_pynput
 
 logger = logging.getLogger(__name__)
 
 class HotkeyManager(QObject):
     hotkeyPressed = pyqtSignal()
-    def __init__(self, hotkey, connected_window):
+    def __init__(self, key_name, connected_window):
+        """
+        :param key_name: the key name of the hotkey to listen in the settings
+        :param connected_window: the window to connect to the hotkey
+        """
         super().__init__()
-        self.hotkey = hotkey
+        self.key_name = key_name
         self.connected_window = connected_window
         self.hotkeyPressed.connect(connected_window.toggle_state, Qt.QueuedConnection)
+
+        settings_manager.settings_changed.connect(self.update_settings)
         self.global_listen()
 
         self.check_timer = QTimer(self)
         self.check_timer.setInterval(5000)
         self.check_timer.timeout.connect(self.check_and_restart)
         self.check_timer.start()
-        logger.info("Hotkey manager created.")
+        logger.debug("Hotkey manager created.")
+    
+    def update_settings(self):
+        self.check_timer.stop()
+        self.global_hotkey_listener.stop()
+        self.global_hotkey_listener.join()
+        self.global_listen()
+        self.check_timer.start()
 
     def global_listen(self):
+        """
+        start listening
+        """
         def on_press():
-            logger.info(f"Hotkey Pressed.")
+            logger.debug(f"Hotkey Pressed.")
             self.hotkeyPressed.emit()
 
+        logger.debug("Start listening for hotkey.")
+        key_sequence = settings_manager.get(self.key_name) # get a PyQt key sequence string here
+        hotkey = qkeysequence_to_pynput(key_sequence) # transform it into something that pynput can parse
         hotkeys_config = {
-            self.hotkey: on_press
+            hotkey: on_press
         }
         self.global_hotkey_listener = keyboard.GlobalHotKeys(hotkeys_config, on_error=lambda e:logger.error("Global Hotkey error: {e}"))
         self.global_hotkey_listener.start()
