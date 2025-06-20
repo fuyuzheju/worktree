@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
     QWidget, QVBoxLayout
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
-from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter
+from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
 from ...data.tree import Status, Node
 from ...settings import settings_manager
 from app import settings
@@ -24,18 +24,19 @@ class GraphicsNodeItem(QGraphicsObject):
         self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
         self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))
         self.text_pen = QPen(settings_manager.get("graph/textColor", type=QColor), settings_manager.get("graph/textPenWidth", type=float))
+        self.fixed_nodewidth, self.fixed_nodeheight = _calculate_node_boundary(self.data_node.name) 
 
     def boundingRect(self) -> QRectF:
-        NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
-        NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
+        # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
+        # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
         H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
         V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
         return QRectF(-self.depth * H_SPACING, -V_SPACING,
-                      self.depth * H_SPACING + NODE_WIDTH, V_SPACING + NODE_HEIGHT)
+                      self.depth * H_SPACING + self.fixed_nodewidth, V_SPACING + self.fixed_nodeheight)
 
     def paint(self, painter, option, widget=None):
-        NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
-        NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
+        # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
+        # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
         H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
         V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
         FONT_SIZE = settings_manager.get("graph/fontSize", type=int)
@@ -51,23 +52,23 @@ class GraphicsNodeItem(QGraphicsObject):
             if status == 0:
                 continue
             elif status == 1:
-                painter.drawLine(QPointF(x, -V_SPACING), QPointF(x, NODE_HEIGHT))
+                painter.drawLine(QPointF(x, -V_SPACING), QPointF(x, self.fixed_nodeheight))
             elif status == 2:
-                painter.drawLine(QPointF(x, -V_SPACING), QPointF(x, NODE_HEIGHT / 2))
+                painter.drawLine(QPointF(x, -V_SPACING), QPointF(x, self.fixed_nodeheight / 2))
 
         if self.depth > 0:
             elbow_x = -H_SPACING + H_SPACING / 2
-            elbow_y = NODE_HEIGHT / 2
+            elbow_y = self.fixed_nodeheight / 2
             painter.drawLine(QPointF(elbow_x, elbow_y), QPointF(0, elbow_y)) 
 
         # node rect
         painter.save()
         bg_color = self.colors.get(self.data_node.status, QColor(Qt.lightGray))
         painter.setBrush(QBrush(bg_color)); painter.setPen(self.rect_pen)
-        node_rect = QRectF(0, 0, NODE_WIDTH, NODE_HEIGHT)
+        node_rect = QRectF(0, 0, self.fixed_nodewidth, self.fixed_nodeheight)
         painter.drawRoundedRect(node_rect, 5, 5)
         painter.setPen(self.text_pen); painter.setFont(self.font)
-        text_rect = node_rect.adjusted(10, 5, -10, -5)
+        text_rect = node_rect.adjusted(2, 0, 0, 0)
         painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, self.data_node.name)
         if self.data_node.children:
             indicator = "[-]" if self.is_expanded else "[+]"
@@ -119,7 +120,7 @@ class TreeGraphWidget(QWidget):
     def relayout_tree(self):
         H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
         V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
-        NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
+        # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
         self.scene.clear()
 
         y_cursor = 0 # shared across all recursive calls
@@ -132,6 +133,8 @@ class TreeGraphWidget(QWidget):
             """
             nonlocal y_cursor
 
+            _,fixed_nodeheight = _calculate_node_boundary(node.name)
+
             x_pos = depth * H_SPACING
             y_pos = y_cursor
             is_expanded = self.expand_status.get(node.identity, None)
@@ -142,7 +145,7 @@ class TreeGraphWidget(QWidget):
             self.init_item(item)
             self.scene.addItem(item)
             item.setPos(x_pos, y_pos)
-            y_cursor += NODE_HEIGHT + V_SPACING
+            y_cursor += fixed_nodeheight + V_SPACING
 
             if is_expanded and node.children:
                 # recusively layout the children
@@ -205,3 +208,16 @@ class TreeGraphWidget(QWidget):
         
         self.complete_current()
         self.complete_current()
+
+def _calculate_node_boundary(text: str) -> tuple[float,float] :
+    """calculate a node's width and height according to its text"""
+    # According to text, adjust node_length
+    FONT_OBJECT = QFont(settings_manager.get("graph/fontFamily", type=str), settings_manager.get("graph/fontSize", type=int))
+    # build QfontMetrics Objext, compute NodeWidth
+    METRICS = QFontMetrics(FONT_OBJECT)
+    fixed_nodewidth = max(settings_manager.get("graph/minNodeWidth", type=float),
+            METRICS.horizontalAdvance(text+' [+]') + 2 * settings_manager.get("graph/rectPenWidth", type=float))
+    fixed_nodeheight = max(settings_manager.get("graph/minNodeHeight", type=float),
+            METRICS.height() + 2 * settings_manager.get("graph/rectPenWidth", type=float),
+        )
+    return (fixed_nodewidth, fixed_nodeheight)
