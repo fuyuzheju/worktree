@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_SETTINGS = {
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
     
-    "graph/nodeWidth": 80,
-    "graph/nodeHeight": 18,
+    "graph/MinNodeWidth": 80,
+    "graph/MinNodeHeight": 18,
     "graph/nodeHSpacing": 25,
     "graph/nodeVSpacing": 15,
     "graph/fontSize": 10,
