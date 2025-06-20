@@ -6,10 +6,6 @@ from ...data.tree import Status, Node
 from ...settings import settings_manager
 from app import settings
 
-TEXT_BORDER_DISTANCE_WIDTH = 10
-TEXT_BORDER_DISTANCE_HEIGHT = 3
-
-
 class GraphicsNodeItem(QGraphicsObject):
     request_relayout = pyqtSignal()
     change_expanded = pyqtSignal(QGraphicsObject)
@@ -72,7 +68,7 @@ class GraphicsNodeItem(QGraphicsObject):
         node_rect = QRectF(0, 0, self.fixed_nodewidth, self.fixed_nodeheight)
         painter.drawRoundedRect(node_rect, 5, 5)
         painter.setPen(self.text_pen); painter.setFont(self.font)
-        text_rect = node_rect.adjusted(10, 5, -10, -5)
+        text_rect = node_rect.adjusted(2, 0, 0, 0)
         painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, self.data_node.name)
         if self.data_node.children:
             indicator = "[-]" if self.is_expanded else "[+]"
@@ -219,9 +215,9 @@ def _calculate_node_boundary(text: str) -> tuple[float,float] :
     FONT_OBJECT = QFont(settings_manager.get("graph/fontFamily", type=str), settings_manager.get("graph/fontSize", type=int))
     # build QfontMetrics Objext, compute NodeWidth
     METRICS = QFontMetrics(FONT_OBJECT)
-    fixed_nodewidth = max(settings_manager.get("graph/MinNodeWidth", type=float),
-            METRICS.horizontalAdvance(text+'[+]') + 2*TEXT_BORDER_DISTANCE_WIDTH)
-    fixed_nodeheight = max(settings_manager.get("graph/MinNodeHeight", type=float),
-            METRICS.height() + 2*TEXT_BORDER_DISTANCE_HEIGHT,
+    fixed_nodewidth = max(settings_manager.get("graph/minNodeWidth", type=float),
+            METRICS.horizontalAdvance(text+' [+]') + 2 * settings_manager.get("graph/rectPenWidth", type=float))
+    fixed_nodeheight = max(settings_manager.get("graph/minNodeHeight", type=float),
+            METRICS.height() + 2 * settings_manager.get("graph/rectPenWidth", type=float),
         )
     return (fixed_nodewidth, fixed_nodeheight)
