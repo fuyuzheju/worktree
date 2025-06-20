@@ -6,8 +6,8 @@ from ...data.tree import Status, Node
 from ...settings import settings_manager
 from app import settings
 
-TEXT_BONDER_DISTANCE_WIDTH = 10
-TEXT_BONDER_DISTANCE_HEIGHT = 3
+TEXT_BORDER_DISTANCE_WIDTH = 10
+TEXT_BORDER_DISTANCE_HEIGHT = 3
 
 
 class GraphicsNodeItem(QGraphicsObject):
@@ -220,8 +220,8 @@ def _calculate_node_boundary(text: str) -> tuple[float,float] :
     # build QfontMetrics Objext, compute NodeWidth
     METRICS = QFontMetrics(FONT_OBJECT)
     fixed_nodewidth = max(settings_manager.get("graph/MinNodeWidth", type=float),
-            METRICS.horizontalAdvance(text+'[+]') + 2*TEXT_BONDER_DISTANCE_WIDTH)
+            METRICS.horizontalAdvance(text+'[+]') + 2*TEXT_BORDER_DISTANCE_WIDTH)
     fixed_nodeheight = max(settings_manager.get("graph/MinNodeHeight", type=float),
-            METRICS.height() + 2*TEXT_BONDER_DISTANCE_HEIGHT,
+            METRICS.height() + 2*TEXT_BORDER_DISTANCE_HEIGHT,
         )
     return (fixed_nodewidth, fixed_nodeheight)
