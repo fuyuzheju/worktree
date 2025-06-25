@@ -3,12 +3,20 @@ from PyQt5.QtCore import pyqtSignal, QObject
 import time
 from .utils import path_parser
 
-COMMAND_REGISTRY = {}
+COMMAND_REGISTRY = {} # registry table of all commands, structure: {command_str: command_class}
 
 class CustomMeta(type(QObject), type(ABC)):
     pass
 
 class Command(ABC, QObject, metaclass=CustomMeta):
+    """
+    the abstract base class of all commands
+    methods and properties:
+    - command_str: the name of the command
+    - command_help: the help message of the command
+    - execute: the method to execute the command and operate the tree
+    - args: arguments of the command instance
+    """
     output_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
     finish_signal = pyqtSignal()

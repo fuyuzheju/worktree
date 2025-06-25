@@ -1,3 +1,4 @@
+from re import S
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
@@ -40,13 +41,22 @@ class TreeController(QObject):
 
 
 class CommandLineEdit(QLineEdit):
+    """
+    the command line edit widget
+    the user inputs commands here
+    hotkeys:
+    - up arrow: browse command history up
+    - down arrow: browse command history down
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.command_history = []
         self.current_command_index = 0
 
     def keyPressEvent(self, event):
+        print("KEY:", event.key())
         if event.key() == Qt.Key_Up:
+            # command history browse
             self.current_command_index -= 1
             if not self.command_history:
                 command = ''
@@ -55,7 +65,9 @@ class CommandLineEdit(QLineEdit):
                     self.current_command_index = 0
                 command = self.command_history[self.current_command_index]
             self.setText(command)
+
         elif event.key() == Qt.Key_Down:
+            # command history browse
             self.current_command_index += 1
             if not self.command_history:
                 command = ''

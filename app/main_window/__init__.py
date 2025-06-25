@@ -11,6 +11,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class MainWindow(QWidget):
+    """
+    combines TreeGraphWidget and CommandWidget together
+    provides a menu bar
+    """
     def __init__(self, work_tree):
         super().__init__()
         self.setWindowTitle("worktree")

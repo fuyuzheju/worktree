@@ -7,6 +7,11 @@ from ...settings import settings_manager
 from app import settings
 
 class GraphicsNodeItem(QGraphicsObject):
+    """
+    the graphics node item
+    draw a node and the linking lines in the same column
+    dynamically generated and destroyed when the tree is changed
+    """
     request_relayout = pyqtSignal()
     change_expanded = pyqtSignal(QGraphicsObject)
 
@@ -81,6 +86,10 @@ class GraphicsNodeItem(QGraphicsObject):
 
 
 class TreeGraphWidget(QWidget):
+    """
+    the tree graph window widget
+    controls the graph node items and node expansion logics
+    """
     def __init__(self, work_tree, parent=None):
         super().__init__(parent)
 
@@ -167,11 +176,6 @@ class TreeGraphWidget(QWidget):
         self.relayout_tree()
     
     def on_tree_edit(self, edit_data):
-        """
-        edit_data: a dict of the edit data, which should contain the following keys:
-        - 'type': the type of the edit, which can be 'add', 'remove', 'rename', 'move'
-        - 'args': a list of arguments, which depends on the type of the edit
-        """
         etype = edit_data['type']
         if etype in ['remove_node', 'remove_subtree', 'undo']:
             self.relayout_tree()

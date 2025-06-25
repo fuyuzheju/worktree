@@ -64,8 +64,15 @@ class Node:
 
 
 class WorkTree(QObject):
-    edit_signal = pyqtSignal(dict)
     undo_request = pyqtSignal()
+    edit_signal = pyqtSignal(dict)
+
+    """
+    edit_signal: a signal to emit the edit data, which should contain the following keys:
+    - 'type': the type of the edit, which can be 'add', 'remove', 'rename', 'move'
+    - 'args': a list of arguments, which depends on the type of the edit
+    """
+
     def __init__(self):
         super().__init__()
         self.root = Node("WorkRoot")

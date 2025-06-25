@@ -1,4 +1,8 @@
 class GlobalSignal:
+    """
+    especially for information stream exchange between different components.
+    globally shared
+    """
     def __init__(self):
         self.callbacks = []
     
