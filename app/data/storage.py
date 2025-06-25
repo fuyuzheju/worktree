@@ -105,6 +105,7 @@ class Storage:
         """
         load the latest snapshot from disk.
         """
+        logger.debug("Loading from disk")
         if self.current_snapshot_dir is None:
             logger.debug("[Storage] No snapshot found. Nothing to load.")
             return

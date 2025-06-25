@@ -1,8 +1,10 @@
-from re import S
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt
 from .commands import COMMAND_REGISTRY
+import logging
+
+logger = logging.getLogger(__name__)
 
 COMMAND_HISTORY_LENGTH = 300
 
@@ -26,6 +28,8 @@ class TreeController(QObject):
             self.finish_signal.emit()
             return 0
         
+        logger.debug(f"Running command: {command}")
+
         command_str = parts[0]
         command_class = COMMAND_REGISTRY.get(command_str)
         if command_class is None:
@@ -54,7 +58,6 @@ class CommandLineEdit(QLineEdit):
         self.current_command_index = 0
 
     def keyPressEvent(self, event):
-        print("KEY:", event.key())
         if event.key() == Qt.Key_Up:
             # command history browse
             self.current_command_index -= 1

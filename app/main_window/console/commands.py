@@ -208,6 +208,35 @@ class RemoveCommand(Command):
         return 0
 
 
+class MoveCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "mv"
+
+    @classmethod
+    def command_help(cls) -> str:
+        return "move a node(subtree) to a new path.\n" \
+            "Usage: mv <node_path> <new_parent_path>"
+    
+    def execute(self, tree: 'WorkTree'):
+        if len(self.args) != 2:
+            self.error_signal.emit("Error: mv command requires two arguments.\n")
+            return -1
+        node_path = self.args[0]
+        new_parent_path = self.args[1]
+        node = path_parser(node_path, tree)
+        if node is None:
+            self.error_signal.emit(f"Error: No such node {node_path}.\n")
+            return -1
+        new_parent = path_parser(new_parent_path, tree)
+        if new_parent is None:
+            self.error_signal.emit(f"Error: No such node {new_parent_path}.\n")
+            return -1
+        tree.move_node(node.identity, new_parent.identity)
+        self.output_signal.emit("Node moved successfully.\n")
+        return 0
+
+
 class CheckStateCommand(Command):
     @classmethod
     def command_str(cls) -> str:

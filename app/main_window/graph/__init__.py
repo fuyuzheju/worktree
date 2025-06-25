@@ -4,7 +4,6 @@ from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
 from ...data.tree import Status, Node
 from ...settings import settings_manager
-from app import settings
 
 class GraphicsNodeItem(QGraphicsObject):
     """
@@ -29,7 +28,7 @@ class GraphicsNodeItem(QGraphicsObject):
         self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
         self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))
         self.text_pen = QPen(settings_manager.get("graph/textColor", type=QColor), settings_manager.get("graph/textPenWidth", type=float))
-        self.fixed_nodewidth, self.fixed_nodeheight = _calculate_node_boundary(self.data_node.name) 
+        self.fixed_nodewidth, self.fixed_nodeheight = calculate_node_boundary(self.data_node.name) 
 
     def boundingRect(self) -> QRectF:
         # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
@@ -142,7 +141,7 @@ class TreeGraphWidget(QWidget):
             """
             nonlocal y_cursor
 
-            _,fixed_nodeheight = _calculate_node_boundary(node.name)
+            fixed_nodewidth, fixed_nodeheight = calculate_node_boundary(node.name)
 
             x_pos = depth * H_SPACING
             y_pos = y_cursor
@@ -177,7 +176,7 @@ class TreeGraphWidget(QWidget):
     
     def on_tree_edit(self, edit_data):
         etype = edit_data['type']
-        if etype in ['remove_node', 'remove_subtree', 'undo']:
+        if etype in ['remove_node', 'remove_subtree', 'undo', 'move_node']:
             self.relayout_tree()
         elif etype in ['complete_node', 'complete_current']:
             self.scene.update()
@@ -199,21 +198,8 @@ class TreeGraphWidget(QWidget):
 
             check_expanded(edit_node)
             self.relayout_tree()
-    
-    def create_sample_data(self):
-        root = self.work_tree.root
-        Node1 = self.add_node(root, "Node1")
-        Node2 = self.add_node(root, "Node2")
-        Node3 = self.add_node(root, "Node3")
-        Node4 = self.add_node(Node1, "Node4")
-        Node5 = self.add_node(Node1, "Node5")
-        for i in range(10):
-            self.add_node(Node5, "Node5."+str(i))
-        
-        self.complete_current()
-        self.complete_current()
 
-def _calculate_node_boundary(text: str) -> tuple[float,float] :
+def calculate_node_boundary(text: str) -> tuple[float,float] :
     """calculate a node's width and height according to its text"""
     # According to text, adjust node_length
     FONT_OBJECT = QFont(settings_manager.get("graph/fontFamily", type=str), settings_manager.get("graph/fontSize", type=int))

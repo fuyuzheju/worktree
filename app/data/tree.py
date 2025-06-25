@@ -1,6 +1,8 @@
 from enum import Enum
 from PyQt5.QtCore import QObject, pyqtSignal
-import uuid
+import uuid, logging
+
+logger = logging.getLogger(__name__)
 
 class Status(Enum):
     """
@@ -78,6 +80,7 @@ class WorkTree(QObject):
         self.root = Node("WorkRoot")
         self.root.status = Status.CURRENT
         self.current_node = self.get_current_node()
+        self.edit_signal.connect(self.on_edit)
     
     def get_current_node(self, start_node=None):
         if start_node is None:
@@ -102,6 +105,10 @@ class WorkTree(QObject):
             if found:
                 return found
         return None
+    
+    def on_edit(self, edit_data):
+        # log
+        logger.debug("Tree edited: %s", edit_data)
 
     def add_node(self, parent_node_id, new_node_name, new_node_id=None):
         parent_node = self.get_node_by_id(parent_node_id)
@@ -223,6 +230,28 @@ class WorkTree(QObject):
         })
         return 0
     
+    def move_node(self, node_id, new_parent_id):
+        node = self.get_node_by_id(node_id)
+        if node is None:
+            return -1
+        if node == self.root:
+            return -1
+        new_parent = self.get_node_by_id(new_parent_id)
+        if new_parent is None:
+            return -1
+        if new_parent == node:
+            return -1
+        node.parent.children.remove(node)
+        new_parent.addChild(node)
+        node.parent = new_parent
+        self.edit_signal.emit({
+            'type': 'move_node',
+            'args': {
+                'node_id': node_id,
+                'new_parent_id': new_parent_id
+            }
+        })
+
     def undo(self):
         self.undo_request.emit()
         self.edit_signal.emit({
