@@ -38,7 +38,7 @@ class SettingsManager(QObject):
             value = self.settings.value(key, DEFAULT_SETTINGS[key], type=type)
         return value
 
-    def set(self, keys: list[str], values: list):
+    def set(self, keys: list, values: list):
         if len(keys) != len(values):
             raise ValueError("keys and values must have the same length")
         for key, value in zip(keys, values):
