@@ -39,3 +39,38 @@ def path_parser(path: str, tree: "WorkTree", path_separator: str = '/') -> "Node
             else:
                 return None
     return current
+
+def max_common_prefix(strings: list[str]) -> str | None:
+    """
+    find the max common prefix of a list of strings, where the target is the prefix
+    :param target: the target string
+    :param strings: the list of strings
+    :return: the max common prefix
+    e.g.
+        target: "ab"
+        strings: ["abc", "abce", "abcd"]
+        return: "abc"
+    """
+    if not strings:
+        return None
+
+    mcp = strings[0]
+    for s in strings:
+        i = 0
+        while i < min(len(mcp), len(s)):
+            if mcp[i] != s[i]:
+                break
+            i += 1
+        mcp = mcp[:i]
+    return mcp
+
+
+if __name__ == '__main__':
+    print(
+        max_common_prefix([
+            'ab',
+            'abc',
+            'abd',
+            ''
+        ])
+    )

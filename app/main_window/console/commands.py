@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from typing import override
 from PyQt5.QtCore import pyqtSignal, QObject
 import time
-from .utils import path_parser
+from .utils import path_parser, max_common_prefix
 
 COMMAND_REGISTRY = {} # registry table of all commands, structure: {command_str: command_class}
 
@@ -23,12 +24,100 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
     def __init__(self, *args):
         super().__init__()
-        self.args = args
+        self.parts = args
+        res = self.parse_parts()
+        self.status = res # 0: normal command, non-zero: error command
         self.timestamp = time.time()
     
     def __init_subclass__(cls) -> None:
         COMMAND_REGISTRY[cls.command_str()] = cls
         return super().__init_subclass__()
+
+    def parse_parts(self):
+        """
+        parse the parts of the command into arguments and options
+        value clarificatoin:
+        None: the value of the argument or option is not set
+        - for options:
+            {}: chosen, but no args provided
+            {kw1: value1, ...}: chosen and with value provided
+        """
+        self.args = {
+            "arguments": {
+                "required": [],
+                "optional": []
+            },
+            "options": {
+                "short": {
+                    kw: None for kw in self.command_arguments_numbers()['options']['short'].keys()
+                },
+                "long": {
+                    kw: None for kw in self.command_arguments_numbers()['options']['long'].keys()
+                }
+            }
+        }
+
+        def get_value(d: dict, keys: list[str]):
+            """
+            get value from a multi-level dict by a list of keys
+            """
+            res = d.copy()
+            for key in keys:
+                res = res[key]
+            return res
+
+        stack = [['arguments', 'optional'], ['arguments', 'required']] # stack to store the currently parsed things, which still requires arguments
+        for part in self.parts:
+            if part.startswith('-'):
+                # option
+                if part.startswith('--'):
+                    # long option
+                    if part in self.command_arguments_numbers()['options']['long']:
+                        self.args['options']['long'][part] = []
+                        stack.append(['options', 'long', part])
+                    else:
+                        # unknown long option
+                        return 1
+                else:
+                    # short option
+                    if part in self.command_arguments_numbers()['options']['short']:
+                        self.args['options']['short'][part] = []
+                        stack.append(['options', 'short', part])
+                    else:
+                        # unknown short option
+                        return 1
+            else:
+                # argument
+                while stack:
+                    # argument for the currently parsed thing
+                    current = get_value(self.args, stack[-1])
+                    max_num = get_value(self.command_arguments_numbers(), stack[-1])
+                    if len(current) < max_num:
+                        break
+                    else:
+                        stack.pop()
+                
+                if not stack:
+                    # too many arguments
+                    return 2
+                
+                current.append(part)
+        self.arg_stack = stack
+        
+        # check if all required arguments are provided
+        if len(self.args['arguments']['required']) != self.command_arguments_numbers()['arguments']['required']:
+            return 3
+
+        for option in self.command_arguments_numbers()['options']['short'].keys():
+            got = self.args['options']['short'][option]
+            if got and len(got) != self.command_arguments_numbers()['options']['short'][option]:
+                return 3
+        for option in self.command_arguments_numbers()['options']['long'].keys():
+            got = self.args['options']['long'][option]
+            if got and len(got) != self.command_arguments_numbers()['options']['long'][option]:
+                return 3
+        
+        return 0
     
     @classmethod
     @abstractmethod
@@ -40,12 +129,60 @@ class Command(ABC, QObject, metaclass=CustomMeta):
     def command_help(cls) -> str:
         pass
 
+    @classmethod
+    @abstractmethod
+    def command_arguments_numbers(cls) -> dict:
+        """
+        return the arguments required and optional for the command
+        :return: {
+            "arguments": {
+                "required": `num`, 
+                "optional": `num`,
+            },
+            "options": {
+                "short": {
+                    `-name`: `num`,
+                },
+                "long": {
+                    `--name`: `num`,
+                }
+            }
+        }
+        `num` refers to the number of required arguments
+        """
+        pass
+
     @abstractmethod
     def execute(self, tree) -> int:
+        """
+        execute the command to operate the tree
+        no need to call finish signal here
+        all arguments are guaranteed to be provided to required numbers
+        """
         pass
     
+    @abstractmethod
+    def auto_complete(self) -> tuple[str, list[str]]:
+        """
+        auto complete the command
+        :param incomplete_command: the incomplete command
+        :return: a tuple of (completed_arg, possible_completion_list)
+        """
+        pass
+
     def __call__(self, tree) -> int:
-        code = self.execute(tree)
+        if self.status == 0:
+            code = self.execute(tree)
+        elif self.status == 1:
+            self.error_signal.emit("Error: Unknown option.\n")
+            code = 101
+        elif self.status == 2:
+            self.error_signal.emit("Error: Too many arguments.\n")
+            code = 102
+        elif self.status == 3:
+            self.error_signal.emit("Error: Not enough arguments.\n")
+            code = 103
+
         self.finish_signal.emit()
         return code
     
@@ -78,6 +215,19 @@ class CompleteCurrentCommand(Command):
         return "complete the current node.\n" \
             "Usage: cc"
     
+    @classmethod
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+    
     def execute(self, tree):
         res = tree.complete_current()
         if res == -1:
@@ -86,6 +236,9 @@ class CompleteCurrentCommand(Command):
             self.output_signal.emit("Current node completed successfully.\n")
 
         return 0
+    
+    def auto_complete(self) -> tuple[str | None, list[str]]:
+        return None, []
 
 
 class CheckReadyCommand(Command):
@@ -96,11 +249,49 @@ class CheckReadyCommand(Command):
     @classmethod
     def command_help(cls) -> str:
         return "check whether if the current node is ready.\n" \
-            "Usage: ck"
+            "Usage: ck [path]"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 1,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
 
     def execute(self, tree):
-        self.output_signal.emit("Current node is_ready: " + str(tree.current_node.is_ready()) + '\n')
+        if self.args['arguments']['optional']:
+            node = path_parser(self.args['arguments']['optional'][0], tree)
+            if node is None:
+                self.error_signal.emit("Error: No such node.\n")
+                return -1
+        else:
+            node = tree.current_node
+        self.output_signal.emit("Current node is_ready: " + str(node.is_ready()) + '\n')
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if not self.args["arguments"]["optional"]:
+            return None, []
+        incomplete_path = self.args["arguments"]["optional"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
 
 
 class SwitchCommand(Command):
@@ -112,13 +303,22 @@ class SwitchCommand(Command):
     def command_help(cls) -> str:
         return "change current node.\n" \
             "Usage: cd <path>"
+    
+    @classmethod
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 1,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
 
     def execute(self, tree):
-        if len(self.args) != 1:
-            self.error_signal.emit("Error: cd command requires one argument.\n")
-            return 1
-
-        path = self.args[0]
+        path = self.args["arguments"]["required"][0]
         target = path_parser(path, tree)
         if target is None:
             self.error_signal.emit("Error: No such node.\n")
@@ -129,6 +329,21 @@ class SwitchCommand(Command):
             return -1
         self.output_signal.emit("Switched to node " + target.name + '\n')
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        incomplete_path = self.args["arguments"]["required"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
 
 
 class AddNodeCommand(Command):
@@ -140,13 +355,23 @@ class AddNodeCommand(Command):
     def command_help(cls) -> str:
         return "add a node as a child of the current node.\n" \
             "Usage: add <node_name>"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 1,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
 
     def execute(self, tree: 'WorkTree'):
-        if len(self.args) != 1:
-            self.error_signal.emit("Error: add command requires one argument.\n")
-            return 1
-
-        name = self.args[0]
+        name = self.args["arguments"]["required"][0]
         if '.' in name or '/' in name or ':' in name or name == '':
             self.error_signal.emit("Error: Invalid node name.\n")
             return 1
@@ -162,6 +387,9 @@ class AddNodeCommand(Command):
         # switch to the new node
         self.output_signal.emit("Node added successfully.\n")
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
 
 
 class RemoveCommand(Command):
@@ -174,38 +402,56 @@ class RemoveCommand(Command):
         return "remove a leaf node or a subtree.\n" \
             "Usage: rm <path> [-r]"
     
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 1,
+                "optional": 0,
+            },
+            "options": {
+                "short": {
+                    "-r": 0,
+                },
+                "long": {}
+            }
+        }
+    
     def execute(self, tree: 'WorkTree'):
-        path = None
-        recursive = False
-        for arg in self.args:
-            if arg == '-r':
-                recursive = True
-            else:
-                if path == None:
-                    path = arg
-                else:
-                    self.error_signal.emit("Error: too many arguments.\n")
-                    return -1
-
-        if path == None:
-            self.error_signal.emit("Error: rm command requires an argument <path>.\n")
-            return -1
-
+        path = self.args["arguments"]["required"][0]
         target = path_parser(path, tree)
         if target is None:
             self.error_signal.emit("Error: No such node.\n")
             return -1
 
-        if recursive:
-            st = tree.remove_subtree(target.identity)
-        else:
+        if self.args["options"]["short"]["-r"] is None:
             st = tree.remove_node(target.identity)
+        else:
+            st = tree.remove_subtree(target.identity)
         if st != 0:
             self.error_signal.emit("Error: Failed to remove node.\n")
             return -1
 
         self.output_signal.emit("Node removed successfully.\n")
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if not self.args["arguments"]["required"]:
+            return None, []
+        incomplete_path = self.args["arguments"]["required"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
 
 
 class MoveCommand(Command):
@@ -218,12 +464,23 @@ class MoveCommand(Command):
         return "move a node(subtree) to a new path.\n" \
             "Usage: mv <node_path> <new_parent_path>"
     
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 2,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+    
     def execute(self, tree: 'WorkTree'):
-        if len(self.args) != 2:
-            self.error_signal.emit("Error: mv command requires two arguments.\n")
-            return -1
-        node_path = self.args[0]
-        new_parent_path = self.args[1]
+        node_path = self.args["arguments"]["required"][0]
+        new_parent_path = self.args["arguments"]["required"][1]
         node = path_parser(node_path, tree)
         if node is None:
             self.error_signal.emit(f"Error: No such node {node_path}.\n")
@@ -235,6 +492,23 @@ class MoveCommand(Command):
         tree.move_node(node.identity, new_parent.identity)
         self.output_signal.emit("Node moved successfully.\n")
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if not self.args["arguments"]["required"]:
+            return None, []
+        incomplete_path = self.args["arguments"]["required"][-1]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
 
 
 class CheckStateCommand(Command):
@@ -246,18 +520,32 @@ class CheckStateCommand(Command):
     def command_help(cls) -> str:
         return "view the state of a node.\n" \
             "Usage: st <node_path>"
-    
+
     def execute(self, tree: 'WorkTree'):
-        if len(self.args) != 1:
-            self.error_signal.emit("Error: st command requires an argument <node_path>.\n")
-            return -1
-        node_path = self.args[0]
+        node_path = self.args["arguments"]["required"][0]
         node = path_parser(node_path, tree)
         if node is None:
             self.error_signal.emit("Error: No such node.\n")
             return -1
         self.output_signal.emit("Node state: " + str(node.status) + '\n')
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if not self.args["arguments"]["required"]:
+            return None, []
+        incomplete_path = self.args["arguments"]["required"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
 
 
 class UndoCommand(Command):
@@ -270,9 +558,26 @@ class UndoCommand(Command):
         return "undo the last operation.\n" \
             "Usage: undo"
     
+    @classmethod
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+
     def execute(self, tree: 'WorkTree'):
         tree.undo()
         return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
+
 
 class ExitCommand(Command):
     @classmethod
@@ -284,9 +589,26 @@ class ExitCommand(Command):
         return "exit the whole app.\n" \
             "Usage: exit"
     
+    @classmethod
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+    
     def execute(self, tree: 'WorkTree'):
         from ...controls import quit_signal
         quit_signal.emit()
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
+
 
 class HelpCommand(Command):
     @classmethod
@@ -296,9 +618,42 @@ class HelpCommand(Command):
     @classmethod
     def command_help(cls) -> str:
         return "view this help message.\n" \
-            "Usage: help"
+            "Usage: help [command...]"
+
+    @classmethod
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": float('inf'),
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
     
     def execute(self, tree: 'WorkTree'):
-        self.output_signal.emit("Available commands:\n")
-        for command_cls in COMMAND_REGISTRY.values():
-            self.output_signal.emit("- " + command_cls.command_str() + "\n" + command_cls.command_help() + "\n\n")
+        if not self.args["arguments"]["optional"]:
+            command_list = COMMAND_REGISTRY.keys()
+        else:
+            command_list = self.args["arguments"]["optional"]
+        for command in command_list:
+            if command in COMMAND_REGISTRY:
+                self.output_signal.emit("- " + command + "\n" + COMMAND_REGISTRY[command].command_help() + "\n\n")
+            else:
+                self.error_signal.emit(f"Error: No such command {command}.\n")
+                return -1
+        
+        return 0
+        
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if not self.args["arguments"]["optional"]:
+            return None, []
+        incomplete_command = self.args["arguments"]["optional"][-1]
+        possible_completion_list = []
+        for command in COMMAND_REGISTRY.keys():
+            if command.startswith(incomplete_command):
+                possible_completion_list.append(command)
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list

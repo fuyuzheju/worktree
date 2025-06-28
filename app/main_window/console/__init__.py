@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
-from PyQt5.QtCore import QObject, pyqtSignal, Qt
+from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
 from .commands import COMMAND_REGISTRY
+from .utils import max_common_prefix
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,10 +53,33 @@ class CommandLineEdit(QLineEdit):
     - up arrow: browse command history up
     - down arrow: browse command history down
     """
-    def __init__(self, parent=None):
+    def __init__(self, work_tree, parent=None):
         super().__init__(parent)
         self.command_history = []
         self.current_command_index = 0
+
+        self.is_completing = False # to record if the user is trying to complete the command
+        self.completion_index = -1 # to record the current completion index
+        self.possible_completion_list = []
+        self.work_tree = work_tree
+        self.textChanged.connect(self.on_changed)
+        self.cursorPositionChanged.connect(self.on_changed)
+    
+    def event(self, event):
+        # keyPressEvent function can't capture the tab key's press, due to the default mechanism of QT.
+        # QT will capture this event and set the focus to the next widget when the tab key is pressed.
+        # So we need to override the event function to capture the tab key's press previously and accept it.
+        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Tab:
+            print("Key: ")
+            if self.is_completing:
+                self.next_completion()
+            
+            else:
+                self.start_completion()
+
+            return True
+        
+        return super().event(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Up:
@@ -84,11 +108,88 @@ class CommandLineEdit(QLineEdit):
         
         return super().keyPressEvent(event)
     
+    def on_changed(self, *args):
+        print("on changed")
+        self.is_completing = False
+        self.completion_index = -1
+        self.possible_completion_list = []
+    
     def update_history(self, command):
         self.command_history.append(command)
         self.current_command_index = len(self.command_history)
         if len(self.command_history) > COMMAND_HISTORY_LENGTH:
             self.command_history = self.command_history[-COMMAND_HISTORY_LENGTH:]
+        
+    def set_current_argument(self, arg_value: str) -> None:
+        """
+        complete the currently operated argument to {arg_value}
+        """
+        self.blockSignals(True) # avoid textChanged signal emit
+        try:
+            cursorp = self.cursorPosition()
+            command = self.text()
+            i = cursorp - 1
+            while i >= 0 and command[i] != ' ':
+                i -= 1
+            i += 1 # now i is the start position of the current argument
+            self.setText(command[:i] + arg_value + command[cursorp:])
+            self.setCursorPosition(i + len(arg_value))
+        finally:
+            self.blockSignals(False)
+    
+    def next_completion(self):
+        print("111")
+        if len(self.possible_completion_list) == 0:
+            print("Next completion failed")
+            return True
+        self.completion_index = (self.completion_index + 1) % len(self.possible_completion_list)
+        # complete to next completion
+        self.set_current_argument(self.possible_completion_list[self.completion_index])
+        print("Next completion succeeded")
+        print(f"possible_completion_list: {self.possible_completion_list}")
+    
+    def start_completion(self):
+        print("222")
+        # start completion
+        incomplete_command = self.text()[:self.cursorPosition()]
+        parts = incomplete_command.split()
+        if incomplete_command[-1] == ' ':
+            parts.append('')
+        if len(parts) == 0  or \
+            (len(incomplete_command) != self.cursorPosition() and incomplete_command[self.cursorPosition()] == ' '):
+            print("No completion")
+            return True
+        
+        self.is_completing = True
+        if len(parts) == 1:
+            # complete command name
+            self.possible_completion_list = [
+                command for command in COMMAND_REGISTRY.keys()
+                if command.startswith(parts[0])
+            ]
+            mcp = max_common_prefix(self.possible_completion_list)
+            if mcp == None:
+                print("Command Completion Failed")
+                return True
+            if mcp != parts[0]:
+                self.set_current_argument(mcp)
+                print("Command Completion Succeeded")
+        
+        else:
+            # complete command arguments
+            command_class = COMMAND_REGISTRY.get(parts[0])
+            if command_class is not None:
+                command = command_class(*parts[1:])
+                res = command.auto_complete(self.work_tree)
+                completed_command = res[0]
+                self.possible_completion_list = res[1]
+                if completed_command == None:
+                    print("Argument Completion Failed")
+                    return True
+                if completed_command != incomplete_command:
+                    self.set_current_argument(completed_command)
+                    print("Argument Completion Succeeded")
+
 
 class CommandWidget(QWidget):
     def __init__(self, work_tree, parent=None):
@@ -112,7 +213,7 @@ class CommandWidget(QWidget):
 
         self.command_label = QLabel(f"({self.work_tree.current_node.name}):")
         self.Hlayout.addWidget(self.command_label)
-        self.command_input = CommandLineEdit()
+        self.command_input = CommandLineEdit(self.work_tree)
         self.command_input.returnPressed.connect(self.input_command)
         self.Hlayout.addWidget(self.command_input)
         self.Vlayout.addLayout(self.Hlayout)
