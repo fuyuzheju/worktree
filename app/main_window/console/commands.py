@@ -102,8 +102,10 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                     return 2
                 
                 current.append(part)
-        self.arg_stack = stack
         
+        # TODO: here is to help auto complete to mark the last argument -----------------------
+        self.arg_stack = stack
+
         # check if all required arguments are provided
         if len(self.args['arguments']['required']) != self.command_arguments_numbers()['arguments']['required']:
             return 3
@@ -277,7 +279,7 @@ class CheckReadyCommand(Command):
         return 0
     
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if not self.args["arguments"]["optional"]:
+        if len(self.args["arguments"]["optional"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["optional"][0]
         idx = incomplete_path.rfind('/')
@@ -331,6 +333,8 @@ class SwitchCommand(Command):
         return 0
     
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if len(self.args["arguments"]["required"]) != 1:
+            return None, []
         incomplete_path = self.args["arguments"]["required"][0]
         idx = incomplete_path.rfind('/')
         prefix = incomplete_path[:idx+1]
@@ -437,7 +441,7 @@ class RemoveCommand(Command):
         return 0
     
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if not self.args["arguments"]["required"]:
+        if len(self.args["arguments"]["required"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["required"][0]
         idx = incomplete_path.rfind('/')
@@ -494,7 +498,7 @@ class MoveCommand(Command):
         return 0
     
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if not self.args["arguments"]["required"]:
+        if not len(self.args["arguments"]["required"]) in [1, 2]:
             return None, []
         incomplete_path = self.args["arguments"]["required"][-1]
         idx = incomplete_path.rfind('/')
@@ -531,7 +535,7 @@ class CheckStateCommand(Command):
         return 0
     
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if not self.args["arguments"]["required"]:
+        if len(self.args["arguments"]["required"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["required"][0]
         idx = incomplete_path.rfind('/')

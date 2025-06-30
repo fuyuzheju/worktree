@@ -141,7 +141,8 @@ class CommandLineEdit(QLineEdit):
         print("111")
         if len(self.possible_completion_list) == 0:
             print("Next completion failed")
-            return True
+            return 
+
         self.completion_index = (self.completion_index + 1) % len(self.possible_completion_list)
         # complete to next completion
         self.set_current_argument(self.possible_completion_list[self.completion_index])
@@ -158,7 +159,7 @@ class CommandLineEdit(QLineEdit):
         if len(parts) == 0  or \
             (len(incomplete_command) != self.cursorPosition() and incomplete_command[self.cursorPosition()] == ' '):
             print("No completion")
-            return True
+            return 
         
         self.is_completing = True
         if len(parts) == 1:
@@ -167,10 +168,15 @@ class CommandLineEdit(QLineEdit):
                 command for command in COMMAND_REGISTRY.keys()
                 if command.startswith(parts[0])
             ]
+
             mcp = max_common_prefix(self.possible_completion_list)
+            if len(self.possible_completion_list) == 1:
+                mcp += ' '
+                self.is_completing = False
+
             if mcp == None:
                 print("Command Completion Failed")
-                return True
+                return 
             if mcp != parts[0]:
                 self.set_current_argument(mcp)
                 print("Command Completion Succeeded")
@@ -183,9 +189,12 @@ class CommandLineEdit(QLineEdit):
                 res = command.auto_complete(self.work_tree)
                 completed_command = res[0]
                 self.possible_completion_list = res[1]
+                if len(self.possible_completion_list) == 1:
+                    self.is_completing = False
+
                 if completed_command == None:
                     print("Argument Completion Failed")
-                    return True
+                    return
                 if completed_command != incomplete_command:
                     self.set_current_argument(completed_command)
                     print("Argument Completion Succeeded")
