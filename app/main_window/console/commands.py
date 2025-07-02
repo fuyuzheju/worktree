@@ -396,6 +396,124 @@ class AddNodeCommand(Command):
         return None, []
 
 
+class ListCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "ls"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "list the children of the current node.\n" \
+            "Usage: ls [path]"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 1,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+    
+    def execute(self, tree: 'WorkTree'):
+        if self.args["arguments"]["optional"]:
+            path = self.args["arguments"]["optional"][0]   
+            node = path_parser(path, tree)
+            if node is None:
+                self.error_signal.emit("Error: No such node.\n")
+                return -1
+        else:
+            node = tree.current_node
+        self.output_signal.emit("Children of node " + node.name + ":\n")
+        for child in node.children:
+            self.output_signal.emit(child.name + '\n')
+        return 0
+    
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if len(self.args["arguments"]["optional"]) != 1:
+            return None, []
+        incomplete_path = self.args["arguments"]["optional"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
+
+
+class TreeCommand(Command):
+    @classmethod
+    def command_str(cls) -> str:
+        return "tree"
+    
+    @classmethod
+    def command_help(cls) -> str:
+        return "view the tree structure.\n" \
+            "Usage: tree [path]"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 1,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+    
+    def execute(self, tree: 'WorkTree'):
+        if self.args["arguments"]["optional"]:
+            path = self.args["arguments"]["optional"][0]
+            node = path_parser(path, tree)
+            if node is None:
+                self.error_signal.emit("Error: No such node.\n")
+                return -1
+        else:
+            node = tree.current_node
+        self.output_signal.emit("Tree structure:\n")
+        def print_tree(prefix: str, node: 'Node', is_last=True):
+            self.output_signal.emit(prefix + ('└── ' if is_last else '├── ') + node.name + '\n')
+            child_count = len(node.children)
+            for idx, child in enumerate(node.children):
+                is_child_last = (idx == child_count - 1)
+                new_prefix = prefix + ('    ' if is_last else '│   ')
+                print_tree(new_prefix, child, is_child_last)
+        print_tree('', node, True)
+        return 0
+
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if len(self.args["arguments"]["optional"]) != 1:
+            return None, []
+        incomplete_path = self.args["arguments"]["optional"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
+
+
 class RemoveCommand(Command):
     @classmethod
     def command_str(cls) -> str:
