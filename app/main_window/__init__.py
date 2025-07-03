@@ -1,16 +1,19 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QDialog, QMessageBox
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
 from ..utils import set_app_state
 from ..settings_window import SettingsDialog
-from ..controls import cleanup_history_signal
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 class MainWindow(QWidget):
+
+    cleanup_history_signal = pyqtSignal()
+
     """
     combines TreeGraphWidget and CommandWidget together
     provides a menu bar
@@ -28,6 +31,8 @@ class MainWindow(QWidget):
         self.main_layout.setSpacing(5)
 
         self.menu_bar = QMenuBar()
+        # self.file_menu = self.menu_bar.addMenu('File')
+        # self.file_menu.addAction("Open File", )
         self.settings_menu = self.menu_bar.addMenu("Settings")
         self.settings_menu.addAction("Open settings window", self.open_settings_window)
         self.settings_menu.addAction("Recover to default settings", settings_manager.recover_default)
@@ -87,7 +92,7 @@ class MainWindow(QWidget):
             QMessageBox.No,
         )
         if result == QMessageBox.Yes:
-            cleanup_history_signal.emit()
+            self.cleanup_history_signal.emit()
             QMessageBox.information(
                 self,
                 "Cleanup History",

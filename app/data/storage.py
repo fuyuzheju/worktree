@@ -1,6 +1,6 @@
 from pathlib import Path
 from .tree import WorkTree, Node
-from ..controls import cleanup_history_signal
+# from ..controls import cleanup_history_signal
 import json, time, logging, shutil
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,6 @@ class Storage:
 
         self.work_tree.edit_signal.connect(self.handle_edit)
         self.work_tree.undo_request.connect(self.undo)
-        cleanup_history_signal.connect(self.cleanup_history)
 
         self.load_from_disk()
     
@@ -147,17 +146,4 @@ class Storage:
             op_file.writelines([json.dumps(op) + '\n' for op in rollbacked_operations])
 
         self.load_from_disk()
-    
-    def cleanup_history(self):
-        """
-        clean up all the history.
-        """
-        shutil.rmtree(self.storage_dir)
-        self.storage_dir.mkdir()
-        self.history_dir.mkdir()
-        self.current_snapshot_dir = None
-        self.op_count_since_snapshot = 0
-        self.take_snapshot()
-        logger.info("History cleaned up.")
-
-        
+            

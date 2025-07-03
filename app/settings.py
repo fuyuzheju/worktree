@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
-    "createTroyIcon": True, 
+    "createTrayIcon": True, 
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
     
     "graph/minNodeWidth": 80,
