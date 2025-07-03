@@ -178,7 +178,7 @@ class TreeGraphWidget(QWidget):
         etype = edit_data['type']
         if etype in ['remove_node', 'remove_subtree', 'move_node', '']:
             self.relayout_tree()
-        elif etype in ['complete_node', 'complete_current']:
+        elif etype in ['complete_node', 'complete_current', 'reopen_node']:
             self.scene.update()
 
         if etype == 'add_node':
