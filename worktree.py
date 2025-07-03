@@ -1,8 +1,11 @@
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QAction, QMenu, QWidget
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
 from logging.config import dictConfig
 import sys, logging
+
+ICON_PATH = "worktree-icon.png"
 
 def global_exception_hook(exctype, value, tb):
     logging.error("Uncaught exception:", exc_info=(exctype, value, tb))
@@ -58,6 +61,21 @@ def setup_logging(log_dir):
 def quit_application(app):
     app.quit()
 
+def setup_tray_icon(connected_window: QWidget):
+    tray_icon = QSystemTrayIcon(QIcon(ICON_PATH), connected_window)
+    menu = QMenu()
+
+    quit_action = QAction('exit', connected_window)
+    quit_action.triggered.connect(quit_signal.emit)
+    menu.addAction(quit_action)
+    tray_icon.setContextMenu(menu)
+    tray_icon.show()
+    def on_tray_icon_activated(reason):
+        if reason == QSystemTrayIcon.DoubleClick:
+            connected_window.to_frontground()
+    tray_icon.activated.connect(on_tray_icon_activated)
+    return tray_icon
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setApplicationName("worktree")
@@ -81,6 +99,7 @@ if __name__ == '__main__':
     from app.keyboard_listener import HotkeyManager
     from app.data.tree import WorkTree
     from app.data.storage import Storage
+    from app.settings import settings_manager
     from app.controls import quit_signal
 
     work_tree = WorkTree()
@@ -89,6 +108,8 @@ if __name__ == '__main__':
     main_window = MainWindow(work_tree)
     main_window.show()
     logger.debug("Main window created.")
+    if settings_manager.get("createTroyIcon", type=bool):
+        tray_icon = setup_tray_icon(main_window)
 
     mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", main_window)
     logger.debug("Hotkey manager created.")

@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QFormLayout,
     QLineEdit, QSpinBox, QDoubleSpinBox, QPushButton, QDialogButtonBox,
-    QColorDialog, QFontComboBox, QKeySequenceEdit
+    QColorDialog, QFontComboBox, QKeySequenceEdit, QCheckBox
 )
 from PyQt5.QtGui import QColor, QPalette, QKeySequence
 from PyQt5.QtCore import Qt
@@ -55,15 +55,14 @@ class SettingsDialog(QDialog):
                 self.tabs.addTab(tab_page, group_name.capitalize())
                 groups[group_name] = form_layout
 
-            current_value = settings_manager.get(key)
+            current_value = settings_manager.get(key, type=type(default_value))
             label_text = setting_name.replace('_', ' ').capitalize()
             
             editor = None
 
             if isinstance(default_value, bool):
-                # QCheckBox is better for bool, but let's assume str 'true'/'false' for now
-                # Or you can add a QCheckBox if needed.
-                pass # Example does not have bools, add if you need it
+                editor = QCheckBox()
+                editor.setChecked(current_value)
             elif isinstance(default_value, int):
                 editor = QSpinBox()
                 editor.setRange(-10000, 10000)
@@ -127,7 +126,9 @@ class SettingsDialog(QDialog):
         values_to_set = []
 
         for key, editor in self.editors:
-            if isinstance(editor, QSpinBox) or isinstance(editor, QDoubleSpinBox):
+            if isinstance(editor, QCheckBox):
+                value = editor.isChecked()
+            elif isinstance(editor, QSpinBox) or isinstance(editor, QDoubleSpinBox):
                 value = editor.value()
             elif isinstance(editor, QKeySequenceEdit):
                 value = editor.keySequence().toString()
