@@ -209,15 +209,18 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
 class CompleteCurrentCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "cc"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "complete the current node.\n" \
             "Usage: cc"
     
     @classmethod
+    @override
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
@@ -230,6 +233,7 @@ class CompleteCurrentCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree):
         res = tree.complete_current()
         if res == -1:
@@ -239,16 +243,19 @@ class CompleteCurrentCommand(Command):
 
         return 0
     
+    @override
     def auto_complete(self) -> tuple[str | None, list[str]]:
         return None, []
 
 
 class CheckReadyCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "ck"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "check whether if the current node is ready.\n" \
             "Usage: ck [path]"
@@ -267,6 +274,7 @@ class CheckReadyCommand(Command):
             }
         }
 
+    @override
     def execute(self, tree):
         if self.args['arguments']['optional']:
             node = path_parser(self.args['arguments']['optional'][0], tree)
@@ -278,6 +286,7 @@ class CheckReadyCommand(Command):
         self.output_signal.emit("Current node is_ready: " + str(node.is_ready()) + '\n')
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
@@ -298,15 +307,18 @@ class CheckReadyCommand(Command):
 
 class SwitchCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "cd"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "change current node.\n" \
             "Usage: cd <path>"
     
     @classmethod
+    @override
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
@@ -319,6 +331,7 @@ class SwitchCommand(Command):
             }
         }
 
+    @override
     def execute(self, tree):
         path = self.args["arguments"]["required"][0]
         target = path_parser(path, tree)
@@ -332,6 +345,7 @@ class SwitchCommand(Command):
         self.output_signal.emit("Switched to node " + target.name + '\n')
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if len(self.args["arguments"]["required"]) != 1:
             return None, []
@@ -352,10 +366,12 @@ class SwitchCommand(Command):
 
 class AddNodeCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "add"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "add a node as a child of the current node.\n" \
             "Usage: add <node_name>"
@@ -374,6 +390,7 @@ class AddNodeCommand(Command):
             }
         }
 
+    @override
     def execute(self, tree: 'WorkTree'):
         name = self.args["arguments"]["required"][0]
         if '.' in name or '/' in name or ':' in name or name == '':
@@ -392,16 +409,19 @@ class AddNodeCommand(Command):
         self.output_signal.emit("Node added successfully.\n")
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         return None, []
 
 
 class ListCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "ls"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "list the children of the current node.\n" \
             "Usage: ls [path]"
@@ -420,6 +440,7 @@ class ListCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree: 'WorkTree'):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]   
@@ -434,6 +455,7 @@ class ListCommand(Command):
             self.output_signal.emit(child.name + '\n')
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
@@ -454,10 +476,12 @@ class ListCommand(Command):
 
 class TreeCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "tree"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "view the tree structure.\n" \
             "Usage: tree [path]"
@@ -476,6 +500,7 @@ class TreeCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree: 'WorkTree'):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
@@ -496,6 +521,7 @@ class TreeCommand(Command):
         print_tree('', node, True)
         return 0
 
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
@@ -516,10 +542,12 @@ class TreeCommand(Command):
 
 class RemoveCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "rm"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "remove a leaf node or a subtree.\n" \
             "Usage: rm <path> [-r]"
@@ -540,6 +568,7 @@ class RemoveCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree: 'WorkTree'):
         path = self.args["arguments"]["required"][0]
         target = path_parser(path, tree)
@@ -558,6 +587,7 @@ class RemoveCommand(Command):
         self.output_signal.emit("Node removed successfully.\n")
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if len(self.args["arguments"]["required"]) != 1:
             return None, []
@@ -578,10 +608,12 @@ class RemoveCommand(Command):
 
 class MoveCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "mv"
 
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "move a node(subtree) to a new path.\n" \
             "Usage: mv <node_path> <new_parent_path>"
@@ -600,6 +632,7 @@ class MoveCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree: 'WorkTree'):
         node_path = self.args["arguments"]["required"][0]
         new_parent_path = self.args["arguments"]["required"][1]
@@ -615,6 +648,7 @@ class MoveCommand(Command):
         self.output_signal.emit("Node moved successfully.\n")
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if not len(self.args["arguments"]["required"]) in [1, 2]:
             return None, []
@@ -635,14 +669,17 @@ class MoveCommand(Command):
 
 class CheckStateCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "st"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "view the state of a node.\n" \
             "Usage: st <node_path>"
 
+    @override
     def execute(self, tree: 'WorkTree'):
         node_path = self.args["arguments"]["required"][0]
         node = path_parser(node_path, tree)
@@ -652,6 +689,7 @@ class CheckStateCommand(Command):
         self.output_signal.emit("Node state: " + str(node.status) + '\n')
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if len(self.args["arguments"]["required"]) != 1:
             return None, []
@@ -672,15 +710,18 @@ class CheckStateCommand(Command):
 
 class UndoCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "undo"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "undo the last operation.\n" \
             "Usage: undo"
     
     @classmethod
+    @override
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
@@ -693,25 +734,30 @@ class UndoCommand(Command):
             }
         }
 
+    @override
     def execute(self, tree: 'WorkTree'):
         tree.undo()
         return 0
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         return None, []
 
 
 class ExitCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "exit"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "exit the whole app.\n" \
             "Usage: exit"
     
     @classmethod
+    @override
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
@@ -724,25 +770,30 @@ class ExitCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree: 'WorkTree'):
         from ...controls import quit_signal
         quit_signal.emit()
     
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         return None, []
 
 
 class HelpCommand(Command):
     @classmethod
+    @override
     def command_str(cls) -> str:
         return "help"
     
     @classmethod
+    @override
     def command_help(cls) -> str:
         return "view this help message.\n" \
             "Usage: help [command...]"
 
     @classmethod
+    @override
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
@@ -755,6 +806,7 @@ class HelpCommand(Command):
             }
         }
     
+    @override
     def execute(self, tree: 'WorkTree'):
         if not self.args["arguments"]["optional"]:
             command_list = COMMAND_REGISTRY.keys()
@@ -768,7 +820,8 @@ class HelpCommand(Command):
                 return -1
         
         return 0
-        
+    
+    @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         if not self.args["arguments"]["optional"]:
             return None, []
