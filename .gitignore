@@ -7,3 +7,7 @@ logs
 storage
 
 TODO.md
+
+build/
+dist/
+*.spec
