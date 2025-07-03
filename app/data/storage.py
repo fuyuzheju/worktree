@@ -1,6 +1,5 @@
 from pathlib import Path
 from .tree import WorkTree, Node
-# from ..controls import cleanup_history_signal
 import json, time, logging, shutil
 
 logger = logging.getLogger(__name__)
@@ -45,8 +44,10 @@ class Storage:
         """
         if self.current_snapshot_dir is None:
             self.take_snapshot()
-
-        if operation['type'] == 'undo': # undo operation also emits a signal, but we don't want to write it to disk.
+        
+        if operation['type'] == '':
+            # empty operation type is not recorded
+            # details in the clarifications of WorkTree.edit_signal
             return
         
         with open(self.current_snapshot_dir / 'op.log', 'a') as f:
@@ -108,11 +109,16 @@ class Storage:
         if self.current_snapshot_dir is None:
             logger.debug("[Storage] No snapshot found. Nothing to load.")
             return
+        
         with open(self.current_snapshot_dir / 'snapshot.json', 'r') as f:
             snapshot = json.load(f)
         with open(self.current_snapshot_dir / 'op.log', 'r') as f:
             operations = [json.loads(line) for line in f]
         self.load_snapshot(snapshot, operations)
+        self.work_tree.edit_signal.emit({
+            'type': '',
+            'args': {}
+        })
 
     def undo(self):
         """

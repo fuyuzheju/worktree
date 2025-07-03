@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QDialog, QMessageBox
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QDialog, QMessageBox, QFileDialog
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 class MainWindow(QWidget):
 
     cleanup_history_signal = pyqtSignal()
+    save_file_signal = pyqtSignal(str)
+    open_file_signal = pyqtSignal(str)
 
     """
     combines TreeGraphWidget and CommandWidget together
@@ -31,14 +33,13 @@ class MainWindow(QWidget):
         self.main_layout.setSpacing(5)
 
         self.menu_bar = QMenuBar()
-        # self.file_menu = self.menu_bar.addMenu('File')
-        # self.file_menu.addAction("Open File", )
+        self.file_menu = self.menu_bar.addMenu('File')
+        self.file_menu.addAction("Save as", self.save_file)
+        self.file_menu.addAction("Open File", self.open_file)
+        self.file_menu.addAction("Cleanup history", self.cleanup_history)
         self.settings_menu = self.menu_bar.addMenu("Settings")
         self.settings_menu.addAction("Open settings window", self.open_settings_window)
         self.settings_menu.addAction("Recover to default settings", settings_manager.recover_default)
-        self.storage_menu = self.menu_bar.addMenu("Storage")
-        self.storage_menu.addAction("Cleanup history", self.cleanup_history)
-
         self.main_layout.setMenuBar(self.menu_bar)
 
         self.setLayout(self.main_layout)
@@ -100,3 +101,23 @@ class MainWindow(QWidget):
                 QMessageBox.Ok,
             )
             
+    def save_file(self):
+        file_path, selected_filter = QFileDialog.getSaveFileName(parent=self, caption="Save Tree As",
+                                                                 filter='*.zip', initialFilter='*.zip', options=QFileDialog.Options())
+        if not file_path:
+            return
+        self.save_file_signal.emit(file_path)
+
+    def open_file(self):
+        result = QMessageBox.information(self, 'Hint',
+                                'If you open a new file, the current save will be lost.\n Please save it.',
+                                buttons= QMessageBox.Ok | QMessageBox.Cancel)
+        if result == QMessageBox.Cancel:
+            return
+        
+        file_path, selected_filter = QFileDialog.getOpenFileName(parent=self, caption="Open File",
+                                                                 filter='*.zip', initialFilter='*.zip', options=QFileDialog.Options())
+        if not file_path:
+            return
+        self.open_file_signal.emit(file_path)
+
