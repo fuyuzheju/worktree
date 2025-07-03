@@ -256,13 +256,19 @@ class WorkTree(QObject):
         node = self.get_node_by_id(node_id)
         if node is None:
             return -1
-        if node == self.root:
+        if node_id == self.root.identity:
             return -1
         new_parent = self.get_node_by_id(new_parent_id)
         if new_parent is None:
             return -1
-        if new_parent == node:
-            return -1
+
+        # you can't move a node to its child
+        curr = new_parent
+        while curr.identity != self.root.identity:
+            if curr == node:
+                return -1
+            curr = curr.parent
+
         node.parent.children.remove(node)
         new_parent.addChild(node)
         node.parent = new_parent

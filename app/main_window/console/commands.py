@@ -702,7 +702,10 @@ class MoveCommand(Command):
         if new_parent is None:
             self.error_signal.emit(f"Error: No such node {new_parent_path}.\n")
             return -1
-        tree.move_node(node.identity, new_parent.identity)
+        res = tree.move_node(node.identity, new_parent.identity)
+        if res == -1:
+            self.error_signal.emit("Failed to move node.\n")
+            return -1
         self.output_signal.emit("Node moved successfully.\n")
         return 0
     
