@@ -108,7 +108,7 @@ if __name__ == '__main__':
     main_window = MainWindow(work_tree)
     main_window.show()
     logger.debug("Main window created.")
-    if settings_manager.get("createTroyIcon", type=bool):
+    if settings_manager.get("createTrayIcon", type=bool):
         tray_icon = setup_tray_icon(main_window)
 
     mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", main_window)
