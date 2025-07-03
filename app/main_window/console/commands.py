@@ -248,6 +248,64 @@ class CompleteCurrentCommand(Command):
         return None, []
 
 
+class ReopenCommand(Command):
+    @classmethod
+    @override
+    def command_str(cls) -> str:
+        return "reopen"
+    
+    @classmethod
+    @override
+    def command_help(cls) -> str:
+        return "reopen the completed node.\n" \
+            "Usage: reopen <path>"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 1,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {}
+            }
+        }
+
+    @override
+    def execute(self, tree):
+        path = self.args["arguments"]["required"][0]
+        node = path_parser(path, tree)
+        if node is None:
+            self.error_signal.emit("Error: No such node.\n")
+            return -1
+        res = tree.reopen_node(node.identity)
+        if res == -1:
+            self.error_signal.emit("Error: Node is not completed.\n")
+            return -1        
+        self.output_signal.emit("Node reopened successfully.\n")
+        return 0
+    
+    @override
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        if len(self.args["arguments"]["required"]) != 1:
+            return None, []
+        incomplete_path = self.args["arguments"]["required"][0]
+        idx = incomplete_path.rfind('/')
+        prefix = incomplete_path[:idx+1]
+        suffix = incomplete_path[idx+1:]
+        parent_node = path_parser(prefix, tree)
+        if parent_node is None:
+            return None, []
+        possible_completion_list = []
+        for child in parent_node.children:
+            if child.name.startswith(suffix):
+                possible_completion_list.append(prefix + child.name + '/')
+        mcp = max_common_prefix(possible_completion_list)
+        return mcp, possible_completion_list
+
 class CheckReadyCommand(Command):
     @classmethod
     @override
