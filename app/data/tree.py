@@ -132,9 +132,31 @@ class WorkTree(QObject):
 
         return new_node
 
+    def reopen_node(self, node_id):
+        node = self.get_node_by_id(node_id)
+        if node is None or node.status != Status.COMPLETED:
+            return -1
+        def reopen(curr: Node):
+            if curr.parent is not None and curr.parent.status == Status.COMPLETED:
+                res = reopen(curr.parent)
+                if res == -1:
+                    return -1
+            curr.status = Status.WAITING
+            return 0
+        
+        if reopen(node) == -1:
+            return -1
+        self.edit_signal.emit({
+            'type': 'reopen_node', 
+            'args':{
+                'node_id': node_id
+            }
+        })
+        return 0
+
     def complete_node(self, node_id):
         node = self.get_node_by_id(node_id)
-        if not node.is_ready():
+        if node is None or not node.is_ready():
             return -1
         node.status = Status.COMPLETED
         self.edit_signal.emit({
