@@ -72,6 +72,7 @@ class WorkTree(QObject):
     """
     edit_signal: a signal to emit the edit data, which should contain the following keys:
     - 'type': the type of the edit, which can be 'add', 'remove', 'rename', 'move'
+        Note: set 'type' to empty if other types of edit have happened, which only wants to trigger the slots of tree edit signal but no need to be recorded
     - 'args': a list of arguments, which depends on the type of the edit
     """
 
@@ -283,6 +284,6 @@ class WorkTree(QObject):
     def undo(self):
         self.undo_request.emit()
         self.edit_signal.emit({
-            'type': 'undo',
+            'type': '',
             'args': {}
         })

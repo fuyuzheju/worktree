@@ -14,4 +14,3 @@ class GlobalSignal:
             callback()
 
 quit_signal = GlobalSignal()
-cleanup_history_signal = GlobalSignal()

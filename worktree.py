@@ -5,8 +5,6 @@ from pathlib import Path
 from logging.config import dictConfig
 import sys, logging
 
-ICON_PATH = "worktree-icon.png"
-
 def global_exception_hook(exctype, value, tb):
     logging.error("Uncaught exception:", exc_info=(exctype, value, tb))
 
@@ -58,24 +56,6 @@ def setup_logging(log_dir):
     print("--- Logging configured ---")
     return 0
 
-def quit_application(app):
-    app.quit()
-
-def setup_tray_icon(connected_window: QWidget):
-    tray_icon = QSystemTrayIcon(QIcon(ICON_PATH), connected_window)
-    menu = QMenu()
-
-    quit_action = QAction('exit', connected_window)
-    quit_action.triggered.connect(quit_signal.emit)
-    menu.addAction(quit_action)
-    tray_icon.setContextMenu(menu)
-    tray_icon.show()
-    def on_tray_icon_activated(reason):
-        if reason == QSystemTrayIcon.DoubleClick:
-            connected_window.to_frontground()
-    tray_icon.activated.connect(on_tray_icon_activated)
-    return tray_icon
-
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setApplicationName("worktree")
@@ -91,31 +71,8 @@ if __name__ == '__main__':
     print(f"printing logs in dir {log_dir}.")
     logger.info(f"Logging configured. Dir: {log_dir}")
 
-    storage_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
-    storage_dir = Path(storage_dir) / "storage"
-    storage_dir.mkdir(parents=True, exist_ok=True)
-
-    from app.main_window import MainWindow
-    from app.keyboard_listener import HotkeyManager
-    from app.data.tree import WorkTree
-    from app.data.storage import Storage
-    from app.settings import settings_manager
-    from app.controls import quit_signal
-
-    work_tree = WorkTree()
-    storage = Storage(work_tree, storage_dir, 20)
-    logger.debug(f"Storage configured. Dir: {storage_dir}")
-    main_window = MainWindow(work_tree)
-    main_window.show()
-    logger.debug("Main window created.")
-    if settings_manager.get("createTrayIcon", type=bool):
-        tray_icon = setup_tray_icon(main_window)
-
-    mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", main_window)
-    logger.debug("Hotkey manager created.")
-
-    quit_signal.connect(app.quit)
-    logger.debug("Application Initialized.")
+    from app import setup_app
+    mainwindow_hotkey_manager = setup_app(app)
     exit_code = app.exec_()
 
     # cleanup
