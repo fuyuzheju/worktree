@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QDialog, QMessageBox, QFileDialog
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
+from ..settings import settings_manager
 from ..utils import set_app_state
 from ..settings_window import SettingsDialog
 
@@ -42,10 +44,23 @@ class MainWindow(QWidget):
         self.settings_menu.addAction("Recover to default settings", settings_manager.recover_default)
         self.main_layout.setMenuBar(self.menu_bar)
 
+        # hotkeys
+        self.save_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/saveFileHotkey", type=str)), self)
+        self.save_file_shortcut.activated.connect(self.save_file)
+        self.open_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)), self)
+        self.open_file_shortcut.activated.connect(self.open_file)
+        settings_manager.settings_changed.connect(self.update_settings)
+
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
 
         self.installEventFilter(self)
+    
+    def update_settings(self, keys):
+        if "hotkey/saveFileHotkey" in keys:
+            self.save_file_shortcut.setKey(QKeySequence(settings_manager.get("hotkey/saveFileHotkey", type=str)))
+        if "hotkey/openFileHotkey" in keys:
+            self.open_file_shortcut.setKey(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)))
 
     def to_frontground(self):
         self.show()

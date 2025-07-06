@@ -140,9 +140,11 @@ class SettingsDialog(QDialog):
                 value = editor.property("currentColor")
             else:
                 continue
-
-            keys_to_set.append(key)
-            values_to_set.append(value)
+            
+            value_type = type(DEFAULT_SETTINGS[key])
+            if value != settings_manager.get(key, type=value_type):
+                keys_to_set.append(key)
+                values_to_set.append(value)
         
         if keys_to_set:
             settings_manager.set(keys_to_set, values_to_set)

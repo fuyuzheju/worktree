@@ -26,7 +26,10 @@ class HotkeyManager(QObject):
         self.check_timer.timeout.connect(self.check_and_restart)
         self.check_timer.start()
     
-    def update_settings(self):
+    def update_settings(self, keys):
+        if not "hotkey/mainWindowHotkey" in keys:
+            return
+
         self.check_timer.stop()
         self.global_hotkey_listener.stop()
         self.global_hotkey_listener.join()

@@ -70,7 +70,6 @@ class CommandLineEdit(QLineEdit):
         # QT will capture this event and set the focus to the next widget when the tab key is pressed.
         # So we need to override the event function to capture the tab key's press previously and accept it.
         if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Tab:
-            print("Key: ")
             if self.is_completing:
                 self.next_completion()
             
@@ -109,7 +108,6 @@ class CommandLineEdit(QLineEdit):
         return super().keyPressEvent(event)
     
     def on_changed(self, *args):
-        print("on changed")
         self.is_completing = False
         self.completion_index = -1
         self.possible_completion_list = []
@@ -138,19 +136,14 @@ class CommandLineEdit(QLineEdit):
             self.blockSignals(False)
     
     def next_completion(self):
-        print("111")
         if len(self.possible_completion_list) == 0:
-            print("Next completion failed")
             return 
 
         self.completion_index = (self.completion_index + 1) % len(self.possible_completion_list)
         # complete to next completion
         self.set_current_argument(self.possible_completion_list[self.completion_index])
-        print("Next completion succeeded")
-        print(f"possible_completion_list: {self.possible_completion_list}")
     
     def start_completion(self):
-        print("222")
         # start completion
         incomplete_command = self.text()[:self.cursorPosition()]
         parts = incomplete_command.split()
@@ -158,7 +151,6 @@ class CommandLineEdit(QLineEdit):
             parts.append('')
         if len(parts) == 0  or \
             (len(incomplete_command) != self.cursorPosition() and incomplete_command[self.cursorPosition()] == ' '):
-            print("No completion")
             return 
         
         self.is_completing = True
@@ -175,11 +167,9 @@ class CommandLineEdit(QLineEdit):
                 self.is_completing = False
 
             if mcp == None:
-                print("Command Completion Failed")
                 return 
             if mcp != parts[0]:
                 self.set_current_argument(mcp)
-                print("Command Completion Succeeded")
         
         else:
             # complete command arguments
@@ -193,11 +183,9 @@ class CommandLineEdit(QLineEdit):
                     self.is_completing = False
 
                 if completed_command == None:
-                    print("Argument Completion Failed")
                     return
                 if completed_command != incomplete_command:
                     self.set_current_argument(completed_command)
-                    print("Argument Completion Succeeded")
 
 
 class CommandWidget(QWidget):

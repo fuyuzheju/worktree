@@ -6,7 +6,10 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
     "createTrayIcon": True, 
+
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
+    "hotkey/saveFileHotkey": QKeySequence(Qt.CTRL + Qt.Key_S).toString(), 
+    "hotkey/openFileHotkey": QKeySequence(Qt.CTRL + Qt.Key_O).toString(),
     
     "graph/minNodeWidth": 80,
     "graph/minNodeHeight": 18,
