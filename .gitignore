@@ -4,6 +4,7 @@ __pycache__
 
 logs
 *.log
+tmp
 storage
 
 TODO.md
