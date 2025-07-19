@@ -12,3 +12,5 @@ TODO.md
 build/
 dist/
 *.spec
+
+worktree.iconset
