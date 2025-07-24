@@ -6,7 +6,7 @@ def path_parser(path: str, tree: "WorkTree", path_separator: str = '/') -> "Node
     :return: the node; None when failed to find a node
     """
     if path == "":
-        return tree.current_node
+        return tree.tree.current_node
 
     if not path.endswith(path_separator):
         path += path_separator
@@ -14,10 +14,10 @@ def path_parser(path: str, tree: "WorkTree", path_separator: str = '/') -> "Node
     if path.startswith(path_separator):
         # absolute path
         path = path[1:]
-        current = tree.root
+        current = tree.tree.root
     else:
         # relative path, starts at current node
-        current = tree.current_node
+        current = tree.tree.current_node
         
     parts = path.split(path_separator)
     for p in parts:

@@ -106,7 +106,7 @@ class TreeGraphWidget(QWidget):
         self.view.setDragMode(QGraphicsView.ScrollHandDrag)
         self.layout.addWidget(self.view)
 
-        self.expand_status = {self.work_tree.root.identity: True} # store the expand status of each node item, updated dynamically by signals sent from node items
+        self.expand_status = {self.work_tree.tree.root.identity: True} # store the expand status of each node item, updated dynamically by signals sent from node items
         self.relayout_tree()
         # self.create_sample_data()
 
@@ -168,7 +168,7 @@ class TreeGraphWidget(QWidget):
                         new_prefix.append(1)
                     recursively_layout_tree(child, depth + 1, new_prefix, last_child)
         
-        recursively_layout_tree(self.work_tree.root, 0, list(), True)
+        recursively_layout_tree(self.work_tree.tree.root, 0, list(), True)
     
     def change_expanded(self, node_item):
         self.expand_status[node_item.data_node.identity] = not self.expand_status[node_item.data_node.identity]
@@ -183,13 +183,13 @@ class TreeGraphWidget(QWidget):
 
         if etype == 'add_node':
             new_node_id = edit_data['args']['new_node_id']
-            new_node = self.work_tree.get_node_by_id(new_node_id)
+            new_node = self.work_tree.tree.get_node_by_id(new_node_id)
             self.expand_status[new_node.identity] = True
             self.relayout_tree()
 
         if etype == 'switch_to':
             edit_node_id = edit_data['args']['node_id']
-            edit_node = self.work_tree.get_node_by_id(edit_node_id)
+            edit_node = self.work_tree.tree.get_node_by_id(edit_node_id)
             def check_expanded(node):
                 if not self.expand_status[node.identity]:
                     self.expand_status[node.identity] = True

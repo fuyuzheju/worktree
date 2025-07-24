@@ -455,7 +455,7 @@ class AddNodeCommand(Command):
             self.error_signal.emit("Error: Invalid node name.\n")
             return 1
         # search for node
-        current_node = tree.current_node
+        current_node = tree.tree.current_node
         for child in current_node.children:
             if child.name == name:
                 self.error_signal.emit("Error: Node already exists.\n")
@@ -507,7 +507,7 @@ class ListCommand(Command):
                 self.error_signal.emit("Error: No such node.\n")
                 return -1
         else:
-            node = tree.current_node
+            node = tree.tree.current_node
         self.output_signal.emit("Children of node " + node.name + ":\n")
         for child in node.children:
             self.output_signal.emit(child.name + '\n')
@@ -567,7 +567,7 @@ class TreeCommand(Command):
                 self.error_signal.emit("Error: No such node.\n")
                 return -1
         else:
-            node = tree.current_node
+            node = tree.tree.current_node
         self.output_signal.emit("Tree structure:\n")
         def print_tree(prefix: str, node: 'Node', is_last=True):
             self.output_signal.emit(prefix + ('└── ' if is_last else '├── ') + node.name + '\n')

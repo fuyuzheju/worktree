@@ -65,23 +65,12 @@ class Node:
         return self.__repr__()
 
 
-class WorkTree(QObject):
-    undo_request = pyqtSignal()
-    edit_signal = pyqtSignal(dict)
-
-    """
-    edit_signal: a signal to emit the edit data, which should contain the following keys:
-    - 'type': the type of the edit, which can be 'add', 'remove', 'rename', 'move'
-        Note: set 'type' to empty if other types of edit have happened, which only wants to trigger the slots of tree edit signal but no need to be recorded
-    - 'args': a list of arguments, which depends on the type of the edit
-    """
-
+class Tree:
     def __init__(self):
         super().__init__()
         self.root = Node("WorkRoot")
         self.root.status = Status.CURRENT
         self.current_node = self.get_current_node()
-        self.edit_signal.connect(self.on_edit)
     
     def get_current_node(self, start_node=None):
         if start_node is None:
@@ -106,10 +95,6 @@ class WorkTree(QObject):
             if found:
                 return found
         return None
-    
-    def on_edit(self, edit_data):
-        # log
-        logger.debug("Tree edited: %s", edit_data)
 
     def add_node(self, parent_node_id, new_node_name, new_node_id=None):
         parent_node = self.get_node_by_id(parent_node_id)
@@ -122,14 +107,6 @@ class WorkTree(QObject):
         self.current_node.status = Status.WAITING
         self.current_node = new_node
         new_node.status = Status.CURRENT
-        self.edit_signal.emit({
-            'type': 'add_node',
-            'args':{
-                'parent_node_id': parent_node.identity,
-                'new_node_name': new_node_name,
-                'new_node_id': new_node.identity
-            }
-        })
 
         return new_node
 
@@ -144,15 +121,10 @@ class WorkTree(QObject):
                     return -1
             curr.status = Status.WAITING
             return 0
-        
+
         if reopen(node) == -1:
             return -1
-        self.edit_signal.emit({
-            'type': 'reopen_node', 
-            'args':{
-                'node_id': node_id
-            }
-        })
+
         return 0
 
     def complete_node(self, node_id):
@@ -160,12 +132,6 @@ class WorkTree(QObject):
         if node is None or not node.is_ready():
             return -1
         node.status = Status.COMPLETED
-        self.edit_signal.emit({
-            'type': 'complete_node', 
-            'args':{
-                'node_id': node_id
-            }
-        })
         return 0
 
     def complete_current(self):
@@ -174,27 +140,15 @@ class WorkTree(QObject):
         self.current_node.status = Status.COMPLETED
 
         if self.current_node.parent is None:
-            self.edit_signal.emit({
-                'type': 'complete_current',
-                'args': {}
-            })
             return 0
         for child in self.current_node.parent.children:
             if child.status == Status.WAITING:
                 self.current_node = child
                 self.current_node.status = Status.CURRENT
-                self.edit_signal.emit({
-                    'type': 'complete_current',
-                    'args': {}
-                })
                 return 0
         else:
             self.current_node = self.current_node.parent
             self.current_node.status = Status.CURRENT
-            self.edit_signal.emit({
-                'type': 'complete_current',
-                'args': {}
-            })
             return 0
     
     def switch_to(self, node_id):
@@ -206,12 +160,6 @@ class WorkTree(QObject):
         self.current_node.status = Status.WAITING
         self.current_node = node
         self.current_node.status = Status.CURRENT
-        self.edit_signal.emit({
-            'type': 'switch_to', 
-            'args':{
-                'node_id': node_id
-            }
-        })
         return 0
     
     def remove_node(self, node_id):
@@ -221,12 +169,6 @@ class WorkTree(QObject):
         if node.children or node == self.root or node == self.current_node:
             return -1
         node.parent.children.remove(node)
-        self.edit_signal.emit({
-            'type': 'remove_node', 
-            'args':{
-                'node_id': node_id
-            }
-        })
         return 0
     
     def remove_subtree(self, node_id):
@@ -245,12 +187,6 @@ class WorkTree(QObject):
         node.parent.children.remove(node)
         for child in node.children:
             self.remove_subtree(child.identity)
-        self.edit_signal.emit({
-            'type': 'remove_subtree', 
-            'args':{
-                'node_id': node_id
-            }
-        })
         return 0
     
     def move_node(self, node_id, new_parent_id):
@@ -273,17 +209,4 @@ class WorkTree(QObject):
         node.parent.children.remove(node)
         new_parent.addChild(node)
         node.parent = new_parent
-        self.edit_signal.emit({
-            'type': 'move_node',
-            'args': {
-                'node_id': node_id,
-                'new_parent_id': new_parent_id
-            }
-        })
-
-    def undo(self):
-        self.undo_request.emit()
-        self.edit_signal.emit({
-            'type': '',
-            'args': {}
-        })
+        return 0

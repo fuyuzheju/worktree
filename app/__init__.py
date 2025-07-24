@@ -1,8 +1,8 @@
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QAction, QMenu, QWidget, QMessageBox
+from PyQt5.QtWidgets import QSystemTrayIcon, QAction, QMenu, QWidget, QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
-import logging, shutil, os, zipfile, json
+import logging, shutil, os, zipfile
 
 ICON_PATH = "worktree-icon.png"
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def setup_app(app):
     global storage, STORAGE_DIR
     from .main_window import MainWindow
     from .keyboard_listener import HotkeyManager
-    from .data.tree import WorkTree
+    from .data import WorkTree
     from .data.storage import Storage
     from .settings import settings_manager
     from .controls import quit_signal

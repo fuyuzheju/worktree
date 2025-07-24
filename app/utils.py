@@ -25,6 +25,8 @@ def qkeysequence_to_pynput(qt_str: str) -> str | None:
     """
     transform strings given by QKeySequence.toString() to strings that pynput parses.
     e.g. "Ctrl+Shift+S" -> "<ctrl>+<shift>+s"
+    somehow this function does not behave well on windows platform
+    future work: detect the platform and behave accordingly
     """
     if qt_str == "":
         return None

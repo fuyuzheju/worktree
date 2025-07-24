@@ -208,7 +208,7 @@ class CommandWidget(QWidget):
         self.output_area.insertPlainText("> ")
         self.Vlayout.addWidget(self.output_area)
 
-        self.command_label = QLabel(f"({self.work_tree.current_node.name}):")
+        self.command_label = QLabel(f"({self.work_tree.tree.current_node.name}):")
         self.Hlayout.addWidget(self.command_label)
         self.command_input = CommandLineEdit(self.work_tree)
         self.command_input.returnPressed.connect(self.input_command)
@@ -227,7 +227,7 @@ class CommandWidget(QWidget):
         self.output_area.moveCursor(QTextCursor.End)
         self.command_input.setReadOnly(False)
         self.command_input.setFocus()
-        self.command_label.setText(f"({self.work_tree.current_node.name}):")
+        self.command_label.setText(f"({self.work_tree.tree.current_node.name}):")
         self.output_area.insertPlainText("> ")    
 
     def input_command(self):

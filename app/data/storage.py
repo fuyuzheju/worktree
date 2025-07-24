@@ -1,6 +1,7 @@
 from pathlib import Path
-from .tree import WorkTree, Node
-import json, time, logging, shutil
+from . import WorkTree
+from .tree import Node
+import json, time, logging
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class Storage:
     
     def take_snapshot(self):
         logger.debug("Taking snapshot.")
-        root_dict = self.work_tree.root.to_dict()
+        root_dict = self.work_tree.tree.root.to_dict()
         timestamp = int(time.time())
         snapshot_dir = self.history_dir / f"snapshot_{timestamp}"
         snapshot_dir.mkdir()
@@ -89,16 +90,16 @@ class Storage:
         """
         new_root = Node.from_dict(snapshot)
         new_tree = WorkTree()
-        new_tree.root = new_root
-        new_tree.current_node = new_tree.get_current_node(new_root)
+        new_tree.tree.root = new_root
+        new_tree.tree.current_node = new_tree.tree.get_current_node(new_root)
         for operation in operations:
             op_type = operation['type']
             args = operation['args']
-            op_function = getattr(new_tree, op_type)
+            op_function = getattr(new_tree.tree, op_type)
             op_function(**args)
 
-        self.work_tree.root = new_tree.root
-        self.work_tree.current_node = new_tree.current_node
+        self.work_tree.tree.root = new_tree.tree.root
+        self.work_tree.tree.current_node = new_tree.tree.current_node
         self.op_count_since_snapshot = len(operations)
 
     def load_from_disk(self) -> None:
