@@ -43,18 +43,19 @@ def setup_app(app):
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
     work_tree = WorkTree()
-    storage = Storage(work_tree, STORAGE_DIR, 20)
+    storage = Storage(work_tree, STORAGE_DIR)
     logger.debug(f"Storage configured. Dir: {STORAGE_DIR}")
     main_window = MainWindow(work_tree)
     main_window.show()
     logger.debug("Main window created.")
 
-    main_window.cleanup_history_signal.connect(cleanup_history)
+    main_window.cleanup_history_signal.connect(storage.cleanup_history)
     main_window.save_file_signal.connect(save_tree)
     main_window.open_file_signal.connect(open_tree)
 
+    main_window.tray_icon = setup_tray_icon(main_window)
     if settings_manager.get("createTrayIcon", type=bool):
-        tray_icon = setup_tray_icon(main_window)
+        main_window.tray_icon.hide()
 
     mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", main_window)
     logger.debug("Hotkey manager created.")
@@ -63,20 +64,6 @@ def setup_app(app):
     logger.debug("Application Initialized.")
 
     return mainwindow_hotkey_manager
-
-def cleanup_history():
-    """
-    clean up all the history.
-    """
-    if storage == None:
-        return
-    shutil.rmtree(STORAGE_DIR)
-    STORAGE_DIR.mkdir()
-    storage.history_dir.mkdir()
-    storage.current_snapshot_dir = None
-    storage.op_count_since_snapshot = 0
-    storage.take_snapshot()
-    logger.info("History cleaned up.")
 
 def save_tree(output_path:str):
     if storage == None:

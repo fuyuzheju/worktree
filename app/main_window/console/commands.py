@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import override
 from PyQt5.QtCore import pyqtSignal, QObject
-import time
 from .utils import path_parser, max_common_prefix
+import time, uuid
 
 COMMAND_REGISTRY = {} # registry table of all commands, structure: {command_str: command_class}
 
@@ -461,7 +461,7 @@ class AddNodeCommand(Command):
                 self.error_signal.emit("Error: Node already exists.\n")
                 return -1
 
-        new_node = tree.add_node(current_node.identity, name)
+        new_node = tree.add_node(current_node.identity, name, str(uuid.uuid4()))
 
         # switch to the new node
         self.output_signal.emit("Node added successfully.\n")

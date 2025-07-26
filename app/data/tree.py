@@ -96,7 +96,7 @@ class Tree:
                 return found
         return None
 
-    def add_node(self, parent_node_id, new_node_name, new_node_id=None):
+    def add_node(self, parent_node_id, new_node_name, new_node_id):
         parent_node = self.get_node_by_id(parent_node_id)
         if parent_node is None:
             return -1
@@ -108,7 +108,7 @@ class Tree:
         self.current_node = new_node
         new_node.status = Status.CURRENT
 
-        return new_node
+        return 0
 
     def reopen_node(self, node_id):
         node = self.get_node_by_id(node_id)
