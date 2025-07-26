@@ -99,7 +99,7 @@ class TreeGraphWidget(QWidget):
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         self.work_tree = work_tree
-        self.work_tree.edit_signal.connect(self.on_tree_edit)
+        self.work_tree.tree_edit_signal.connect(self.on_tree_edit)
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
         self.view.setAlignment(Qt.AlignLeft | Qt.AlignTop)

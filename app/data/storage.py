@@ -1,6 +1,7 @@
 from pathlib import Path
 from . import WorkTree
 from .tree import Node
+from .reminder import Reminder
 import json, time, logging, shutil
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class HistoryStorage:
             self.take_snapshot()
         self.snapshot_interval = snapshot_interval
 
-        self.work_tree.edit_signal.connect(self.handle_edit)
+        self.work_tree.tree_edit_signal.connect(self.handle_edit)
         self.work_tree.undo_request.connect(self.undo)
 
         self.load_from_disk()
@@ -46,7 +47,7 @@ class HistoryStorage:
         
         if operation['type'] == '':
             # empty operation type is not recorded
-            # details in the clarifications of WorkTree.edit_signal
+            # details in the clarifications of WorkTree.tree_edit_signal
             return
         
         with open(self.current_snapshot_dir / 'op.log', 'a') as f:
@@ -114,7 +115,7 @@ class HistoryStorage:
         with open(self.current_snapshot_dir / 'op.log', 'r') as f:
             operations = [json.loads(line) for line in f]
         self.load_snapshot(snapshot, operations)
-        self.work_tree.edit_signal.emit({
+        self.work_tree.tree_edit_signal.emit({
             'type': '',
             'args': {}
         })
@@ -155,12 +156,34 @@ class HistoryStorage:
 
 class ReminderStorage:
     """
-    Not Implemented
+    A manager which processes the reminder storage.
     """
     def __init__(self, work_tree: WorkTree, reminder_dir: Path):
         self.work_tree = work_tree
         self.reminder_dir = reminder_dir
         self.reminder_dir.mkdir(parents=True, exist_ok=True)
+
+        self.load_from_disk()
+    
+    def handle_edit(self, operation: dict):
+        self.save_reminders()
+
+    def save_reminders(self):
+        data = []
+        for reminder in self.work_tree.reminder_service.reminders:
+            data.append(reminder.to_dict())
+
+        with open(self.reminder_dir / 'reminders.json', 'w') as f:
+            json.dump(data, f)
+    
+    def load_from_disk(self):
+        with open(self.reminder_dir / 'reminders.json', 'r') as f:
+            data = json.load(f)
+        
+        self.work_tree.reminder_service.reminders = []
+        for reminder_data in data:
+            reminder = Reminder.from_dict(reminder_data)
+            self.work_tree.reminder_service.reminders.append(reminder)
 
 
 class Storage:

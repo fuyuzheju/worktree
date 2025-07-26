@@ -97,10 +97,21 @@ class ReminderService(QObject):
             logger.debug(f"Reminder removed: {reminder}")
         except ValueError:
             logger.error(f"Reminder not found: {reminder_id}")
+        
+    def edit_reminder(self, reminder_id: str, due_time: datetime = None, message: str = None, active: bool = None):
+        reminder = self.get_reminder(reminder_id)
+        reminder.edit(due_time, message, active)
     
     def get_reminder(self, reminder_id: str) -> Reminder:
         for reminder in self.reminders:
             if reminder.reminder_id == reminder_id:
                 return reminder
         raise ValueError(f"Reminder not found: {reminder_id}")
+    
+    def on_tree_edit(self, edit_data):
+        if edit_data['type'] == 'remove':
+            node_id = edit_data['args']['node_id']
+            for reminder in self.reminders:
+                if reminder.node_id == node_id:
+                    self.remove_reminder(reminder.reminder_id)
 
