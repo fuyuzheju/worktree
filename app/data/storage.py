@@ -162,13 +162,18 @@ class ReminderStorage:
         self.work_tree = work_tree
         self.reminder_dir = reminder_dir
         self.reminder_dir.mkdir(parents=True, exist_ok=True)
+        reminder_file = self.reminder_dir / 'reminders.json'
 
-        self.load_from_disk()
+        if reminder_file.exists():
+            self.load_from_disk()
+
+        self.work_tree.reminder_edit_signal.connect(self.handle_edit)
     
     def handle_edit(self, operation: dict):
         self.save_reminders()
 
     def save_reminders(self):
+        print("save reminders")
         data = []
         for reminder in self.work_tree.reminder_service.reminders:
             data.append(reminder.to_dict())

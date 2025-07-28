@@ -61,8 +61,6 @@ class ReminderService(QObject):
     check the reminders and send signals
     """
     reminder_due = pyqtSignal(Reminder)
-    reminder_removed = pyqtSignal(Reminder)
-    reminder_added = pyqtSignal(Reminder)
 
     def __init__(self, reminders: list[Reminder] = None, parent: QObject = None):
         super().__init__(parent)
@@ -83,30 +81,35 @@ class ReminderService(QObject):
                 logger.info(f"Reminder due: {reminder}")
                 reminder.active = False
     
-    def add_reminder(self, node_id: str, due_time: datetime, message: str):
-        reminder = Reminder(node_id, due_time, message)
+    def add_reminder(self, node_id: str, due_time: datetime, message: str, reminder_id: str):
+        reminder = Reminder(node_id, due_time, message, reminder_id)
         self.reminders.append(reminder)
-        self.reminder_added.emit(reminder)
         logger.debug(f"Reminder added: {reminder}")
+        return 0
     
     def remove_reminder(self, reminder_id: str):
         try:
             reminder = self.get_reminder(reminder_id)
             self.reminders.remove(reminder)
-            self.reminder_removed.emit(reminder)
             logger.debug(f"Reminder removed: {reminder}")
+            return 0
         except ValueError:
             logger.error(f"Reminder not found: {reminder_id}")
+            return -1
         
     def edit_reminder(self, reminder_id: str, due_time: datetime = None, message: str = None, active: bool = None):
         reminder = self.get_reminder(reminder_id)
         reminder.edit(due_time, message, active)
+        return 0
     
     def get_reminder(self, reminder_id: str) -> Reminder:
         for reminder in self.reminders:
             if reminder.reminder_id == reminder_id:
                 return reminder
         raise ValueError(f"Reminder not found: {reminder_id}")
+    
+    def list_reminders(self) -> list[Reminder]:
+        return self.reminders
     
     def on_tree_edit(self, edit_data):
         if edit_data['type'] == 'remove':

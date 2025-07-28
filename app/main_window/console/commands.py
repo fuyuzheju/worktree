@@ -1,211 +1,8 @@
-from abc import ABC, abstractmethod
 from typing import override
-from PyQt5.QtCore import pyqtSignal, QObject
+from datetime import datetime
 from .utils import path_parser, max_common_prefix
-import time, uuid
-
-COMMAND_REGISTRY = {} # registry table of all commands, structure: {command_str: command_class}
-
-class CustomMeta(type(QObject), type(ABC)):
-    pass
-
-class Command(ABC, QObject, metaclass=CustomMeta):
-    """
-    the abstract base class of all commands
-    methods and properties:
-    - command_str: the name of the command
-    - command_help: the help message of the command
-    - execute: the method to execute the command and operate the tree
-    - args: arguments of the command instance
-    """
-    output_signal = pyqtSignal(str)
-    error_signal = pyqtSignal(str)
-    finish_signal = pyqtSignal()
-
-    def __init__(self, *args):
-        super().__init__()
-        self.parts = args
-        res = self.parse_parts()
-        self.status = res # 0: normal command, non-zero: error command
-        self.timestamp = time.time()
-    
-    def __init_subclass__(cls) -> None:
-        COMMAND_REGISTRY[cls.command_str()] = cls
-        return super().__init_subclass__()
-
-    def parse_parts(self):
-        """
-        parse the parts of the command into arguments and options
-        value clarificatoin:
-        None: the value of the argument or option is not set
-        - for options:
-            {}: chosen, but no args provided
-            {kw1: value1, ...}: chosen and with value provided
-        """
-        self.args = {
-            "arguments": {
-                "required": [],
-                "optional": []
-            },
-            "options": {
-                "short": {
-                    kw: None for kw in self.command_arguments_numbers()['options']['short'].keys()
-                },
-                "long": {
-                    kw: None for kw in self.command_arguments_numbers()['options']['long'].keys()
-                }
-            }
-        }
-
-        def get_value(d: dict, keys: list[str]):
-            """
-            get value from a multi-level dict by a list of keys
-            """
-            res = d.copy()
-            for key in keys:
-                res = res[key]
-            return res
-
-        stack = [['arguments', 'optional'], ['arguments', 'required']] # stack to store the currently parsed things, which still requires arguments
-        for part in self.parts:
-            if part.startswith('-'):
-                # option
-                if part.startswith('--'):
-                    # long option
-                    if part in self.command_arguments_numbers()['options']['long']:
-                        self.args['options']['long'][part] = []
-                        stack.append(['options', 'long', part])
-                    else:
-                        # unknown long option
-                        return 1
-                else:
-                    # short option
-                    if part in self.command_arguments_numbers()['options']['short']:
-                        self.args['options']['short'][part] = []
-                        stack.append(['options', 'short', part])
-                    else:
-                        # unknown short option
-                        return 1
-            else:
-                # argument
-                while stack:
-                    # argument for the currently parsed thing
-                    current = get_value(self.args, stack[-1])
-                    max_num = get_value(self.command_arguments_numbers(), stack[-1])
-                    if len(current) < max_num:
-                        break
-                    else:
-                        stack.pop()
-                
-                if not stack:
-                    # too many arguments
-                    return 2
-                
-                current.append(part)
-        
-        # TODO: here is to help auto complete to mark the last argument -----------------------
-        self.arg_stack = stack
-
-        # check if all required arguments are provided
-        if len(self.args['arguments']['required']) != self.command_arguments_numbers()['arguments']['required']:
-            return 3
-
-        for option in self.command_arguments_numbers()['options']['short'].keys():
-            got = self.args['options']['short'][option]
-            if got and len(got) != self.command_arguments_numbers()['options']['short'][option]:
-                return 3
-        for option in self.command_arguments_numbers()['options']['long'].keys():
-            got = self.args['options']['long'][option]
-            if got and len(got) != self.command_arguments_numbers()['options']['long'][option]:
-                return 3
-        
-        return 0
-    
-    @classmethod
-    @abstractmethod
-    def command_str(cls) -> str:
-        pass
-    
-    @classmethod
-    @abstractmethod
-    def command_help(cls) -> str:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def command_arguments_numbers(cls) -> dict:
-        """
-        return the arguments required and optional for the command
-        :return: {
-            "arguments": {
-                "required": `num`, 
-                "optional": `num`,
-            },
-            "options": {
-                "short": {
-                    `-name`: `num`,
-                },
-                "long": {
-                    `--name`: `num`,
-                }
-            }
-        }
-        `num` refers to the number of required arguments
-        """
-        pass
-
-    @abstractmethod
-    def execute(self, tree) -> int:
-        """
-        execute the command to operate the tree
-        no need to call finish signal here
-        all arguments are guaranteed to be provided to required numbers
-        """
-        pass
-    
-    @abstractmethod
-    def auto_complete(self) -> tuple[str, list[str]]:
-        """
-        auto complete the command
-        :param incomplete_command: the incomplete command
-        :return: a tuple of (completed_arg, possible_completion_list)
-        """
-        pass
-
-    def __call__(self, tree) -> int:
-        if self.status == 0:
-            code = self.execute(tree)
-        elif self.status == 1:
-            self.error_signal.emit("Error: Unknown option.\n")
-            code = 101
-        elif self.status == 2:
-            self.error_signal.emit("Error: Too many arguments.\n")
-            code = 102
-        elif self.status == 3:
-            self.error_signal.emit("Error: Not enough arguments.\n")
-            code = 103
-
-        self.finish_signal.emit()
-        return code
-    
-    def to_dict(self):
-        return {
-            "command_str": self.command_str(),
-            "args": self.args,
-            "timestamp": self.timestamp
-        }
-    
-    @classmethod
-    def from_dict(cls, data):
-        command_type_str = data['command_str']
-        command_class = COMMAND_REGISTRY[command_type_str]
-        if not command_class:
-            raise ValueError(f"Unknown command type: {command_type_str}")
-        
-        instance = command_class(**data['args'])
-        instance.timestamp = data['timestamp']
-        return instance
-
+from .command_bases import Command, CommandGroup, Subcommand, COMMAND_REGISTRY
+import uuid
 
 class CompleteCurrentCommand(Command):
     @classmethod
@@ -244,7 +41,7 @@ class CompleteCurrentCommand(Command):
         return 0
     
     @override
-    def auto_complete(self) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         return None, []
 
 
@@ -893,3 +690,136 @@ class HelpCommand(Command):
                 possible_completion_list.append(command)
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
+
+
+class ReminderCommand(CommandGroup):
+    """
+    Manage reminders.
+    """
+    @classmethod
+    @override
+    def command_str(cls):
+        return "rmd"
+    
+    @classmethod
+    @override
+    def command_help(cls) -> str:
+        return "Manage reminders.\n" \
+            "Usage: rmd <subcommand>"
+
+
+@ReminderCommand.register_subcommand
+class ReminderListCommand(Subcommand):
+    @classmethod
+    @override
+    def command_str(cls):
+        return "ls"
+    
+    @classmethod
+    @override
+    def command_help(cls):
+        return "List all reminders.\n" \
+            "Usage: rmd ls" \
+            "\nOptions:" \
+            "\n  -a, --all    show all reminders, including inactive ones." \
+            "\n  -l, --long   show long format of reminders."
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 0,
+            },
+            "options": {
+                "short": {"-a": 0, "-l": 0},
+                "long": {"--all": 0, "--long": 0},
+            }
+        }
+    
+    @override
+    def execute(self, tree: 'WorkTree'):
+        print(self.parts, self.args)
+        if self.args['options']['short']['-l'] is not None or self.args['options']['long']['--long'] is not None:
+            def format_reminder(reminder):
+                return f"{reminder.message}     {reminder.node_id}     {reminder.due_time.isoformat()}     {reminder.active}     {reminder.reminder_id}\n"
+        else:
+            def format_reminder(reminder):
+                return f"{reminder.message}     {reminder.due_time}\n"
+
+        if self.args['options']['short']['-a'] is not None or self.args['options']['long']['--all'] is not None:
+            for reminder in tree.reminder_service.list_reminders():
+                self.output_signal.emit(format_reminder(reminder))
+        
+        else:
+            for reminder in tree.reminder_service.list_reminders():
+                if reminder.active:
+                    self.output_signal.emit(format_reminder(reminder))
+        return 0
+    
+    @override
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
+
+
+@ReminderCommand.register_subcommand
+class ReminderAddCommand(Subcommand):
+    @classmethod
+    @override
+    def command_str(cls):
+        return "add"
+    
+    @classmethod
+    @override
+    def command_help(cls):
+        return "Not Implemented"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 2,
+                "optional": 0,
+            },
+            "options": {
+                "short": {"-m": 1},
+                "long": {"--message": 1},
+            }
+        }
+    
+    @override
+    def execute(self, tree: 'WorkTree'):
+        # self.output_signal.emit("test\n")
+        node_path = self.args["arguments"]["required"][0]
+        due_time_format = self.args["arguments"]["required"][1]
+
+        node = path_parser(node_path, tree)
+        if node is None:
+            self.error_signal.emit("Error: No such node.\n")
+            return -1
+
+        if self.args["options"]["short"]["-m"] is None and self.args["options"]["long"]["--message"] is None:
+            message = node.name
+        elif self.args["options"]["short"]["-m"] is not None:
+            message = self.args["options"]["short"]["-m"]
+        elif self.args["options"]["long"]["--message"] is not None:
+            message = self.args["options"]["long"]["--message"]
+
+        try:
+            due_time = datetime.fromisoformat(due_time_format)
+        except ValueError:
+            self.error_signal.emit("Error: Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.\n")
+            return -1
+            
+        tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4()))
+        return 0
+    
+    @override
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
+
+
+# at the end of this file, COMMAND_REGISTRY has been automatically initialized,
+# through the __init_subclass__ method of Command class.

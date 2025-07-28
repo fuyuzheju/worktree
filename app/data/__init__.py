@@ -26,6 +26,7 @@ class WorkTree(QObject):
         self.tree_edit_signal.connect(self.on_tree_edit)
         self.tree_edit_signal.connect(self.reminder_service.on_tree_edit)
         self.init_tree_apis()
+        self.init_reminder_apis()
     
     def on_tree_edit(self, edit_data):
         logger.debug("Tree edited: %s", edit_data)
@@ -47,7 +48,7 @@ class WorkTree(QObject):
 
         for name in api_names:
             success_cond = success_conditions.get(name, default_success_condition)
-            original_func = getattr(self.tree, name)
+            original_func = getattr(self.reminder_service, name)
 
             def create_api(func, s_cond, api_type):
                 def api_method(self, *args, **kwargs):

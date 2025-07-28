@@ -6,6 +6,7 @@ logs
 *.log
 tmp
 storage
+viztracer.json
 
 TODO.md
 
