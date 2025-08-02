@@ -4,6 +4,16 @@ from .utils import path_parser, max_common_prefix
 from .command_bases import Command, CommandGroup, Subcommand, COMMAND_REGISTRY
 import uuid
 
+# clarifications:
+# short options are with one dash, while long options are with two dashes
+# if an short option does the same thing as a long option, the short option will be prioritized
+# e.g.
+# -m "message1" --message "message2" 
+# the message will finally be set to "message1"
+
+
+
+
 class CompleteCurrentCommand(Command):
     @classmethod
     @override
@@ -62,7 +72,7 @@ class ReopenCommand(Command):
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
-                "required": 1,
+                "required": 1, # node_path
                 "optional": 0,
             },
             "options": {
@@ -96,10 +106,8 @@ class ReopenCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -121,7 +129,7 @@ class CheckReadyCommand(Command):
         return {
             "arguments": {
                 "required": 0,
-                "optional": 1,
+                "optional": 1, # node_path
             },
             "options": {
                 "short": {},
@@ -152,10 +160,8 @@ class CheckReadyCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -177,7 +183,7 @@ class SwitchCommand(Command):
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
-                "required": 1,
+                "required": 1, # node_path
                 "optional": 0,
             },
             "options": {
@@ -211,10 +217,8 @@ class SwitchCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -236,7 +240,7 @@ class AddNodeCommand(Command):
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
-                "required": 1,
+                "required": 1, # node_name
                 "optional": 0,
             },
             "options": {
@@ -287,7 +291,7 @@ class ListCommand(Command):
         return {
             "arguments": {
                 "required": 0,
-                "optional": 1,
+                "optional": 1, # node_path
             },
             "options": {
                 "short": {},
@@ -321,10 +325,8 @@ class ListCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -347,7 +349,7 @@ class TreeCommand(Command):
         return {
             "arguments": {
                 "required": 0,
-                "optional": 1,
+                "optional": 1, # node_path
             },
             "options": {
                 "short": {},
@@ -387,10 +389,9 @@ class TreeCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -412,7 +413,7 @@ class RemoveCommand(Command):
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
-                "required": 1,
+                "required": 1, # node_path
                 "optional": 0,
             },
             "options": {
@@ -453,10 +454,9 @@ class RemoveCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -478,7 +478,7 @@ class MoveCommand(Command):
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
-                "required": 2,
+                "required": 2, # node_path, new_parent_path
                 "optional": 0,
             },
             "options": {
@@ -517,10 +517,9 @@ class MoveCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -558,10 +557,9 @@ class CheckStateCommand(Command):
         parent_node = path_parser(prefix, tree)
         if parent_node is None:
             return None, []
-        possible_completion_list = []
-        for child in parent_node.children:
-            if child.name.startswith(suffix):
-                possible_completion_list.append(prefix + child.name + '/')
+        
+        possible_completion_list = [prefix + child.name + '/'
+                for child in parent_node.children if child.name.startswith(suffix)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -656,7 +654,7 @@ class HelpCommand(Command):
         return {
             "arguments": {
                 "required": 0,
-                "optional": float('inf'),
+                "optional": float('inf'), # command_list
             },
             "options": {
                 "short": {},
@@ -684,10 +682,8 @@ class HelpCommand(Command):
         if not self.args["arguments"]["optional"]:
             return None, []
         incomplete_command = self.args["arguments"]["optional"][-1]
-        possible_completion_list = []
-        for command in COMMAND_REGISTRY.keys():
-            if command.startswith(incomplete_command):
-                possible_completion_list.append(command)
+        possible_completion_list = [command for command in COMMAND_REGISTRY.keys()
+                if command.startswith(incomplete_command)]
         mcp = max_common_prefix(possible_completion_list)
         return mcp, possible_completion_list
 
@@ -740,22 +736,21 @@ class ReminderListCommand(Subcommand):
     
     @override
     def execute(self, tree: 'WorkTree'):
-        print(self.parts, self.args)
         if self.args['options']['short']['-l'] is not None or self.args['options']['long']['--long'] is not None:
-            def format_reminder(reminder):
-                return f"{reminder.message}     {reminder.node_id}     {reminder.due_time.isoformat()}     {reminder.active}     {reminder.reminder_id}\n"
+            def format_reminder(reminder, index):
+                return f"[{index}]   {reminder.message}     {reminder.node_id}     {reminder.due_time.isoformat()}     {reminder.active}     {reminder.reminder_id}\n"
         else:
-            def format_reminder(reminder):
-                return f"{reminder.message}     {reminder.due_time}\n"
+            def format_reminder(reminder, index):
+                return f"[{index}]   {reminder.message}     {reminder.due_time}\n"
 
         if self.args['options']['short']['-a'] is not None or self.args['options']['long']['--all'] is not None:
-            for reminder in tree.reminder_service.list_reminders():
-                self.output_signal.emit(format_reminder(reminder))
+            for index, reminder in enumerate(tree.reminder_service.list_reminders()):
+                self.output_signal.emit(format_reminder(reminder, index))
         
         else:
-            for reminder in tree.reminder_service.list_reminders():
+            for index, reminder in enumerate(tree.reminder_service.list_reminders()):
                 if reminder.active:
-                    self.output_signal.emit(format_reminder(reminder))
+                    self.output_signal.emit(format_reminder(reminder, index))
         return 0
     
     @override
@@ -780,7 +775,7 @@ class ReminderAddCommand(Subcommand):
     def command_arguments_numbers(cls) -> dict:
         return {
             "arguments": {
-                "required": 2,
+                "required": 2, # node_path, due_time_format
                 "optional": 0,
             },
             "options": {
@@ -800,12 +795,11 @@ class ReminderAddCommand(Subcommand):
             self.error_signal.emit("Error: No such node.\n")
             return -1
 
-        if self.args["options"]["short"]["-m"] is None and self.args["options"]["long"]["--message"] is None:
+        message = self.args["options"]["short"]["-m"] or self.args["options"]["long"]["--message"]
+        if message is None:
             message = node.name
-        elif self.args["options"]["short"]["-m"] is not None:
-            message = self.args["options"]["short"]["-m"]
-        elif self.args["options"]["long"]["--message"] is not None:
-            message = self.args["options"]["long"]["--message"]
+        else:
+            message = message[0]
 
         try:
             due_time = datetime.fromisoformat(due_time_format)
@@ -820,6 +814,138 @@ class ReminderAddCommand(Subcommand):
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
         return None, []
 
+
+@ReminderCommand.register_subcommand
+class ReminderRemoveCommand(Subcommand):
+    @classmethod
+    @override
+    def command_str(cls):
+        return "rm"
+    
+    @classmethod
+    @override
+    def command_help(cls):
+        return "Not Implemented"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0, # reminder_id
+                "optional": 1,
+            },
+            "options": {
+                "short": {"-i": 1},
+                "long": {"--index": 1},
+            }
+        }
+    
+    @override
+    def execute(self, tree: 'WorkTree'):
+        if self.args["arguments"]["optional"]:
+            reminder_id = self.args["arguments"]["optional"][0]
+
+        else:
+            index = self.args["options"]["short"]["-i"] or self.args["options"]["long"]["--index"]
+            if index is None:
+                self.error_signal.emit("Error: Please specify either the index or id of the reminder.\n")
+                return -1
+            try:
+                index = int(index[0])
+                reminder_id = tree.reminder_service.list_reminders()[index].reminder_id
+            except IndexError:
+                self.error_signal.emit("Error: No such reminder.\n")
+                return -1
+            except ValueError:
+                self.error_signal.emit("Error: Invalid index.\n")
+                return -1
+
+        res = tree.remove_reminder(reminder_id)
+        if res == -1:
+            self.error_signal.emit("Error: No such reminder.\n")
+            return -1
+        self.output_signal.emit("Reminder removed.\n")
+        return 0
+    
+    @override
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
+
+
+@ReminderCommand.register_subcommand
+class ReminderSetCommand(Subcommand):
+    @classmethod
+    @override
+    def command_str(cls):
+        return "set"
+    
+    @classmethod
+    @override
+    def command_help(cls):
+        return "Not Implemented"
+    
+    @classmethod
+    @override
+    def command_arguments_numbers(cls) -> dict:
+        return {
+            "arguments": {
+                "required": 0, # reminder_id
+                "optional": 1,
+            },
+            "options": {
+                "short": {"-m": 1, "-t": 1, "-a": 1, "-i": 1},
+                "long": {"--message": 1, "--time": 1, "--active": 1, "--index": 1},
+            }
+        }
+    
+    @override
+    def execute(self, tree: 'WorkTree'):
+        if self.args["arguments"]["optional"]:
+            reminder_id = self.args["arguments"]["optional"][0]
+        else:
+            index = self.args["options"]["short"]["-i"] or self.args["options"]["long"]["--index"]
+            if index is None:
+                self.error_signal.emit("Error: Please specify either the index or id of the reminder.\n")
+                return -1
+            try:
+                index = int(index[0])
+                reminder_id = tree.reminder_service.list_reminders()[index].reminder_id
+            except IndexError:
+                self.error_signal.emit("Error: No such reminder.\n")
+                return -1
+            except ValueError:
+                self.error_signal.emit("Error: Invalid index.\n")
+                return -1
+        new_message = self.args["options"]["short"]["-m"] or self.args["options"]["long"]["--message"]
+        new_due_time_format = self.args["options"]["short"]["-t"] or self.args["options"]["long"]["--time"]
+        new_active = self.args["options"]["short"]["-a"] or self.args["options"]["long"]["--active"]
+
+        if new_message is not None:
+            new_message = new_message[0]
+        if new_active is not None:
+            if new_active[0] not in ["0", "1"]:
+                self.error_signal.emit("Error: Invalid active value. Please use 0 or 1.\n")
+                return -1
+            new_active = bool(int(new_active[0]))
+
+        if new_due_time_format is not None:
+            new_due_time_format = new_due_time_format[0]
+            try:
+                new_due_time = datetime.fromisoformat(new_due_time_format)
+            except ValueError:
+                self.error_signal.emit("Error: Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.\n")
+                return -1
+        else:
+            new_due_time = None
+        
+        tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
+
+        # TODO: NOT IMPLEMENTED!!! AND THE ABOVE CODE MAY NOT CORRECT AS WELL!!!
+
+    @override
+    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+        return None, []
 
 # at the end of this file, COMMAND_REGISTRY has been automatically initialized,
 # through the __init_subclass__ method of Command class.

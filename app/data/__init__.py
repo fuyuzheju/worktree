@@ -39,7 +39,7 @@ class WorkTree(QObject):
         api_names = [
             'add_reminder',
             'remove_reminder',
-            'edit_reminder',
+            'set_reminder',
         ]
 
         success_conditions = {

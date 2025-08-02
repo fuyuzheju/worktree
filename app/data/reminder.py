@@ -17,7 +17,7 @@ class Reminder:
         self.reminder_id = reminder_id or str(uuid.uuid4())
         self.active = active
     
-    def edit(self, due_time: datetime = None, message: str = None, active: bool = None):
+    def set(self, due_time: datetime = None, message: str = None, active: bool = None):
         if due_time is not None:
             self.due_time = due_time
         if message is not None:
@@ -88,25 +88,23 @@ class ReminderService(QObject):
         return 0
     
     def remove_reminder(self, reminder_id: str):
-        try:
-            reminder = self.get_reminder(reminder_id)
-            self.reminders.remove(reminder)
-            logger.debug(f"Reminder removed: {reminder}")
-            return 0
-        except ValueError:
-            logger.error(f"Reminder not found: {reminder_id}")
-            return -1
-        
-    def edit_reminder(self, reminder_id: str, due_time: datetime = None, message: str = None, active: bool = None):
         reminder = self.get_reminder(reminder_id)
-        reminder.edit(due_time, message, active)
+        if reminder is None:
+            return -1
+        self.reminders.remove(reminder)
+        logger.debug(f"Reminder removed: {reminder}")
+        return 0
+        
+    def set_reminder(self, reminder_id: str, due_time: datetime = None, message: str = None, active: bool = None):
+        reminder = self.get_reminder(reminder_id)
+        reminder.set(due_time, message, active)
         return 0
     
     def get_reminder(self, reminder_id: str) -> Reminder:
         for reminder in self.reminders:
             if reminder.reminder_id == reminder_id:
                 return reminder
-        raise ValueError(f"Reminder not found: {reminder_id}")
+        return None
     
     def list_reminders(self) -> list[Reminder]:
         return self.reminders

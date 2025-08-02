@@ -118,11 +118,11 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
         for option in self.command_arguments_numbers()['options']['short'].keys():
             got = self.args['options']['short'][option]
-            if got and len(got) != self.command_arguments_numbers()['options']['short'][option]:
+            if got is not None and len(got) != self.command_arguments_numbers()['options']['short'][option]:
                 return 3
         for option in self.command_arguments_numbers()['options']['long'].keys():
             got = self.args['options']['long'][option]
-            if got and len(got) != self.command_arguments_numbers()['options']['long'][option]:
+            if got is not None and len(got) != self.command_arguments_numbers()['options']['long'][option]:
                 return 3
         
         return 0
@@ -258,7 +258,6 @@ class CommandGroup(Command):
     
     @override
     def execute(self, tree) -> int:
-        print(self.status, self.subcommand, self.parts)
         self.subcommand.output_signal.connect(self.output_signal.emit)
         self.subcommand.error_signal.connect(self.error_signal.emit)
         self.subcommand.finish_signal.connect(self.finish_signal.emit)
