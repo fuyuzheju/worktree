@@ -71,7 +71,7 @@ class HistoryStorage:
 
         self.current_snapshot_dir = snapshot_dir
         self.op_count_since_snapshot = 0
-        logger.info(f"[Storage] Snapshot taken: {snapshot_dir}")
+        logger.info(f"Snapshot taken: {snapshot_dir}")
 
     def get_latest_snapshot(self) -> tuple[Path | None, int]:
         snapshots = list(self.history_dir.glob("snapshot_*"))

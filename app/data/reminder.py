@@ -68,6 +68,7 @@ class ReminderService(QObject):
         self.reminder_timer = QTimer(self)
         self.reminder_timer.timeout.connect(self.check_reminders)
         self.reminder_timer.setInterval(1000)
+        self.start()
     
     def start(self):
         self.reminder_timer.start()
@@ -81,8 +82,9 @@ class ReminderService(QObject):
                 logger.info(f"Reminder due: {reminder}")
                 reminder.active = False
     
-    def add_reminder(self, node_id: str, due_time: datetime, message: str, reminder_id: str):
-        reminder = Reminder(node_id, due_time, message, reminder_id)
+    def add_reminder(self, node_id: str, due_time: datetime, message: str,
+                     reminder_id : str = None, active: bool = True):
+        reminder = Reminder(node_id, due_time, message, reminder_id, active)
         self.reminders.append(reminder)
         logger.debug(f"Reminder added: {reminder}")
         return 0
@@ -115,4 +117,12 @@ class ReminderService(QObject):
             for reminder in self.reminders:
                 if reminder.node_id == node_id:
                     self.remove_reminder(reminder.reminder_id)
+    
+    def get_reminders_by_node_id(self, node_id: str) -> list[Reminder]:
+        ret = []
+        for reminder in self.reminders:
+            if reminder.node_id == node_id:
+                ret.append(reminder)
+        # print('IN SERVICE' ,ret)
+        return ret
 

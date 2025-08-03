@@ -29,7 +29,8 @@ class HotkeyManager(QObject):
     def update_settings(self, keys):
         if not "hotkey/mainWindowHotkey" in keys:
             return
-
+        if not self.global_hotkey_listener:
+            return 
         self.check_timer.stop()
         self.global_hotkey_listener.stop()
         self.global_hotkey_listener.join()
@@ -49,23 +50,26 @@ class HotkeyManager(QObject):
         hotkeys_config = {
             hotkey: on_press
         }
-        self.global_hotkey_listener = keyboard.GlobalHotKeys(hotkeys_config, on_error=lambda e:logger.error("Global Hotkey error: {e}"))
-        self.global_hotkey_listener.start()
-        logger.debug(f"Started listening for hotkey: {hotkey}.")
+        if hotkey is not None:
+            self.global_hotkey_listener = keyboard.GlobalHotKeys(hotkeys_config, on_error=lambda e:logger.error("Global Hotkey error: {e}"))
+            self.global_hotkey_listener.start()
+            logger.debug(f"Started listening for hotkey: {hotkey}.")
+        else:
+            self.global_hotkey_listener = None
+            logger.warning('Global hotkey listener was not created due to empty hotkey settings.')
     
     def check_and_restart(self):
-        if not self.global_hotkey_listener:
-            logger.warning("Warning: Global hotkey listener is None.")
-        
-        if not self.global_hotkey_listener.running:
-            logger.warning("Global hotkey listener is not running, trying to restart.")
-            self.global_hotkey_listener.start()
-        
-        if not self.global_hotkey_listener.is_alive():
-            logger.warning("Global hotkey listener thread is not alive, trying to recreate.")
-            self.global_listen()
+        if self.global_hotkey_listener:
+            if not self.global_hotkey_listener.running:
+                logger.warning("Global hotkey listener is not running, trying to restart.")
+                self.global_hotkey_listener.start()
+            if not self.global_hotkey_listener.is_alive():
+                logger.warning("Global hotkey listener thread is not alive, trying to recreate.")
+                self.global_listen()
     
     def cleanup(self):
+        if not self.global_hotkey_listener:
+            return
         self.global_hotkey_listener.stop()
         self.global_hotkey_listener.join()
         self.check_timer.stop()

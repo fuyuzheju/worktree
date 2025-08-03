@@ -939,7 +939,15 @@ class ReminderSetCommand(Subcommand):
         else:
             new_due_time = None
         
+<<<<<<< Updated upstream
         tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
+=======
+        res = tree.edit_reminder(reminder_id, new_due_time, new_message, new_active)
+        if res == -1:
+            self.error_signal.emit("Error: No such reminder.\n")
+        
+        return 0
+>>>>>>> Stashed changes
 
         # TODO: NOT IMPLEMENTED!!! AND THE ABOVE CODE MAY NOT CORRECT AS WELL!!!
 
