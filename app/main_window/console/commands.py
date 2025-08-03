@@ -1,6 +1,6 @@
 from typing import override
 from datetime import datetime
-from .utils import path_parser, path_completor, max_common_prefix
+from .utils import path_parser, path_completor, max_common_prefix, time_parser
 from .command_bases import Command, CommandGroup, Subcommand, COMMAND_REGISTRY
 import uuid
 
@@ -723,11 +723,11 @@ class ReminderAddCommand(Subcommand):
             message = node.name
         else:
             message = message[0]
-
+        
         try:
-            due_time = datetime.fromisoformat(due_time_format)
-        except ValueError:
-            self.error_signal.emit("Error: Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.\n")
+            due_time = time_parser(due_time_format)
+        except ValueError as e:
+            self.error_signal.emit(f"Error: {str(e)}\n")
             return -1
             
         tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4()))
@@ -855,9 +855,9 @@ class ReminderSetCommand(Subcommand):
         if new_due_time_format is not None:
             new_due_time_format = new_due_time_format[0]
             try:
-                new_due_time = datetime.fromisoformat(new_due_time_format)
-            except ValueError:
-                self.error_signal.emit("Error: Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.\n")
+                new_due_time = time_parser(new_due_time_format)
+            except ValueError as e:
+                self.error_signal.emit(f"Error: {str(e)}\n")
                 return -1
         else:
             new_due_time = None
