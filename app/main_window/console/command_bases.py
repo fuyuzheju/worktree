@@ -72,7 +72,12 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                 res = res[key]
             return res
 
-        stack = [['arguments', 'optional'], ['arguments', 'required']] # stack to store the currently parsed things, which still requires arguments
+        stack = [] # stack to store the currently parsed things, which still requires arguments
+        self.last_arg = (None, -1) # Store the type of the last argument, to help auto complete
+        if self.command_arguments_numbers()['arguments']['optional'] > 0:
+            stack.append(['arguments', 'optional'])
+        if self.command_arguments_numbers()['arguments']['required'] > 0:
+            stack.append(['arguments', 'required'])
         for part in self.parts:
             if part.startswith('-'):
                 # option
@@ -93,24 +98,18 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                         # unknown short option
                         return 1
             else:
-                # argument
-                while stack:
-                    # argument for the currently parsed thing
-                    current = get_value(self.args, stack[-1])
-                    max_num = get_value(self.command_arguments_numbers(), stack[-1])
-                    if len(current) < max_num:
-                        break
-                    else:
-                        stack.pop()
-                
                 if not stack:
-                    # too many arguments
-                    return 2
+                    self.last_arg = (None, -1)
+                    return 2 # too many arguments
+
+                # argument for the currently parsed thing
+                current = get_value(self.args, stack[-1])
+                max_num = get_value(self.command_arguments_numbers(), stack[-1])
                 
                 current.append(part)
-        
-        # TODO: here is to help auto complete to mark the last argument -----------------------
-        self.arg_stack = stack
+                self.last_arg = (stack[-1], self.last_arg[1] + 1)
+                if len(current) == max_num:
+                    stack.pop()
 
         # check if all required arguments are provided
         if len(self.args['arguments']['required']) != self.command_arguments_numbers()['arguments']['required']:
@@ -118,11 +117,11 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
         for option in self.command_arguments_numbers()['options']['short'].keys():
             got = self.args['options']['short'][option]
-            if got and len(got) != self.command_arguments_numbers()['options']['short'][option]:
+            if got is not None and len(got) != self.command_arguments_numbers()['options']['short'][option]:
                 return 3
         for option in self.command_arguments_numbers()['options']['long'].keys():
             got = self.args['options']['long'][option]
-            if got and len(got) != self.command_arguments_numbers()['options']['long'][option]:
+            if got is not None and len(got) != self.command_arguments_numbers()['options']['long'][option]:
                 return 3
         
         return 0
@@ -258,7 +257,6 @@ class CommandGroup(Command):
     
     @override
     def execute(self, tree) -> int:
-        print(self.status, self.subcommand, self.parts)
         self.subcommand.output_signal.connect(self.output_signal.emit)
         self.subcommand.error_signal.connect(self.error_signal.emit)
         self.subcommand.finish_signal.connect(self.finish_signal.emit)

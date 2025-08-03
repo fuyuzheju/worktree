@@ -146,6 +146,8 @@ class CommandLineEdit(QLineEdit):
     def start_completion(self):
         # start completion
         incomplete_command = self.text()[:self.cursorPosition()]
+        if incomplete_command == '':
+            return 
         parts = incomplete_command.split()
         if incomplete_command[-1] == ' ':
             parts.append('')

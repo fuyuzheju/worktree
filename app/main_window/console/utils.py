@@ -40,6 +40,18 @@ def path_parser(path: str, tree: "WorkTree", path_separator: str = '/') -> "Node
                 return None
     return current
 
+def path_completor(incomplete_path: str, tree: "WorkTree") -> tuple[str | None, list[str]]:
+    idx = incomplete_path.rfind('/')
+    prefix = incomplete_path[:idx+1]
+    suffix = incomplete_path[idx+1:]
+    parent_node = path_parser(prefix, tree)
+    if parent_node is None:
+        return None, []
+    possible_completion_list = [prefix + child.name + '/'
+            for child in parent_node.children if child.name.startswith(suffix)]
+    mcp = max_common_prefix(possible_completion_list)
+    return mcp, possible_completion_list
+
 def max_common_prefix(strings: list[str]) -> str | None:
     """
     find the max common prefix of a list of strings, where the target is the prefix
@@ -64,13 +76,3 @@ def max_common_prefix(strings: list[str]) -> str | None:
         mcp = mcp[:i]
     return mcp
 
-
-if __name__ == '__main__':
-    print(
-        max_common_prefix([
-            'ab',
-            'abc',
-            'abd',
-            ''
-        ])
-    )
