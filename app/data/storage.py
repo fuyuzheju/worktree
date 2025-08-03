@@ -71,7 +71,7 @@ class HistoryStorage:
 
         self.current_snapshot_dir = snapshot_dir
         self.op_count_since_snapshot = 0
-        logger.info(f"[Storage] Snapshot taken: {snapshot_dir}")
+        logger.info(f"Snapshot taken: {snapshot_dir}")
 
     def get_latest_snapshot(self) -> tuple[Path | None, int]:
         snapshots = list(self.history_dir.glob("snapshot_*"))
@@ -105,9 +105,9 @@ class HistoryStorage:
         """
         load the latest snapshot from disk.
         """
-        logger.debug("Loading from disk")
+        logger.debug("Loading history from disk.")
         if self.current_snapshot_dir is None:
-            logger.debug("[Storage] No snapshot found. Nothing to load.")
+            logger.debug("No snapshot found. Nothing to load.")
             return
         
         with open(self.current_snapshot_dir / 'snapshot.json', 'r') as f:
@@ -127,7 +127,7 @@ class HistoryStorage:
         """
 
         if self.current_snapshot_dir is None:
-            logger.debug("[Storage] No snapshot found. Nothing to undo.")
+            logger.debug("No snapshot found. Nothing to undo.")
             return
         
         with open(self.current_snapshot_dir / 'op.log', 'r') as op_file:
@@ -141,7 +141,7 @@ class HistoryStorage:
             self.current_snapshot_dir.rmdir()
             self.current_snapshot_dir, self.op_count_since_snapshot = self.get_latest_snapshot()
             if self.current_snapshot_dir is None:
-                logger.debug("[Storage] No snapshot found. Nothing to undo.")
+                logger.debug("No snapshot found. Nothing to undo.")
                 return
             
             with open(self.current_snapshot_dir / 'op.log', 'r') as op_file:
@@ -165,7 +165,10 @@ class ReminderStorage:
         reminder_file = self.reminder_dir / 'reminders.json'
 
         if reminder_file.exists():
+            logger.debug("Loading reminders from disk.")
             self.load_from_disk()
+        else:
+            logger.debug("No reminders found. Nothing to load.")
 
         self.work_tree.reminder_edit_signal.connect(self.handle_edit)
     
@@ -173,7 +176,7 @@ class ReminderStorage:
         self.save_reminders()
 
     def save_reminders(self):
-        print("save reminders")
+        logger.debug("Saving reminders.")
         data = []
         for reminder in self.work_tree.reminder_service.reminders:
             data.append(reminder.to_dict())
