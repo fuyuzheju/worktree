@@ -26,7 +26,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
     def __init__(self, *args):
         super().__init__()
-        self.parts = args
+        self.parts = list(args)
         res = self.parse_parts()
         self.status = res # 0: normal command, non-zero: error command
         self.timestamp = time.time()
@@ -71,6 +71,15 @@ class Command(ABC, QObject, metaclass=CustomMeta):
             for key in keys:
                 res = res[key]
             return res
+
+        # separate short options
+        # for example, '-al' to '-a' and '-l'
+        i = 0
+        while i < len(self.parts):
+            if self.parts[i].startswith('-') and len(self.parts[i]) > 2:
+                self.parts.insert(i + 1, '-' + self.parts[i][2:])
+                self.parts[i] = '-' + self.parts[i][1]
+            i += 1
 
         stack = [] # stack to store the currently parsed things, which still requires arguments
         self.last_arg = (None, -1) # Store the type of the last argument, to help auto complete
