@@ -122,7 +122,6 @@ class GraphicsNodeItem(QGraphicsObject):
             painter.restore()
 
     def mousePressEvent(self, event):
-        super().mousePressEvent(event)
         if event.button() == Qt.LeftButton:
             if event.pos().x() >= 0 and event.pos().y() >= 0 and self.data_node.children:
                 self.change_expanded.emit(self)

@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut, QDialog
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 from app.settings import settings_manager
