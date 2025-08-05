@@ -1,9 +1,10 @@
 from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
-    QWidget, QVBoxLayout
+    QWidget, QVBoxLayout, QMenu, QAction
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
 from ...data.tree import Status, Node
 from ...settings import settings_manager
+from app.reminders_window import EditReminderDialog
 
 class GraphicsNodeItem(QGraphicsObject):
     """
@@ -14,12 +15,17 @@ class GraphicsNodeItem(QGraphicsObject):
     request_relayout = pyqtSignal()
     change_expanded = pyqtSignal(QGraphicsObject)
 
-    def __init__(self, data_node: Node, prefix: list, is_expanded: bool):
+    request_add_reminder = pyqtSignal(QGraphicsObject)
+
+    def __init__(self, data_node: Node, prefix: list, 
+                 is_expanded: bool, reminder_inf: tuple[int, int] = (0,0)):
         super().__init__()
         self.data_node = data_node
         self.prefix = prefix
         self.is_expanded = is_expanded
         self.depth = len(prefix)
+        self.active_reminder_count, self.inactive_reminder_count = reminder_inf
+        self.reminder_count = self.active_reminder_count + self.inactive_reminder_count
 
         self.setFlag(QGraphicsObject.ItemIsSelectable, True)
         self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor", type=QColor),
@@ -28,15 +34,28 @@ class GraphicsNodeItem(QGraphicsObject):
         self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
         self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))
         self.text_pen = QPen(settings_manager.get("graph/textColor", type=QColor), settings_manager.get("graph/textPenWidth", type=float))
-        self.fixed_nodewidth, self.fixed_nodeheight = calculate_node_boundary(self.data_node.name) 
+        self.fixed_nodewidth, self.fixed_nodeheight = calculate_node_boundary(self.data_node.name)
+
+        self.reminder_dot_size = settings_manager.get("graph/reminderDotSize", type=float)
+        self.reminder_dot_spacing = settings_manager.get("graph/reminderDotSpacing", type=float)
+        self.reminder_dot_offset = settings_manager.get("graph/reminderDotOffset", type=float)
+        self.active_reminder_dot_color = settings_manager.get("graph/activeReminderDotColor", type=QColor)
+        self.inactive_reminder_dot_color = settings_manager.get("graph/inactiveReminderDotColor", type=QColor)
+        self.active_reminder_dot_pen = QPen(self.active_reminder_dot_color, 1)
+        self.active_reminder_dot_brush = QBrush(self.active_reminder_dot_color)
+        self.inactive_reminder_dot_pen = QPen(self.inactive_reminder_dot_color, 1)
+        self.inactive_reminder_dot_brush = QBrush(self.inactive_reminder_dot_color)
 
     def boundingRect(self) -> QRectF:
         # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
         # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
         H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
         V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
+        width_fixed_for_reminder_hint = self.reminder_count * \
+            (self.reminder_dot_size + self.reminder_dot_spacing) if self.reminder_count > 0 else 0
         return QRectF(-self.depth * H_SPACING, -V_SPACING,
-                      self.depth * H_SPACING + self.fixed_nodewidth, V_SPACING + self.fixed_nodeheight)
+                      self.depth * H_SPACING + self.fixed_nodewidth + width_fixed_for_reminder_hint, 
+                      V_SPACING + self.fixed_nodeheight)
 
     def paint(self, painter, option, widget=None):
         # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
@@ -79,9 +98,40 @@ class GraphicsNodeItem(QGraphicsObject):
             painter.drawText(node_rect.adjusted(0, 0, -5, 0), Qt.AlignRight | Qt.AlignVCenter, indicator)
         painter.restore()
 
+        # reminder hint icon
+        if self.active_reminder_count > 0 or self.inactive_reminder_count > 0:
+            painter.save()
+            start_x = self.fixed_nodewidth - self.reminder_dot_size + self.reminder_dot_offset
+            dot_y = - self.reminder_dot_offset
+            current_x = start_x
+
+            painter.setPen(self.active_reminder_dot_pen)
+            painter.setBrush(self.active_reminder_dot_brush)
+            for i in range(self.active_reminder_count):
+                dot_rect = QRectF(current_x, dot_y, self.reminder_dot_size, self.reminder_dot_size)
+                painter.drawEllipse(dot_rect)
+                current_x -= (self.reminder_dot_size + self.reminder_dot_spacing)
+
+            painter.setPen(self.inactive_reminder_dot_pen)
+            painter.setBrush(self.inactive_reminder_dot_brush)
+            for i in range(self.inactive_reminder_count):
+                dot_rect = QRectF(current_x, dot_y, self.reminder_dot_size, self.reminder_dot_size)
+                painter.drawEllipse(dot_rect)
+                current_x -= (self.reminder_dot_size + self.reminder_dot_spacing)
+            
+            painter.restore()
+
     def mousePressEvent(self, event):
-        if event.pos().x() >= 0 and event.pos().y() >= 0 and self.data_node.children:
-            self.change_expanded.emit(self)
+        if event.button() == Qt.LeftButton:
+            if event.pos().x() >= 0 and event.pos().y() >= 0 and self.data_node.children:
+                self.change_expanded.emit(self)
+
+    def contextMenuEvent(self, event):
+        menu = QMenu()
+        add_reminder_action = QAction("Add Reminder", self)
+        add_reminder_action.triggered.connect(lambda: self.request_add_reminder.emit(self))
+        menu.addAction(add_reminder_action)
+        menu.exec_(event.screenPos())
 
 
 class TreeGraphWidget(QWidget):
@@ -100,6 +150,7 @@ class TreeGraphWidget(QWidget):
 
         self.work_tree = work_tree
         self.work_tree.tree_edit_signal.connect(self.on_tree_edit)
+        self.work_tree.reminder_edit_signal.connect(self.relayout_tree)
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
         self.view.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -108,7 +159,6 @@ class TreeGraphWidget(QWidget):
 
         self.expand_status = {self.work_tree.tree.root.identity: True} # store the expand status of each node item, updated dynamically by signals sent from node items
         self.relayout_tree()
-        # self.create_sample_data()
 
         settings_manager.settings_changed.connect(self.update_settings)
     
@@ -149,7 +199,9 @@ class TreeGraphWidget(QWidget):
             if is_expanded is None:
                 is_expanded = True
                 self.expand_status[node.identity] = True
-            item = GraphicsNodeItem(node, prefix, is_expanded)
+            reminders = self.work_tree.reminder_service.get_reminders_by_node_id(node.identity)
+            item = GraphicsNodeItem(node, prefix, is_expanded, calculate_reminder_type(reminders))
+            item.request_add_reminder.connect(self.on_reminder_add)
             self.init_item(item)
             self.scene.addItem(item)
             item.setPos(x_pos, y_pos)
@@ -199,6 +251,12 @@ class TreeGraphWidget(QWidget):
             check_expanded(edit_node)
             self.relayout_tree()
 
+    def on_reminder_add(self, graghnode: GraphicsNodeItem):
+        node = graghnode.data_node
+        dialog = EditReminderDialog(node, self.work_tree, None)
+        dialog.exec_()
+        self.relayout_tree()
+
 def calculate_node_boundary(text: str) -> tuple[float,float] :
     """calculate a node's width and height according to its text"""
     # According to text, adjust node_length
@@ -211,3 +269,10 @@ def calculate_node_boundary(text: str) -> tuple[float,float] :
             METRICS.height() + 2 * settings_manager.get("graph/rectPenWidth", type=float),
         )
     return (fixed_nodewidth, fixed_nodeheight)
+
+def calculate_reminder_type(reminders: list) -> tuple[int, int]:
+    active = 0
+    for reminder in reminders:
+        if reminder.active:
+            active += 1
+    return (active, len(reminders) - active)

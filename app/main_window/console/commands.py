@@ -861,7 +861,6 @@ class ReminderSetCommand(Subcommand):
                 return -1
         else:
             new_due_time = None
-        
         res = tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
         if res == -1:
             self.error_signal.emit("Error: No such reminder.\n")

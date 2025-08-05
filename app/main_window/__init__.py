@@ -7,6 +7,7 @@ from .console import CommandWidget
 from ..settings import settings_manager
 from ..utils import set_app_state
 from ..settings_window import SettingsDialog
+from ..reminders_window import RemindersDialog
 
 import logging
 
@@ -26,6 +27,8 @@ class MainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("worktree")
 
+        self.worktree = work_tree
+
         self.tree_graph_widget = TreeGraphWidget(work_tree)
         self.command_widget = CommandWidget(work_tree)
         self.main_layout = QHBoxLayout()
@@ -39,6 +42,8 @@ class MainWindow(QWidget):
         self.file_menu.addAction("Save as", self.save_file)
         self.file_menu.addAction("Open File", self.open_file)
         self.file_menu.addAction("Cleanup history", self.cleanup_history)
+        self.reminder_menu = self.menu_bar.addMenu('Reminder')
+        self.reminder_menu.addAction('Manage Reminder', self.open_reminder_dialog)
         self.settings_menu = self.menu_bar.addMenu("Settings")
         self.settings_menu.addAction("Open settings window", self.open_settings_window)
         self.settings_menu.addAction("Recover to default settings", settings_manager.recover_default)
@@ -50,7 +55,7 @@ class MainWindow(QWidget):
         self.open_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)), self)
         self.open_file_shortcut.activated.connect(self.open_file)
         settings_manager.settings_changed.connect(self.update_settings)
-
+        
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
 
@@ -98,6 +103,11 @@ class MainWindow(QWidget):
     def open_settings_window(self):
         dialog = SettingsDialog(self)
         dialog.exec_()
+
+    def open_reminder_dialog(self):
+        dialog = RemindersDialog(self.worktree)
+        ret = dialog.exec_()
+        self.tree_graph_widget.relayout_tree()
     
     def cleanup_history(self):
         result = QMessageBox.warning(
@@ -135,4 +145,5 @@ class MainWindow(QWidget):
         if not file_path:
             return
         self.open_file_signal.emit(file_path)
+
 
