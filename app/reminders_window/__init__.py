@@ -170,5 +170,4 @@ class RemindersDialog(QDialog):
     
     def update_active_status(self, data_store_index, state):
         if 0 <= data_store_index < len(self.reminder_service.reminders):
-            reminder = self.reminder_service.get_reminder_by_id(self.uid_list[data_store_index])
-            reminder.active = (state == Qt.Checked)
+            self.worktree.set_reminder(self.uid_list[data_store_index], active=(state==Qt.Checked))
