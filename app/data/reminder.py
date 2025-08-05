@@ -90,7 +90,7 @@ class ReminderService(QObject):
         return 0
     
     def remove_reminder(self, reminder_id: str):
-        reminder = self.get_reminder(reminder_id)
+        reminder = self.get_reminder_by_id(reminder_id)
         if reminder is None:
             return -1
         self.reminders.remove(reminder)
@@ -98,11 +98,13 @@ class ReminderService(QObject):
         return 0
         
     def set_reminder(self, reminder_id: str, due_time: datetime = None, message: str = None, active: bool = None):
-        reminder = self.get_reminder(reminder_id)
+        reminder = self.get_reminder_by_id(reminder_id)
+        if reminder is None:
+            return -1
         reminder.set(due_time, message, active)
         return 0
     
-    def get_reminder(self, reminder_id: str) -> Reminder:
+    def get_reminder_by_id(self, reminder_id: str) -> Reminder:
         for reminder in self.reminders:
             if reminder.reminder_id == reminder_id:
                 return reminder

@@ -1,6 +1,6 @@
 from typing import override
 from datetime import datetime
-from .utils import path_parser, max_common_prefix
+from .utils import path_parser, path_completor, max_common_prefix, time_parser
 from .command_bases import Command, CommandGroup, Subcommand, COMMAND_REGISTRY
 import uuid
 
@@ -97,19 +97,10 @@ class ReopenCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if len(self.args["arguments"]["required"]) != 1:
-            return None, []
-        incomplete_path = self.args["arguments"]["required"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["required"][0]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 class CheckReadyCommand(Command):
     @classmethod
@@ -151,19 +142,10 @@ class CheckReadyCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if len(self.args["arguments"]["optional"]) != 1:
-            return None, []
-        incomplete_path = self.args["arguments"]["optional"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["optional"][0]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 
 class SwitchCommand(Command):
@@ -208,19 +190,10 @@ class SwitchCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if len(self.args["arguments"]["required"]) != 1:
-            return None, []
-        incomplete_path = self.args["arguments"]["required"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["required"][0]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 
 class AddNodeCommand(Command):
@@ -316,19 +289,10 @@ class ListCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if len(self.args["arguments"]["optional"]) != 1:
-            return None, []
-        incomplete_path = self.args["arguments"]["optional"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["optional"][0]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 
 class TreeCommand(Command):
@@ -383,17 +347,7 @@ class TreeCommand(Command):
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["optional"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        return path_completor(incomplete_path, tree)
 
 
 class RemoveCommand(Command):
@@ -445,20 +399,10 @@ class RemoveCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if len(self.args["arguments"]["required"]) != 1:
-            return None, []
-        incomplete_path = self.args["arguments"]["required"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["required"][0]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 
 class MoveCommand(Command):
@@ -508,20 +452,10 @@ class MoveCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if not len(self.args["arguments"]["required"]) in [1, 2]:
-            return None, []
-        incomplete_path = self.args["arguments"]["required"][-1]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'required'] and (self.last_arg[1] == 0 or self.last_arg[1] == 1):
+            incomplete_path = self.args["arguments"]["required"][-1]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 
 class CheckStateCommand(Command):
@@ -548,20 +482,10 @@ class CheckStateCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if len(self.args["arguments"]["required"]) != 1:
-            return None, []
-        incomplete_path = self.args["arguments"]["required"][0]
-        idx = incomplete_path.rfind('/')
-        prefix = incomplete_path[:idx+1]
-        suffix = incomplete_path[idx+1:]
-        parent_node = path_parser(prefix, tree)
-        if parent_node is None:
-            return None, []
-        
-        possible_completion_list = [prefix + child.name + '/'
-                for child in parent_node.children if child.name.startswith(suffix)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["required"][0]
+            return path_completor(incomplete_path, tree)
+        return None, []
 
 
 class UndoCommand(Command):
@@ -679,13 +603,13 @@ class HelpCommand(Command):
     
     @override
     def auto_complete(self, tree) -> tuple[str | None, list[str]]:
-        if not self.args["arguments"]["optional"]:
-            return None, []
-        incomplete_command = self.args["arguments"]["optional"][-1]
-        possible_completion_list = [command for command in COMMAND_REGISTRY.keys()
-                if command.startswith(incomplete_command)]
-        mcp = max_common_prefix(possible_completion_list)
-        return mcp, possible_completion_list
+        if self.last_arg[0] == ['arguments', 'optional']:
+            incomplete_command = self.args["arguments"]["optional"][-1]
+            possible_completion_list = [command for command in COMMAND_REGISTRY.keys()
+                    if command.startswith(incomplete_command)]
+            mcp = max_common_prefix(possible_completion_list)
+            return mcp, possible_completion_list
+        return None, []
 
 
 class ReminderCommand(CommandGroup):
@@ -786,7 +710,6 @@ class ReminderAddCommand(Subcommand):
     
     @override
     def execute(self, tree: 'WorkTree'):
-        # self.output_signal.emit("test\n")
         node_path = self.args["arguments"]["required"][0]
         due_time_format = self.args["arguments"]["required"][1]
 
@@ -800,11 +723,11 @@ class ReminderAddCommand(Subcommand):
             message = node.name
         else:
             message = message[0]
-
+        
         try:
-            due_time = datetime.fromisoformat(due_time_format)
-        except ValueError:
-            self.error_signal.emit("Error: Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.\n")
+            due_time = time_parser(due_time_format)
+        except ValueError as e:
+            self.error_signal.emit(f"Error: {str(e)}\n")
             return -1
             
         tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4()))
@@ -932,22 +855,17 @@ class ReminderSetCommand(Subcommand):
         if new_due_time_format is not None:
             new_due_time_format = new_due_time_format[0]
             try:
-                new_due_time = datetime.fromisoformat(new_due_time_format)
-            except ValueError:
-                self.error_signal.emit("Error: Invalid date format. Please use YYYY-MM-DDTHH:MM:SS.\n")
+                new_due_time = time_parser(new_due_time_format)
+            except ValueError as e:
+                self.error_signal.emit(f"Error: {str(e)}\n")
                 return -1
         else:
             new_due_time = None
-        
-<<<<<<< Updated upstream
-        tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
-=======
-        res = tree.edit_reminder(reminder_id, new_due_time, new_message, new_active)
+        res = tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
         if res == -1:
             self.error_signal.emit("Error: No such reminder.\n")
         
         return 0
->>>>>>> Stashed changes
 
         # TODO: NOT IMPLEMENTED!!! AND THE ABOVE CODE MAY NOT CORRECT AS WELL!!!
 

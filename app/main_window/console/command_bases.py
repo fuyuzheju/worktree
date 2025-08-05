@@ -72,7 +72,12 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                 res = res[key]
             return res
 
-        stack = [['arguments', 'optional'], ['arguments', 'required']] # stack to store the currently parsed things, which still requires arguments
+        stack = [] # stack to store the currently parsed things, which still requires arguments
+        self.last_arg = (None, -1) # Store the type of the last argument, to help auto complete
+        if self.command_arguments_numbers()['arguments']['optional'] > 0:
+            stack.append(['arguments', 'optional'])
+        if self.command_arguments_numbers()['arguments']['required'] > 0:
+            stack.append(['arguments', 'required'])
         for part in self.parts:
             if part.startswith('-'):
                 # option
@@ -93,24 +98,18 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                         # unknown short option
                         return 1
             else:
-                # argument
-                while stack:
-                    # argument for the currently parsed thing
-                    current = get_value(self.args, stack[-1])
-                    max_num = get_value(self.command_arguments_numbers(), stack[-1])
-                    if len(current) < max_num:
-                        break
-                    else:
-                        stack.pop()
-                
                 if not stack:
-                    # too many arguments
-                    return 2
+                    self.last_arg = (None, -1)
+                    return 2 # too many arguments
+
+                # argument for the currently parsed thing
+                current = get_value(self.args, stack[-1])
+                max_num = get_value(self.command_arguments_numbers(), stack[-1])
                 
                 current.append(part)
-        
-        # TODO: here is to help auto complete to mark the last argument -----------------------
-        self.arg_stack = stack
+                self.last_arg = (stack[-1], self.last_arg[1] + 1)
+                if len(current) == max_num:
+                    stack.pop()
 
         # check if all required arguments are provided
         if len(self.args['arguments']['required']) != self.command_arguments_numbers()['arguments']['required']:
