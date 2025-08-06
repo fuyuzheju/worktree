@@ -78,9 +78,9 @@ class ReminderService(QObject):
         now = datetime.now()
         for reminder in self.reminders:
             if reminder.due_time <= now and reminder.active:
+                reminder.active = False
                 self.reminder_due.emit(reminder)
                 logger.info(f"Reminder due: {reminder}")
-                reminder.active = False
     
     def add_reminder(self, node_id: str, due_time: datetime, message: str,
                      reminder_id : str = None, active: bool = True):

@@ -25,6 +25,10 @@ class WorkTree(QObject):
         self.reminder_service = ReminderService()
         self.tree_edit_signal.connect(self.on_tree_edit)
         self.tree_edit_signal.connect(self.reminder_service.on_tree_edit)
+        self.reminder_service.reminder_due.connect(lambda: self.reminder_edit_signal.emit({
+            'type': '',
+            'args': {}
+        }))
         self.init_tree_apis()
         self.init_reminder_apis()
     
