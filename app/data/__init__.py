@@ -80,6 +80,7 @@ class WorkTree(QObject):
             'remove_node',
             'remove_subtree',
             'move_node',
+            'get_node_by_id',
         ]
 
         success_conditions = {

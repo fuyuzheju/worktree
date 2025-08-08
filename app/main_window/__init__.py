@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
+from plyer import notification
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
@@ -55,6 +56,9 @@ class MainWindow(QWidget):
         self.open_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)), self)
         self.open_file_shortcut.activated.connect(self.open_file)
         settings_manager.settings_changed.connect(self.update_settings)
+
+        # signal
+        self.worktree.reminder_service.reminder_due.connect(self.on_reminder_due)
         
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
@@ -146,4 +150,14 @@ class MainWindow(QWidget):
             return
         self.open_file_signal.emit(file_path)
 
-
+    def on_reminder_due(self, reminder):
+        enable = settings_manager.get("displayReminderNotification", type=bool)
+        if not enable:
+            return
+        timeout = settings_manager.get("reminderNotificationDuration", type=int)
+        node = self.worktree.get_node_by_id(reminder.node_id)
+        notification.notify(title=f'[{node.name}] Reminder Due!!',
+                            message=reminder.message,
+                            app_name='WorkTree',
+                            timeout=timeout,
+                            toast=True,)

@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_SETTINGS = {
     "createTrayIcon": True, 
     "showReminderHint": True,
+    "displayReminderNotification" : True,
+    "reminderNotificationDuration" : 10,
 
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
     "hotkey/saveFileHotkey": QKeySequence(Qt.CTRL + Qt.Key_S).toString(), 
