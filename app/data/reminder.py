@@ -2,6 +2,8 @@ from PyQt5.QtCore import QObject, pyqtSignal, QTimer
 from datetime import datetime
 import uuid, logging
 
+from typing import Optional
+
 logger = logging.getLogger(__name__)
 
 class Reminder:
@@ -9,7 +11,7 @@ class Reminder:
             node_id: str, 
             due_time: datetime, 
             message: str,
-            reminder_id: str = None,
+            reminder_id: Optional[str] = None,
             active: bool = True):
         self.node_id = node_id
         self.due_time = due_time
@@ -17,7 +19,7 @@ class Reminder:
         self.reminder_id = reminder_id or str(uuid.uuid4())
         self.active = active
     
-    def set(self, due_time: datetime = None, message: str = None, active: bool = None):
+    def set(self, due_time: Optional[datetime] = None, message: Optional[str] = None, active: Optional[bool] = None):
         if due_time is not None:
             self.due_time = due_time
         if message is not None:
@@ -62,9 +64,9 @@ class ReminderService(QObject):
     """
     reminder_due = pyqtSignal(Reminder)
 
-    def __init__(self, reminders: list[Reminder] = None, parent: QObject = None):
+    def __init__(self, reminders: Optional[list[Reminder]] = None, parent: Optional[QObject] = None):
         super().__init__(parent)
-        self.reminders = reminders or []
+        self.reminders: list[Reminder] = reminders or []
         self.reminder_timer = QTimer(self)
         self.reminder_timer.timeout.connect(self.check_reminders)
         self.reminder_timer.setInterval(1000)
@@ -83,13 +85,13 @@ class ReminderService(QObject):
                 logger.info(f"Reminder due: {reminder}")
     
     def add_reminder(self, node_id: str, due_time: datetime, message: str,
-                     reminder_id : str = None, active: bool = True):
+                     reminder_id : Optional[str] = None, active: bool = True) -> int:
         reminder = Reminder(node_id, due_time, message, reminder_id, active)
         self.reminders.append(reminder)
         logger.debug(f"Reminder added: {reminder}")
         return 0
     
-    def remove_reminder(self, reminder_id: str):
+    def remove_reminder(self, reminder_id: str) -> int:
         reminder = self.get_reminder_by_id(reminder_id)
         if reminder is None:
             return -1
@@ -97,14 +99,18 @@ class ReminderService(QObject):
         logger.debug(f"Reminder removed: {reminder}")
         return 0
         
-    def set_reminder(self, reminder_id: str, due_time: datetime = None, message: str = None, active: bool = None):
+    def set_reminder(self, 
+                    reminder_id: str,
+                    due_time: Optional[datetime] = None, 
+                    message: Optional[str] = None, 
+                    active: Optional[bool] = None) -> int:
         reminder = self.get_reminder_by_id(reminder_id)
         if reminder is None:
             return -1
         reminder.set(due_time, message, active)
         return 0
     
-    def get_reminder_by_id(self, reminder_id: str) -> Reminder:
+    def get_reminder_by_id(self, reminder_id: str) -> Optional[Reminder]:
         for reminder in self.reminders:
             if reminder.reminder_id == reminder_id:
                 return reminder

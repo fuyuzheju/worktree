@@ -1,12 +1,39 @@
-from abc import ABC, abstractmethod
 from typing import override
+from abc import ABC, abstractmethod, ABCMeta
 from PyQt5.QtCore import pyqtSignal, QObject
 from .utils import max_common_prefix
 import time
 
-COMMAND_REGISTRY = {} # registry table of all commands, structure: {command_str: command_class}
+from typing import TypedDict, Optional, Any, Mapping, TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...data import WorkTree
 
-class CustomMeta(type(QObject), type(ABC)):
+COMMAND_REGISTRY: dict[str, type[Command]] = {} # registry table of all commands, structure: {command_str: command_class}
+
+
+class ParsedOptionsDict(TypedDict):
+    short: dict[str, Optional[list[str]]] # the key should begin with '-'
+    long: dict[str, Optional[list[str]]] # the key should begin with '--'
+class ParsedArgumentsDict(TypedDict):
+    required: list[str]
+    optional: list[str]
+class ParsedArgs(TypedDict):
+    arguments: ParsedArgumentsDict
+    options: ParsedOptionsDict
+
+class OptionsNumbers(TypedDict):
+    short: dict[str, int] # the key should begin with '-'
+    long: dict[str, int] # the key should begin with '--'
+class ArgumentsNumbers(TypedDict):
+    required: int
+    optional: int
+class CommandArgsNumbers(TypedDict):
+    options: OptionsNumbers
+    arguments: ArgumentsNumbers
+
+
+QObjectMeta = type(QObject)
+class CustomMeta(QObjectMeta, ABCMeta):
     pass
 
 class Command(ABC, QObject, metaclass=CustomMeta):
@@ -24,11 +51,13 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
     _register_globally = True
 
-    def __init__(self, *args):
+    def __init__(self, *args: str) -> None:
         super().__init__()
-        self.parts = list(args)
+        self.parts: list[str] = list(args)
+        self.args: ParsedArgs = {} # type: ignore
+        self.last_arg: tuple[Optional[list[str]], int] = (None, -1) # Store the type of the last argument, to help auto complete
         res = self.parse_parts()
-        self.status = res # 0: normal command, non-zero: error command
+        self.status: int = res
         self.timestamp = time.time()
     
     def __init_subclass__(cls) -> None:
@@ -39,14 +68,21 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                 COMMAND_REGISTRY[cls.command_str()] = cls
         return super().__init_subclass__()
 
-    def parse_parts(self):
+    def parse_parts(self) -> int:
         """
         parse the parts of the command into arguments and options
         value clarificatoin:
         None: the value of the argument or option is not set
         - for options:
-            {}: chosen, but no args provided
+            None: not chosen
+            []: chosen, but no args provided
             {kw1: value1, ...}: chosen and with value provided
+        
+        return code:
+        0: normal
+        1: unknown option
+        2: too many arguments
+        3: too few arguments
         """
         self.args = {
             "arguments": {
@@ -63,11 +99,11 @@ class Command(ABC, QObject, metaclass=CustomMeta):
             }
         }
 
-        def get_value(d: dict, keys: list[str]):
+        def get_value(d: Mapping[str, Any], keys: list[str]):
             """
             get value from a multi-level dict by a list of keys
             """
-            res = d.copy()
+            res = d
             for key in keys:
                 res = res[key]
             return res
@@ -82,7 +118,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
             i += 1
 
         stack = [] # stack to store the currently parsed things, which still requires arguments
-        self.last_arg = (None, -1) # Store the type of the last argument, to help auto complete
+
         if self.command_arguments_numbers()['arguments']['optional'] > 0:
             stack.append(['arguments', 'optional'])
         if self.command_arguments_numbers()['arguments']['required'] > 0:
@@ -147,7 +183,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
     @classmethod
     @abstractmethod
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls) -> CommandArgsNumbers:
         """
         return the arguments required and optional for the command
         :return: {
@@ -169,7 +205,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         pass
 
     @abstractmethod
-    def execute(self, tree) -> int:
+    def execute(self, tree: WorkTree) -> int:
         """
         execute the command to operate the tree
         no need to call finish signal here
@@ -178,7 +214,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         pass
     
     @abstractmethod
-    def auto_complete(self, tree: "WorkTree") -> tuple[str, list[str]]:
+    def auto_complete(self, tree: WorkTree) -> tuple[Optional[str], list[str]]:
         """
         auto complete the command
         :param incomplete_command: the incomplete command
@@ -186,7 +222,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         """
         pass
 
-    def __call__(self, tree) -> int:
+    def __call__(self, tree: WorkTree) -> int:
         if self.status == 0:
             code = self.execute(tree)
         elif self.status == 1:
@@ -202,7 +238,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         self.finish_signal.emit()
         return code
     
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "command_str": self.command_str(),
             "args": self.args,
@@ -210,7 +246,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         }
     
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: dict[str, Any]) -> "Command":
         command_type_str = data['command_str']
         command_class = COMMAND_REGISTRY[command_type_str]
         if not command_class:
@@ -238,19 +274,28 @@ class CommandGroup(Command):
 
     """
 
-    _subcommands = {}
+    _subcommands: dict[str, type[Subcommand]] = {}
 
-    def __init__(self, *args):
-        self.subcommand = None
+    def __init__(self, *args: str):
+        self.subcommand: Optional[Subcommand] = None
         super().__init__(*args)
 
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
-        return None
+    def command_arguments_numbers(cls) -> CommandArgsNumbers:
+        return {
+            "arguments": {
+                "required": 0,
+                "optional": 0,
+            },
+            "options": {
+                "short": {},
+                "long": {},
+            }
+        }
     
     @override
-    def parse_parts(self):
+    def parse_parts(self) -> int:
         if self.parts:
             self.subcommand_str = self.parts[0]
             if self.subcommand_str in self._subcommands:
@@ -265,14 +310,16 @@ class CommandGroup(Command):
             return 3
     
     @override
-    def execute(self, tree) -> int:
+    def execute(self, tree: WorkTree) -> int:
+        if self.subcommand is None:
+            return 100
         self.subcommand.output_signal.connect(self.output_signal.emit)
         self.subcommand.error_signal.connect(self.error_signal.emit)
         self.subcommand.finish_signal.connect(self.finish_signal.emit)
         return self.subcommand.execute(tree)
     
     @override
-    def auto_complete(self, tree: "WorkTree") -> tuple[str, list[str]]:
+    def auto_complete(self, tree: WorkTree) -> tuple[Optional[str], list[str]]:
         if self.subcommand:
             return self.subcommand.auto_complete(tree)
         else:
@@ -284,7 +331,7 @@ class CommandGroup(Command):
             return mcp, possible_completion_list
     
     @classmethod
-    def register_subcommand(cls, subcommand_class):
+    def register_subcommand(cls, subcommand_class: type[Subcommand]):
         """
         A decorator,
         registering a subcommand to this command group.
@@ -298,3 +345,5 @@ class CommandGroup(Command):
         # register
         cls._subcommands[subcommand_class.command_str()] = subcommand_class
         return subcommand_class
+
+from . import commands # initialize

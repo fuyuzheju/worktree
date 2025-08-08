@@ -1,15 +1,22 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
-from .commands import COMMAND_REGISTRY
+from .command_bases import COMMAND_REGISTRY
 from .utils import max_common_prefix
 import logging
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...data import WorkTree
 
 logger = logging.getLogger(__name__)
 
 COMMAND_HISTORY_LENGTH = 300
 
-class TreeController(QObject):
+class CommandRunner(QObject):
+    """
+    Generate command objects and run them.
+    """
     output_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
     finish_signal = pyqtSignal()
@@ -19,17 +26,17 @@ class TreeController(QObject):
         self.is_running_command = False
         self.work_tree = work_tree
     
-    def run_command(self, command: str) -> int:
+    def run_command(self, command_text: str) -> int:
         """
         run the command and return the output as a parameter to the callback function.
         :return: 0 for success, -1 for command error, 1 for invalid command
         """
-        parts = command.split()
+        parts = command_text.split()
         if len(parts) == 0:
             self.finish_signal.emit()
             return 0
         
-        logger.debug(f"Running command: {command}")
+        logger.debug(f"Running command: {command_text}")
 
         command_str = parts[0]
         command_class = COMMAND_REGISTRY.get(command_str)
@@ -53,15 +60,15 @@ class CommandLineEdit(QLineEdit):
     - up arrow: browse command history up
     - down arrow: browse command history down
     """
-    def __init__(self, work_tree, parent=None):
+    def __init__(self, work_tree: WorkTree, parent=None):
         super().__init__(parent)
-        self.command_history = []
+        self.command_history: list[str] = []
         self.current_command_index = 0
 
         self.is_completing = False # to record if the user is trying to complete the command
         self.completion_index = -1 # to record the current completion index
-        self.possible_completion_list = []
-        self.work_tree = work_tree
+        self.possible_completion_list: list[str] = []
+        self.work_tree: WorkTree = work_tree
         self.textChanged.connect(self.on_changed)
         self.cursorPositionChanged.connect(self.on_changed)
     
@@ -91,6 +98,8 @@ class CommandLineEdit(QLineEdit):
                     self.current_command_index = 0
                 command = self.command_history[self.current_command_index]
             self.setText(command)
+            self.setCursorPosition(len(command))
+            return
 
         elif event.key() == Qt.Key_Down:
             # command history browse
@@ -104,6 +113,8 @@ class CommandLineEdit(QLineEdit):
                 else:
                     command = self.command_history[self.current_command_index]
             self.setText(command)
+            self.setCursorPosition(len(command))
+            return
         
         return super().keyPressEvent(event)
     
@@ -112,7 +123,7 @@ class CommandLineEdit(QLineEdit):
         self.completion_index = -1
         self.possible_completion_list = []
     
-    def update_history(self, command):
+    def update_history(self, command: str) -> None:
         self.command_history.append(command)
         self.current_command_index = len(self.command_history)
         if len(self.command_history) > COMMAND_HISTORY_LENGTH:
@@ -136,6 +147,9 @@ class CommandLineEdit(QLineEdit):
             self.blockSignals(False)
     
     def next_completion(self):
+        """
+        complete to the next completion in the possible completion list
+        """
         if len(self.possible_completion_list) == 0:
             return 
 
@@ -144,6 +158,11 @@ class CommandLineEdit(QLineEdit):
         self.set_current_argument(self.possible_completion_list[self.completion_index])
     
     def start_completion(self):
+        """
+        start completion:
+        jump to the first completion(usually max common prefix of the possible completion list)
+        provided by the 'auto_complete' method of command class.
+        """
         # start completion
         incomplete_command = self.text()[:self.cursorPosition()]
         if incomplete_command == '':
@@ -191,14 +210,17 @@ class CommandLineEdit(QLineEdit):
 
 
 class CommandWidget(QWidget):
-    def __init__(self, work_tree, parent=None):
+    """
+    Main widget of the console, including a command input area and a output area.
+    """
+    def __init__(self, work_tree: "WorkTree", parent=None):
         super().__init__(parent)
         self.work_tree = work_tree
         self.initUI()
-        self.tree_controller = TreeController(work_tree)
-        self.tree_controller.output_signal.connect(self.output_callback)
-        self.tree_controller.error_signal.connect(self.error_callback)
-        self.tree_controller.finish_signal.connect(self.finish_callback)
+        self.command_runner = CommandRunner(work_tree)
+        self.command_runner.output_signal.connect(self.output_callback)
+        self.command_runner.error_signal.connect(self.error_callback)
+        self.command_runner.finish_signal.connect(self.finish_callback)
 
     def initUI(self):
         self.Vlayout = QVBoxLayout()
@@ -217,15 +239,15 @@ class CommandWidget(QWidget):
         self.Hlayout.addWidget(self.command_input)
         self.Vlayout.addLayout(self.Hlayout)
     
-    def output_callback(self, output):
+    def output_callback(self, output: str) -> None:
         self.output_area.moveCursor(QTextCursor.End)
         self.output_area.insertPlainText(output)
     
-    def error_callback(self, error):
+    def error_callback(self, error: str) -> None:
         self.output_area.moveCursor(QTextCursor.End)
         self.output_area.insertPlainText(error)
     
-    def finish_callback(self):
+    def finish_callback(self) -> None:
         self.output_area.moveCursor(QTextCursor.End)
         self.command_input.setReadOnly(False)
         self.command_input.setFocus()
@@ -233,7 +255,7 @@ class CommandWidget(QWidget):
         self.output_area.insertPlainText("> ")    
 
     def input_command(self):
-        if self.tree_controller.is_running_command:
+        if self.command_runner.is_running_command:
             return -1
         command = self.command_input.text()
         self.output_area.moveCursor(QTextCursor.End)
@@ -242,16 +264,16 @@ class CommandWidget(QWidget):
         self.command_input.update_history(command)
         self.command_input.setReadOnly(True)
 
-        self.tree_controller.run_command(command)
+        self.command_runner.run_command(command)
         return 0
 
 
-if __name__ == "__main__":
-    import sys
-    from PyQt5.QtWidgets import QApplication
-    from tree import TreeGraphWidget
-    app = QApplication(sys.argv)
-    tree_graph_widget = TreeGraphWidget()
-    command_widget = CommandWidget(tree_graph_widget)
-    command_widget.show()
-    sys.exit(app.exec_())
+# if __name__ == "__main__":
+#     import sys
+#     from PyQt5.QtWidgets import QApplication
+#     from tree import TreeGraphWidget
+#     app = QApplication(sys.argv)
+#     tree_graph_widget = TreeGraphWidget()
+#     command_widget = CommandWidget(tree_graph_widget)
+#     command_widget.show()
+#     sys.exit(app.exec_())

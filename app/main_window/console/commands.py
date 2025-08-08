@@ -1,8 +1,11 @@
 from typing import override
-from datetime import datetime
 from .utils import path_parser, path_completor, max_common_prefix, time_parser
-from .command_bases import Command, CommandGroup, Subcommand, COMMAND_REGISTRY
+from .command_bases import Command, CommandGroup, Subcommand
 import uuid
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ...data.tree import Node
 
 # clarifications:
 # short options are with one dash, while long options are with two dashes
@@ -17,18 +20,18 @@ import uuid
 class CompleteCurrentCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "cc"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "complete the current node.\n" \
             "Usage: cc"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -51,25 +54,25 @@ class CompleteCurrentCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
 class ReopenCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "reopen"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "reopen the completed node.\n" \
             "Usage: reopen <path>"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 1, # node_path
@@ -96,7 +99,7 @@ class ReopenCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return path_completor(incomplete_path, tree)
@@ -105,18 +108,18 @@ class ReopenCommand(Command):
 class CheckReadyCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "ck"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "check whether if the current node is ready.\n" \
             "Usage: ck [path]"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -141,7 +144,7 @@ class CheckReadyCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["optional"][0]
             return path_completor(incomplete_path, tree)
@@ -151,18 +154,18 @@ class CheckReadyCommand(Command):
 class SwitchCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "cd"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "change current node.\n" \
             "Usage: cd <path>"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 1, # node_path
@@ -189,7 +192,7 @@ class SwitchCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return path_completor(incomplete_path, tree)
@@ -199,18 +202,18 @@ class SwitchCommand(Command):
 class AddNodeCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "add"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "add a node as a child of the current node.\n" \
             "Usage: add <node_name>"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 1, # node_name
@@ -223,7 +226,7 @@ class AddNodeCommand(Command):
         }
 
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         name = self.args["arguments"]["required"][0]
         if '.' in name or '/' in name or ':' in name or name == '':
             self.error_signal.emit("Error: Invalid node name.\n")
@@ -242,25 +245,25 @@ class AddNodeCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
 class ListCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "ls"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "list the children of the current node.\n" \
             "Usage: ls [path]"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -273,7 +276,7 @@ class ListCommand(Command):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]   
             node = path_parser(path, tree)
@@ -288,7 +291,7 @@ class ListCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["optional"][0]
             return path_completor(incomplete_path, tree)
@@ -298,18 +301,18 @@ class ListCommand(Command):
 class TreeCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "tree"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "view the tree structure.\n" \
             "Usage: tree [path]"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -322,7 +325,7 @@ class TreeCommand(Command):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
             node = path_parser(path, tree)
@@ -332,7 +335,7 @@ class TreeCommand(Command):
         else:
             node = tree.tree.current_node
         self.output_signal.emit("Tree structure:\n")
-        def print_tree(prefix: str, node: 'Node', is_last=True):
+        def print_tree(prefix: str, node: Node, is_last=True):
             self.output_signal.emit(prefix + ('└── ' if is_last else '├── ') + node.name + '\n')
             child_count = len(node.children)
             for idx, child in enumerate(node.children):
@@ -341,9 +344,9 @@ class TreeCommand(Command):
                 print_tree(new_prefix, child, is_child_last)
         print_tree('', node, True)
         return 0
-
+    
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["optional"][0]
@@ -353,18 +356,18 @@ class TreeCommand(Command):
 class RemoveCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "rm"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "remove a leaf node or a subtree.\n" \
             "Usage: rm <path> [-r]"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 1, # node_path
@@ -379,7 +382,7 @@ class RemoveCommand(Command):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         path = self.args["arguments"]["required"][0]
         target = path_parser(path, tree)
         if target is None:
@@ -398,7 +401,7 @@ class RemoveCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return path_completor(incomplete_path, tree)
@@ -408,18 +411,18 @@ class RemoveCommand(Command):
 class MoveCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "mv"
 
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "move a node(subtree) to a new path.\n" \
             "Usage: mv <node_path> <new_parent_path>"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 2, # node_path, new_parent_path
@@ -432,7 +435,7 @@ class MoveCommand(Command):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         node_path = self.args["arguments"]["required"][0]
         new_parent_path = self.args["arguments"]["required"][1]
         node = path_parser(node_path, tree)
@@ -451,7 +454,7 @@ class MoveCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'required'] and (self.last_arg[1] == 0 or self.last_arg[1] == 1):
             incomplete_path = self.args["arguments"]["required"][-1]
             return path_completor(incomplete_path, tree)
@@ -461,17 +464,17 @@ class MoveCommand(Command):
 class CheckStateCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "st"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "view the state of a node.\n" \
             "Usage: st <node_path>"
 
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         node_path = self.args["arguments"]["required"][0]
         node = path_parser(node_path, tree)
         if node is None:
@@ -481,7 +484,7 @@ class CheckStateCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return path_completor(incomplete_path, tree)
@@ -491,18 +494,18 @@ class CheckStateCommand(Command):
 class UndoCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "undo"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "undo the last operation.\n" \
             "Usage: undo"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -515,30 +518,30 @@ class UndoCommand(Command):
         }
 
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         tree.undo()
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
 class ExitCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "exit"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "exit the whole app.\n" \
             "Usage: exit"
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -551,30 +554,30 @@ class ExitCommand(Command):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         from ...controls import quit_signal
         quit_signal.emit()
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
 class HelpCommand(Command):
     @classmethod
     @override
-    def command_str(cls) -> str:
+    def command_str(cls):
         return "help"
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "view this help message.\n" \
             "Usage: help [command...]"
 
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -587,7 +590,7 @@ class HelpCommand(Command):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         if not self.args["arguments"]["optional"]:
             command_list = COMMAND_REGISTRY.keys()
         else:
@@ -602,7 +605,7 @@ class HelpCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         if self.last_arg[0] == ['arguments', 'optional']:
             incomplete_command = self.args["arguments"]["optional"][-1]
             possible_completion_list = [command for command in COMMAND_REGISTRY.keys()
@@ -623,7 +626,7 @@ class ReminderCommand(CommandGroup):
     
     @classmethod
     @override
-    def command_help(cls) -> str:
+    def command_help(cls):
         return "Manage reminders.\n" \
             "Usage: rmd <subcommand>"
 
@@ -646,7 +649,7 @@ class ReminderListCommand(Subcommand):
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0,
@@ -659,7 +662,7 @@ class ReminderListCommand(Subcommand):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         if self.args['options']['short']['-l'] is not None or self.args['options']['long']['--long'] is not None:
             def format_reminder(reminder, index):
                 return f"[{index}]   {reminder.message}     {reminder.node_id}     {reminder.due_time.isoformat()}     {reminder.active}     {reminder.reminder_id}\n"
@@ -678,7 +681,7 @@ class ReminderListCommand(Subcommand):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
@@ -696,7 +699,7 @@ class ReminderAddCommand(Subcommand):
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 2, # node_path, due_time_format
@@ -709,7 +712,7 @@ class ReminderAddCommand(Subcommand):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         node_path = self.args["arguments"]["required"][0]
         due_time_format = self.args["arguments"]["required"][1]
 
@@ -734,7 +737,7 @@ class ReminderAddCommand(Subcommand):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
@@ -752,7 +755,7 @@ class ReminderRemoveCommand(Subcommand):
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0, # reminder_id
@@ -765,7 +768,7 @@ class ReminderRemoveCommand(Subcommand):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         if self.args["arguments"]["optional"]:
             reminder_id = self.args["arguments"]["optional"][0]
 
@@ -792,7 +795,7 @@ class ReminderRemoveCommand(Subcommand):
         return 0
     
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 
@@ -810,7 +813,7 @@ class ReminderSetCommand(Subcommand):
     
     @classmethod
     @override
-    def command_arguments_numbers(cls) -> dict:
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
                 "required": 0, # reminder_id
@@ -823,7 +826,7 @@ class ReminderSetCommand(Subcommand):
         }
     
     @override
-    def execute(self, tree: 'WorkTree'):
+    def execute(self, tree):
         if self.args["arguments"]["optional"]:
             reminder_id = self.args["arguments"]["optional"][0]
         else:
@@ -870,7 +873,7 @@ class ReminderSetCommand(Subcommand):
         # TODO: NOT IMPLEMENTED!!! AND THE ABOVE CODE MAY NOT CORRECT AS WELL!!!
 
     @override
-    def auto_complete(self, tree) -> tuple[str | None, list[str]]:
+    def auto_complete(self, tree):
         return None, []
 
 # at the end of this file, COMMAND_REGISTRY has been automatically initialized,

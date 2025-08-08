@@ -5,7 +5,7 @@ from ..data.reminder import ReminderService, Reminder
 from ..data import WorkTree
 from PyQt5.QtCore import QDateTime, Qt
 from functools import partial
-import datetime
+from datetime import datetime
 
 class EditReminderDialog(QDialog):
 
@@ -69,7 +69,7 @@ class EditReminderDialog(QDialog):
     def get_reminder_data(self) :
         is_active = self.active_checkbox.isChecked()
         due_time_q = self.trigger_time_input.dateTime().toString(Qt.ISODateWithMs)
-        due_time = datetime.datetime.fromisoformat(due_time_q)        
+        due_time = datetime.fromisoformat(due_time_q)        
         message = self.description_input.text()
         if not message:
             return None, None, None
@@ -93,7 +93,7 @@ class RemindersDialog(QDialog):
 
         self.worktree = worktree
         self.reminder_service = worktree.reminder_service
-        self.uid_list = []
+        self.uid_list: list[str] = []
 
         self.setup_ui()
         self.refresh()
@@ -124,7 +124,7 @@ class RemindersDialog(QDialog):
 
         self.setLayout(main_layout)
 
-    def _add_event_to_table(self, activate : bool, trigger_time: datetime, description: str):
+    def _add_event_to_table(self, activate: bool, trigger_time: datetime, description: str):
         row_position = self.reminder_table.rowCount()
         self.reminder_table.insertRow(row_position)
 
