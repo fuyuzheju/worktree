@@ -131,6 +131,5 @@ class ReminderService(QObject):
         for reminder in self.reminders:
             if reminder.node_id == node_id:
                 ret.append(reminder)
-        # print('IN SERVICE' ,ret)
         return ret
 

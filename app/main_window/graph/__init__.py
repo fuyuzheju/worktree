@@ -4,7 +4,7 @@ from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
 from ...data.tree import Status, Node
 from ...settings import settings_manager
-from app.reminders_window import EditReminderDialog
+from app.reminders_window import SetReminderDialog
 
 class GraphicsNodeItem(QGraphicsObject):
     """
@@ -151,6 +151,7 @@ class TreeGraphWidget(QWidget):
         self.work_tree = work_tree
         self.work_tree.tree_edit_signal.connect(self.on_tree_edit)
         self.work_tree.reminder_edit_signal.connect(self.relayout_tree)
+        self.work_tree.reminder_service.reminder_due.connect(self.relayout_tree)
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
         self.view.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -253,7 +254,7 @@ class TreeGraphWidget(QWidget):
 
     def on_reminder_add(self, graghnode: GraphicsNodeItem):
         node = graghnode.data_node
-        dialog = EditReminderDialog(node, self.work_tree, None)
+        dialog = SetReminderDialog(node, self.work_tree, None)
         dialog.exec_()
         self.relayout_tree()
 

@@ -9,7 +9,7 @@ from functools import partial
 from datetime import datetime
 from typing import Optional
 
-class EditReminderDialog(QDialog):
+class SetReminderDialog(QDialog):
     """
     A dialog for editing a reminder.
 
@@ -23,7 +23,7 @@ class EditReminderDialog(QDialog):
                  current_reminder: Optional[Reminder] = None,
                  parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowTitle(f"Edit Reminder On {node.name}")
+        self.setWindowTitle(f'Set Reminder On {node.name}')
         self.setFixedSize(300, 180)
 
         self.worktree = worktree
@@ -68,7 +68,7 @@ class EditReminderDialog(QDialog):
 
         button_layout = QHBoxLayout()
         self.ok_button = QPushButton("Save", self)
-        self.ok_button.clicked.connect(self.save_edit_result)
+        self.ok_button.clicked.connect(self.save_set_result)
         button_layout.addWidget(self.ok_button)
 
         self.cancel_button = QPushButton("Cancel", self)
@@ -87,7 +87,7 @@ class EditReminderDialog(QDialog):
             return None, None, None
         return is_active, due_time, message
     
-    def save_edit_result(self):
+    def save_set_result(self):
         is_active, duetime, message = self.get_reminder_data()
         if is_active is not None and duetime and message:
             if self.current_reminder == None:
@@ -115,7 +115,7 @@ class RemindersDialog(QDialog):
 
         self.reminder_table = QTableWidget(self)
         self.reminder_table.setColumnCount(5)
-        self.reminder_table.setHorizontalHeaderLabels(["Activate","Time", "Message",'Edit' ,"Delete"])
+        self.reminder_table.setHorizontalHeaderLabels(["Activate","Time", "Message",'Set' ,"Delete"])
         self.reminder_table.setColumnWidth(0, 80)
         self.reminder_table.setColumnWidth(1, 150) 
         self.reminder_table.setColumnWidth(2, 500)
@@ -128,7 +128,7 @@ class RemindersDialog(QDialog):
 
         button_layout = QHBoxLayout()
 
-        self.exit_button = QPushButton("Exit", self)
+        self.exit_button = QPushButton("Save and Exit", self)
         self.exit_button.clicked.connect(self.accept)
         button_layout.addWidget(self.exit_button)
 
@@ -148,9 +148,9 @@ class RemindersDialog(QDialog):
         self.reminder_table.setItem(row_position, 1, QTableWidgetItem(str(trigger_time)))
         self.reminder_table.setItem(row_position, 2, QTableWidgetItem(description))
 
-        edit_button = QPushButton('Edit', self)
-        edit_button.clicked.connect(partial(self.set_reminder, row_position))
-        self.reminder_table.setCellWidget(row_position, 3, edit_button)
+        set_button = QPushButton('Set', self)
+        set_button.clicked.connect(partial(self.set_reminder, row_position))
+        self.reminder_table.setCellWidget(row_position, 3, set_button)
 
         delete_button = QPushButton("Delete", self)
         delete_button.clicked.connect(partial(self.delete_reminder, row_position))
@@ -161,8 +161,8 @@ class RemindersDialog(QDialog):
         node = self.worktree.tree.get_node_by_id(node_id)
         current_id = self.uid_list[row_position]
         current_reminder = self.reminder_service.get_reminder_by_id(current_id)
-        edit_dialog = EditReminderDialog(node, self.worktree, current_reminder)
-        ret = edit_dialog.exec_()
+        set_dialog = SetReminderDialog(node, self.worktree, current_reminder)
+        ret = set_dialog.exec_()
         self.refresh()
 
     def refresh(self):
