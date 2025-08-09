@@ -2,8 +2,8 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 from typing import Optional
-from ...data import WorkTree
-from ...data.tree import Node
+from ....data import WorkTree
+from ....data.tree import Node
 
 def path_parser(path: str, tree: WorkTree, path_separator: str = '/') -> Optional[Node]:
     """
