@@ -1,16 +1,27 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QHBoxLayout, QPushButton,
                              QTableWidgetItem, QCheckBox, QMessageBox, QDialog, QLabel,
-                             QLineEdit, QDateTimeEdit) 
-from ..data.reminder import ReminderService, Reminder
+                             QLineEdit, QDateTimeEdit)
 from ..data import WorkTree
+from ..data.reminder import Reminder
+from ..data.tree import Node
 from PyQt5.QtCore import QDateTime, Qt
 from functools import partial
 from datetime import datetime
+from typing import Optional
 
 class EditReminderDialog(QDialog):
+    """
+    A dialog for editing a reminder.
 
-    def __init__(self, node , worktree: WorkTree ,
-                 current_reminder: Reminder | None = None, parent=None):
+    Parameters:
+        node (Node): The node on which the reminder is set.
+        worktree (WorkTree): The worktree instance.
+        current_reminder (Optional[Reminder]): The current reminder to edit. Defaults to None.
+        parent (Optional[QWidget]): The parent widget. Defaults to None.
+    """
+    def __init__(self, node: Node, worktree: WorkTree,
+                 current_reminder: Optional[Reminder] = None,
+                 parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle(f"Edit Reminder On {node.name}")
         self.setFixedSize(300, 180)
@@ -20,15 +31,15 @@ class EditReminderDialog(QDialog):
         self.current_reminder = current_reminder
         self.node = node
 
-        self.setup_init()
+        self.setup_ui()
 
-    def setup_init(self):
-        if self.current_reminder != None:
-            cur_time = self.current_reminder.due_time
+    def setup_ui(self):
+        if self.current_reminder is not None:
+            curr_time = self.current_reminder.due_time
             active = self.current_reminder.active
             message = self.current_reminder.message
         else:
-            cur_time = QDateTime.currentDateTime()
+            curr_time = QDateTime.currentDateTime()
             active = True
             message = ''
 
@@ -42,8 +53,9 @@ class EditReminderDialog(QDialog):
         time_layout = QHBoxLayout()
         time_layout.addWidget(QLabel("Due Time: "))
         self.trigger_time_input = QDateTimeEdit(self)
+        # TODO
         self.trigger_time_input.setDisplayFormat("MM-dd HH:mm")
-        self.trigger_time_input.setDateTime(cur_time)
+        self.trigger_time_input.setDateTime(curr_time)
         time_layout.addWidget(self.trigger_time_input)
         layout.addLayout(time_layout)
 
@@ -59,7 +71,7 @@ class EditReminderDialog(QDialog):
         self.ok_button.clicked.connect(self.save_edit_result)
         button_layout.addWidget(self.ok_button)
 
-        self.cancel_button = QPushButton("Camcel", self)
+        self.cancel_button = QPushButton("Cancel", self)
         self.cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(self.cancel_button)
         layout.addLayout(button_layout)
@@ -81,7 +93,7 @@ class EditReminderDialog(QDialog):
             if self.current_reminder == None:
                 self.worktree.add_reminder(self.node.identity, duetime, message, None, is_active)
             else:
-                self.worktree.edit_reminder(self.current_reminder.reminder_id, duetime, message, is_active)
+                self.worktree.set_reminder(self.current_reminder.reminder_id, duetime, message, is_active)
         self.accept()
 
 class RemindersDialog(QDialog):
@@ -137,14 +149,14 @@ class RemindersDialog(QDialog):
         self.reminder_table.setItem(row_position, 2, QTableWidgetItem(description))
 
         edit_button = QPushButton('Edit', self)
-        edit_button.clicked.connect(partial(self.edit_reminder, row_position))
+        edit_button.clicked.connect(partial(self.set_reminder, row_position))
         self.reminder_table.setCellWidget(row_position, 3, edit_button)
 
         delete_button = QPushButton("Delete", self)
         delete_button.clicked.connect(partial(self.delete_reminder, row_position))
         self.reminder_table.setCellWidget(row_position, 4, delete_button)
 
-    def edit_reminder(self, row_position):
+    def set_reminder(self, row_position):
         node_id = self.reminder_service.get_reminder_by_id(self.uid_list[row_position]).node_id
         node = self.worktree.tree.get_node_by_id(node_id)
         current_id = self.uid_list[row_position]

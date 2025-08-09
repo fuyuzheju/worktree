@@ -145,5 +145,3 @@ class MainWindow(QWidget):
         if not file_path:
             return
         self.open_file_signal.emit(file_path)
-
-
