@@ -1,7 +1,11 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-def path_parser(path: str, tree: "WorkTree", path_separator: str = '/') -> "Node":
+from typing import Optional
+from ...data import WorkTree
+from ...data.tree import Node
+
+def path_parser(path: str, tree: WorkTree, path_separator: str = '/') -> Optional[Node]:
     """
     parse the path and return the node
     :param path: the path to parse

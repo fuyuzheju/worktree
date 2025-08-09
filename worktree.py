@@ -63,7 +63,7 @@ if __name__ == '__main__':
     app.setOrganizationDomain("fuyuzheju.com")
     sys.excepthook = global_exception_hook
 
-    log_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+    log_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
     log_dir = Path(log_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     setup_logging(log_dir)

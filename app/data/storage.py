@@ -4,6 +4,8 @@ from .tree import Node
 from .reminder import Reminder
 import json, time, logging, shutil
 
+from typing import Optional
+
 logger = logging.getLogger(__name__)
 
 class HistoryStorage:
@@ -44,6 +46,7 @@ class HistoryStorage:
         """
         if self.current_snapshot_dir is None:
             self.take_snapshot()
+        assert self.current_snapshot_dir is not None
         
         if operation['type'] == '':
             # empty operation type is not recorded
@@ -73,7 +76,7 @@ class HistoryStorage:
         self.op_count_since_snapshot = 0
         logger.info(f"Snapshot taken: {snapshot_dir}")
 
-    def get_latest_snapshot(self) -> tuple[Path | None, int]:
+    def get_latest_snapshot(self) -> tuple[Optional[Path], int]:
         snapshots = list(self.history_dir.glob("snapshot_*"))
         if not snapshots:
             return None, 0

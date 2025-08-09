@@ -2,7 +2,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited
+    from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited # type: ignore
     def set_app_state(active):
         if not NSApp:
             return

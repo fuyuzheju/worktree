@@ -1,6 +1,7 @@
 from enum import Enum
-from PyQt5.QtCore import QObject, pyqtSignal
 import uuid, logging
+
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,12 @@ class Status(Enum):
 
 
 class Node:
-    def __init__(self, name, identity=None, status: str=None, parent=None):
+    def __init__(self, name: str, identity: Optional[str] = None, status: Optional[str] = None, parent: Optional['Node'] = None):
         self.identity = identity if identity else uuid.uuid4().hex
         self.name = name
         self.parent = parent
-        self.children = []
-        self.status = Status(status) if status else Status.WAITING # default status
+        self.children: list[Node] = []
+        self.status: Status = Status(status) if status else Status.WAITING # default status
 
     def addChild(self, child_node):
         self.children.append(child_node)
@@ -72,7 +73,7 @@ class Tree:
         self.root.status = Status.CURRENT
         self.current_node = self.get_current_node()
     
-    def get_current_node(self, start_node=None):
+    def get_current_node(self, start_node=None) -> Optional[Node]:
         if start_node is None:
             start_node = self.root
         if start_node.status == Status.CURRENT:
@@ -83,7 +84,7 @@ class Tree:
                 return found
         return None
 
-    def get_node_by_id(self, identity, start_node=None):
+    def get_node_by_id(self, identity: str, start_node=None) -> Optional[Node]:
         if start_node is None:
             start_node = self.root
 
@@ -96,7 +97,7 @@ class Tree:
                 return found
         return None
 
-    def add_node(self, parent_node_id, new_node_name, new_node_id):
+    def add_node(self, parent_node_id: str, new_node_name: str, new_node_id: Optional[str] = None) -> int:
         parent_node = self.get_node_by_id(parent_node_id)
         if parent_node is None:
             return -1
@@ -110,7 +111,7 @@ class Tree:
 
         return 0
 
-    def reopen_node(self, node_id):
+    def reopen_node(self, node_id: str) -> int:
         node = self.get_node_by_id(node_id)
         if node is None or node.status != Status.COMPLETED:
             return -1
@@ -127,14 +128,14 @@ class Tree:
 
         return 0
 
-    def complete_node(self, node_id):
+    def complete_node(self, node_id: str) -> int:
         node = self.get_node_by_id(node_id)
         if node is None or not node.is_ready():
             return -1
         node.status = Status.COMPLETED
         return 0
 
-    def complete_current(self):
+    def complete_current(self) -> int:
         if not self.current_node.is_ready():
             return -1
         self.current_node.status = Status.COMPLETED
@@ -151,7 +152,7 @@ class Tree:
             self.current_node.status = Status.CURRENT
             return 0
     
-    def switch_to(self, node_id):
+    def switch_to(self, node_id: str) -> int:
         node = self.get_node_by_id(node_id)
         if node is None:
             return -1
@@ -162,20 +163,20 @@ class Tree:
         self.current_node.status = Status.CURRENT
         return 0
     
-    def remove_node(self, node_id):
+    def remove_node(self, node_id: str) -> int:
         node = self.get_node_by_id(node_id)
         if node is None:
             return -1
-        if node.children or node == self.root or node == self.current_node:
+        if node.children or node.parent is None or node == self.current_node:
             return -1
         node.parent.children.remove(node)
         return 0
     
-    def remove_subtree(self, node_id):
+    def remove_subtree(self, node_id: str) -> int:
         node = self.get_node_by_id(node_id)
         if node is None:
             return -1
-        if node == self.root:
+        if node.parent is None:
             return -1
 
         p = self.current_node
@@ -189,19 +190,18 @@ class Tree:
             self.remove_subtree(child.identity)
         return 0
     
-    def move_node(self, node_id, new_parent_id):
+    def move_node(self, node_id: str, new_parent_id: str) -> int:
         node = self.get_node_by_id(node_id)
-        if node is None:
+        if node is None or node.parent is None:
             return -1
-        if node_id == self.root.identity:
-            return -1
+
         new_parent = self.get_node_by_id(new_parent_id)
         if new_parent is None:
             return -1
 
         # you can't move a node to its child
-        curr = new_parent
-        while curr.identity != self.root.identity:
+        curr: Optional[Node] = new_parent
+        while curr is not None and curr.identity != self.root.identity:
             if curr == node:
                 return -1
             curr = curr.parent
