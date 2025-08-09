@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QObject, pyqtSignal
-from .tree import Tree
+from .tree import Tree, Node
 from .reminder import ReminderService
 import logging, inspect, functools
 
@@ -100,11 +100,17 @@ class WorkTree(QObject):
         return self.reminder_service.remove_reminder(reminder_id)
     
     @send_signal('reminder_edit_signal')
-    def set_reminder(self, reminder_id: str, due_time: datetime, message: str, active: bool) -> int:
+    def set_reminder(self, reminder_id: str,
+                     due_time: Optional[datetime] = None,
+                     message: Optional[str] = None,
+                     active: Optional[bool] = None) -> int:
         return self.reminder_service.set_reminder(reminder_id, due_time, message, active)
 
 
     # below are the apis to operate the tree
+    def get_node_by_id(self, identity: str) -> Optional[Node]:
+        return self.tree.get_node_by_id(identity)
+
     @send_signal('tree_edit_signal')
     def add_node(self, parent_node_id: str, new_node_name: str, new_node_id: Optional[str] = None) -> int:
         return self.tree.add_node(parent_node_id, new_node_name, new_node_id)
