@@ -5,9 +5,7 @@ from .command_bases import COMMAND_REGISTRY
 from .utils import max_common_prefix
 import logging
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from ...data import WorkTree
+from ...data import WorkTree
 
 logger = logging.getLogger(__name__)
 

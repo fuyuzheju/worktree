@@ -46,6 +46,7 @@ class HistoryStorage:
         """
         if self.current_snapshot_dir is None:
             self.take_snapshot()
+        assert self.current_snapshot_dir is not None
         
         if operation['type'] == '':
             # empty operation type is not recorded

@@ -3,9 +3,7 @@ from .utils import path_parser, path_completor, max_common_prefix, time_parser
 from .command_bases import Command, CommandGroup, Subcommand
 import uuid
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from ...data.tree import Node
+from ...data.tree import Node
 
 # clarifications:
 # short options are with one dash, while long options are with two dashes

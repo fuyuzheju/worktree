@@ -5,10 +5,9 @@ from .utils import max_common_prefix
 import time
 
 from typing import TypedDict, Optional, Any, Mapping, TYPE_CHECKING
-if TYPE_CHECKING:
-    from ...data import WorkTree
+from ...data import WorkTree
 
-COMMAND_REGISTRY: dict[str, type[Command]] = {} # registry table of all commands, structure: {command_str: command_class}
+COMMAND_REGISTRY: dict[str, type["Command"]] = {} # registry table of all commands, structure: {command_str: command_class}
 
 
 class ParsedOptionsDict(TypedDict):
@@ -33,7 +32,7 @@ class CommandArgsNumbers(TypedDict):
 
 
 QObjectMeta = type(QObject)
-class CustomMeta(QObjectMeta, ABCMeta):
+class CustomMeta(QObjectMeta, ABCMeta): # type: ignore
     pass
 
 class Command(ABC, QObject, metaclass=CustomMeta):
@@ -54,7 +53,20 @@ class Command(ABC, QObject, metaclass=CustomMeta):
     def __init__(self, *args: str) -> None:
         super().__init__()
         self.parts: list[str] = list(args)
-        self.args: ParsedArgs = {} # type: ignore
+        self.args: ParsedArgs = {
+            "arguments": {
+                "required": [],
+                "optional": []
+            },
+            "options": {
+                "short": {
+                    kw: None for kw in self.command_arguments_numbers()['options']['short'].keys()
+                },
+                "long": {
+                    kw: None for kw in self.command_arguments_numbers()['options']['long'].keys()
+                }
+            }
+        }
         self.last_arg: tuple[Optional[list[str]], int] = (None, -1) # Store the type of the last argument, to help auto complete
         res = self.parse_parts()
         self.status: int = res
@@ -84,20 +96,6 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         2: too many arguments
         3: too few arguments
         """
-        self.args = {
-            "arguments": {
-                "required": [],
-                "optional": []
-            },
-            "options": {
-                "short": {
-                    kw: None for kw in self.command_arguments_numbers()['options']['short'].keys()
-                },
-                "long": {
-                    kw: None for kw in self.command_arguments_numbers()['options']['long'].keys()
-                }
-            }
-        }
 
         def get_value(d: Mapping[str, Any], keys: list[str]):
             """
