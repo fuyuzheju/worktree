@@ -1,23 +1,18 @@
-import logging
-logger = logging.getLogger(__name__)
+from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited # type: ignore
 
-try:
-    from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited # type: ignore
-    def set_app_state(active):
-        if not NSApp:
-            return
-        try:
-            if active:
-                NSApp.activateIgnoringOtherApps_(True)
-                NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
-            else:
-                NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-        except Exception as e:
-            logger.error(f"Failed to set app state: {e}")
+def set_app_state(active):
+    return 1
+    if not NSApp:
+        return
+    try:
+        if active:
+            NSApp.activateIgnoringOtherApps_(True)
+            NSApp.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+        else:
+            NSApp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+    except Exception as e:
+        raise RuntimeError("Failed to set app state.")
 
-except:
-    def set_app_state(active):
-        pass
 
 from pynput import keyboard
 import string
@@ -25,8 +20,6 @@ def qkeysequence_to_pynput(qt_str: str) -> str | None:
     """
     transform strings given by QKeySequence.toString() to strings that pynput parses.
     e.g. "Ctrl+Shift+S" -> "<ctrl>+<shift>+s"
-    somehow this function does not behave well on windows platform
-    future work: detect the platform and behave accordingly
     """
     if qt_str == "":
         return None
@@ -76,3 +69,7 @@ def qkeysequence_to_pynput(qt_str: str) -> str | None:
             pynput_parts.append(key)
             
     return "+".join(pynput_parts)
+
+
+class Notification:
+    pass

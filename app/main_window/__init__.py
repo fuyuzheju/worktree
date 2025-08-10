@@ -149,15 +149,3 @@ class MainWindow(QWidget):
         if not file_path:
             return
         self.open_file_signal.emit(file_path)
-
-    def on_reminder_due(self, reminder):
-        enable = settings_manager.get("displayReminderNotification", type=bool)
-        if not enable:
-            return
-        timeout = settings_manager.get("reminderNotificationDuration", type=int)
-        node = self.worktree.get_node_by_id(reminder.node_id)
-        notification.notify(title=f'[{node.name}] Reminder Due!!',
-                            message=reminder.message,
-                            app_name='WorkTree',
-                            timeout=timeout,
-                            toast=True,)

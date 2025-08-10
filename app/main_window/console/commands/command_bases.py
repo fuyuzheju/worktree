@@ -4,11 +4,17 @@ from PyQt5.QtCore import pyqtSignal, QObject
 from .utils import max_common_prefix
 import time
 
-from typing import TypedDict, Optional, Any, Mapping, TYPE_CHECKING
-from ...data import WorkTree
+from typing import TypedDict, Optional, Any, Mapping
+from ....data import WorkTree
 
 COMMAND_REGISTRY: dict[str, type["Command"]] = {} # registry table of all commands, structure: {command_str: command_class}
 
+# clarifications for options:
+# short options are with one dash, while long options are with two dashes
+# if an short option does the same thing as a long option, the short option will be prioritized
+# e.g.
+# -m "message1" --message "message2" 
+# the message will finally be set to "message1"
 
 class ParsedOptionsDict(TypedDict):
     short: dict[str, Optional[list[str]]] # the key should begin with '-'
@@ -343,5 +349,3 @@ class CommandGroup(Command):
         # register
         cls._subcommands[subcommand_class.command_str()] = subcommand_class
         return subcommand_class
-
-from . import commands # initialize

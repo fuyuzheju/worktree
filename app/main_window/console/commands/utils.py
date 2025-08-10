@@ -2,8 +2,8 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 from typing import Optional
-from ...data import WorkTree
-from ...data.tree import Node
+from ....data import WorkTree
+from ....data.tree import Node
 
 def path_parser(path: str, tree: WorkTree, path_separator: str = '/') -> Optional[Node]:
     """
@@ -47,7 +47,7 @@ def path_parser(path: str, tree: WorkTree, path_separator: str = '/') -> Optiona
                 return None
     return current
 
-def path_completor(incomplete_path: str, tree: "WorkTree") -> tuple[str | None, list[str]]:
+def path_completor(incomplete_path: str, tree: "WorkTree") -> tuple[Optional[str], list[str]]:
     idx = incomplete_path.rfind('/')
     prefix = incomplete_path[:idx+1]
     suffix = incomplete_path[idx+1:]
@@ -59,7 +59,7 @@ def path_completor(incomplete_path: str, tree: "WorkTree") -> tuple[str | None, 
     mcp = max_common_prefix(possible_completion_list)
     return mcp, possible_completion_list
 
-def max_common_prefix(strings: list[str]) -> str | None:
+def max_common_prefix(strings: list[str]) -> Optional[str]:
     """
     find the max common prefix of a list of strings, where the target is the prefix
     :param target: the target string

@@ -1,12 +1,14 @@
+.env
+
 __pycache__
 *.pyc
 .DS_Store
-
 logs
 *.log
 tmp
 storage
 viztracer.json
+test.py
 
 TODO.md
 

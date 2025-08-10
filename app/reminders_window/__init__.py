@@ -1,16 +1,27 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QHBoxLayout, QPushButton,
                              QTableWidgetItem, QCheckBox, QMessageBox, QDialog, QLabel,
-                             QLineEdit, QDateTimeEdit) 
-from ..data.reminder import ReminderService, Reminder
+                             QLineEdit, QDateTimeEdit)
 from ..data import WorkTree
+from ..data.reminder import Reminder
+from ..data.tree import Node
 from PyQt5.QtCore import QDateTime, Qt
 from functools import partial
 from datetime import datetime
+from typing import Optional
 
 class SetReminderDialog(QDialog):
+    """
+    A dialog for editing a reminder.
 
-    def __init__(self, node , worktree: WorkTree ,
-                 current_reminder: Reminder | None = None, parent=None):
+    Parameters:
+        node (Node): The node on which the reminder is set.
+        worktree (WorkTree): The worktree instance.
+        current_reminder (Optional[Reminder]): The current reminder to edit. Defaults to None.
+        parent (Optional[QWidget]): The parent widget. Defaults to None.
+    """
+    def __init__(self, node: Node, worktree: WorkTree,
+                 current_reminder: Optional[Reminder] = None,
+                 parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle(f'Set Reminder On {node.name}')
         self.setFixedSize(300, 180)
@@ -20,15 +31,15 @@ class SetReminderDialog(QDialog):
         self.current_reminder = current_reminder
         self.node = node
 
-        self.setup_init()
+        self.setup_ui()
 
-    def setup_init(self):
-        if self.current_reminder != None:
-            cur_time = self.current_reminder.due_time
+    def setup_ui(self):
+        if self.current_reminder is not None:
+            curr_time = self.current_reminder.due_time
             active = self.current_reminder.active
             message = self.current_reminder.message
         else:
-            cur_time = QDateTime.currentDateTime()
+            curr_time = QDateTime.currentDateTime()
             active = True
             message = ''
 
@@ -42,8 +53,9 @@ class SetReminderDialog(QDialog):
         time_layout = QHBoxLayout()
         time_layout.addWidget(QLabel("Due Time: "))
         self.trigger_time_input = QDateTimeEdit(self)
+        # TODO
         self.trigger_time_input.setDisplayFormat("MM-dd HH:mm")
-        self.trigger_time_input.setDateTime(cur_time)
+        self.trigger_time_input.setDateTime(curr_time)
         time_layout.addWidget(self.trigger_time_input)
         layout.addLayout(time_layout)
 

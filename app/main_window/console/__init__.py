@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
-from .command_bases import COMMAND_REGISTRY
-from .utils import max_common_prefix
+from .commands import COMMAND_REGISTRY
+from .commands.utils import max_common_prefix
 import logging
 
 from ...data import WorkTree
