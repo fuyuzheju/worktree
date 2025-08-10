@@ -8,6 +8,7 @@ logs
 tmp
 storage
 viztracer.json
+test.py
 
 TODO.md
 
