@@ -1,12 +1,12 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
-from plyer import notification
+from datetime import timedelta, datetime
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
 from ..settings import settings_manager
-from ..utils import set_app_state
+from ..utils import set_app_state, show_notification
 from ..settings_window import SettingsDialog
 from ..reminders_window import RemindersDialog
 
@@ -19,6 +19,7 @@ class MainWindow(QWidget):
     cleanup_history_signal = pyqtSignal()
     save_file_signal = pyqtSignal(str)
     open_file_signal = pyqtSignal(str)
+    to_front_signal = pyqtSignal()
 
     """
     combines TreeGraphWidget and CommandWidget together
@@ -59,6 +60,7 @@ class MainWindow(QWidget):
 
         # signal
         self.worktree.reminder_service.reminder_due.connect(self.on_reminder_due)
+        self.to_front_signal.connect(self.to_frontground)
         
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
@@ -149,3 +151,33 @@ class MainWindow(QWidget):
         if not file_path:
             return
         self.open_file_signal.emit(file_path)
+
+    def on_reminder_due(self, reminder):
+        enable = settings_manager.get("displayReminderNotification", type=bool)
+        if not enable:
+            return
+        node = self.worktree.tree.get_node_by_id(reminder.node_id)
+        title = f'[{node.name}] Reminder Due'
+        message = reminder.message
+
+
+        def accept():
+            print('To front ground.')
+            self.to_front_signal.emit()
+            return
+        
+        def ignore():
+            return
+        
+        def delay():
+            # In this version, delay time is 15 min.
+            # In furture work, user can choose delay time in notification.
+            self.worktree.set_reminder(
+                reminder_id = reminder.reminder_id,
+                due_time = datetime.now() + timedelta(minutes=15),
+                active = True,
+            )
+        actions = {'Start Now!': accept,
+                   'Delay 15 minutes': delay,
+                   'Ignore': ignore}
+        show_notification(title=title, message=message, actions=actions)
