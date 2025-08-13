@@ -10,6 +10,8 @@ from .proxy import Proxy
 # functions
 set_app_state = Proxy('set_app_state')
 qkeysequence_to_pynput = Proxy('qkeysequence_to_pynput')
+app_initialization = Proxy('app_initialization')
+
 
 # classes
 Notification = Proxy('Notification')

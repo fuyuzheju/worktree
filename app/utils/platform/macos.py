@@ -1,7 +1,6 @@
 from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited # type: ignore
 
 def set_app_state(active):
-    return 1
     if not NSApp:
         return
     try:
@@ -71,5 +70,41 @@ def qkeysequence_to_pynput(qt_str: str) -> str | None:
     return "+".join(pynput_parts)
 
 
+def app_initialization(app):
+    Notification.request_authorization_if_needed()
+
+
+import UserNotifications as UN
+
 class Notification:
-    pass
+    @staticmethod
+    def request_authorization_if_needed():
+        center = UN.UNUserNotificationCenter.currentNotificationCenter()
+
+        center.requestAuthorizationWithOptions_completionHandler_(
+            UN.UNAuthorizationOptionAlert | UN.UNAuthorizationOptionSound,
+            lambda granted, error: print(f"Notification authorization, granted: {granted}, error: {error}")
+        )
+
+    @staticmethod
+    def send_notification(title, body, identifier="pyqt.local.1"):
+        center = UN.UNUserNotificationCenter.currentNotificationCenter()
+
+        # create notification
+        content = UN.UNMutableNotificationContent.alloc().init()
+        content.setTitle_(title)
+        content.setBody_(body)
+
+        # send notification within 1 second
+        trigger = UN.UNTimeIntervalNotificationTrigger.triggerWithTimeInterval_repeats_(1.0, False)
+
+        # create request
+        req = UN.UNNotificationRequest.requestWithIdentifier_content_trigger_(
+            identifier, content, trigger
+        )
+
+        # add request to the center
+        center.addNotificationRequest_withCompletionHandler_(req, lambda err: print("addNotification:", err))
+
+
+

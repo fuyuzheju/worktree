@@ -61,6 +61,8 @@ if __name__ == '__main__':
     app.setApplicationName("worktree")
     app.setOrganizationName("fuyuzheju")
     app.setOrganizationDomain("fuyuzheju.com")
+    from app.utils import app_initialization
+    app_initialization(app)
     sys.excepthook = global_exception_hook
 
     log_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
