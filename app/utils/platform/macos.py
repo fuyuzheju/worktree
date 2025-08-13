@@ -71,7 +71,9 @@ def qkeysequence_to_pynput(qt_str: str) -> str | None:
 
 
 def app_initialization(app):
-    Notification.request_authorization_if_needed()
+    # unable to send notifications when testing with python interpreter
+    # Notification.request_authorization_if_needed()
+    pass
 
 
 import UserNotifications as UN

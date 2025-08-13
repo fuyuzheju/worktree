@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+ICON_PATH = 'assets/worktree-icon.png'
 
 a = Analysis(
     ['worktree.py'],
@@ -32,7 +33,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['assets/worktree-icon.png'],
+    icon=[ICON_PATH],
 )
 coll = COLLECT(
     exe,

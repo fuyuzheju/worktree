@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class MainWindow(QWidget):
 
     cleanup_history_signal = pyqtSignal()
-    save_file_signal = pyqtSignal(str)
+    save_file_signal = pyqtSignal(str) # pass the path as an argument
     open_file_signal = pyqtSignal(str)
 
     """
