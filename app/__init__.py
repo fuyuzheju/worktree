@@ -11,10 +11,12 @@ from .data import WorkTree
 from .data.storage import Storage
 from .settings import settings_manager
 from .controls import quit_signal
-from .utils import app_initialization
+from .utils import app_initialization, Notification
 
 ICON_PATH = "assets/worktree-icon.png"
 
+DELAY_ACTION_ID = 'delay'
+COMPLETE_ACTION_ID = 'complete'
 
 class AppBasic(QApplication):
     def __init__(self, argv):
@@ -140,6 +142,13 @@ class Application(AppBasic):
         super().__init__(argv)
         self.main_window.save_file_signal.connect(self.save_tree)
         self.main_window.open_file_signal.connect(self.open_tree)
+        self.reminder_notifier = Notification(self.reminder_notification_process)
+        self.reminder_notifier.request_authorization_if_needed()
+        self.reminder_notifier.add_category("reminder", [
+            {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
+            {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
+        ])
+        self.work_tree.reminder_service.reminder_due.connect(self.reminder_notify)
 
     def save_tree(self, output_path: str):
         if self.storage == None:
@@ -177,3 +186,20 @@ class Application(AppBasic):
             QMessageBox.critical(None ,'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
             shutil.rmtree(self.STORAGE_DIR)
             os.mkdir(self.STORAGE_DIR)
+    
+    def reminder_notification_process(self, action_id, user_info, user_text):
+        if action_id == DELAY_ACTION_ID:
+            print("Delay,", user_text)
+        elif action_id == COMPLETE_ACTION_ID:
+            print("Complete")
+        else:
+            print("Default")
+    
+    def reminder_notify(self, reminder):
+        self.reminder_notifier.send_notification(
+            "Reminder Due",
+            reminder.message,
+            identifier=f"com.fuyuzheju.worktree.reminder.{reminder.reminder_id}",
+            category_id="reminder",
+        )
+        self.logger.info(f"Reminder due: {reminder.message} ({reminder.reminder_id}).")
