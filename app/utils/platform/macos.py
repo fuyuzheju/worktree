@@ -1,3 +1,5 @@
+from typing import Optional, Callable
+
 from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited # type: ignore
 
 def set_app_state(active):
@@ -109,7 +111,7 @@ class _NotificationDelegate(NSObject):
 
 
 class Notification:
-    def __init__(self, callback=None):
+    def __init__(self, callback: Optional[Callable] = None):
         """
 
         init a notification manager with a callback.
@@ -135,7 +137,7 @@ class Notification:
             lambda granted, error: print(f"notification authenticated: state={bool(granted)}, error={error}")
         )
 
-    def add_category(self, category_id, actions):
+    def add_category(self, category_id: str, actions: list[dict[str, str]]):
         """
         register a category of notification.
         you can choose a registered category afterwards when sending a notification.
@@ -170,8 +172,10 @@ class Notification:
         )
         self.center.setNotificationCategories_({category})
 
-    def send_notification(self, title, body, identifier=None, 
-                          category_id=None, user_info=None):
+    def send_notification(self, title, body, 
+                          identifier: Optional[str] = None,
+                          category_id: Optional[str] = None,
+                          user_info: Optional[dict] = None) -> None:
         """
         send a notification.
         :param title: title of notification

@@ -12,6 +12,7 @@ from .data.storage import Storage
 from .settings import settings_manager
 from .controls import quit_signal
 from .utils import app_initialization, Notification
+from .main_window.console.commands.utils import time_parser
 
 ICON_PATH = "assets/worktree-icon.png"
 
@@ -189,11 +190,24 @@ class Application(AppBasic):
     
     def reminder_notification_process(self, action_id, user_info, user_text):
         if action_id == DELAY_ACTION_ID:
-            print("Delay,", user_text)
+            reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
+            # print(user_info, user_text)
+            try:
+                due_time = time_parser(user_text)
+            except:
+                pass
+            else:
+                self.work_tree.set_reminder(reminder.reminder_id, due_time=due_time, active=True)
+                self.logger.info(f"Reminder Delayed to time: {due_time}(with format '{user_text}')")
+
         elif action_id == COMPLETE_ACTION_ID:
-            print("Complete")
+            reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
+            res = self.work_tree.complete_node(reminder.node_id)
+            if res != 0:
+                pass
+
         else:
-            print("Default")
+            self.main_window.to_frontground()
     
     def reminder_notify(self, reminder):
         self.reminder_notifier.send_notification(
@@ -201,5 +215,6 @@ class Application(AppBasic):
             reminder.message,
             identifier=f"com.fuyuzheju.worktree.reminder.{reminder.reminder_id}",
             category_id="reminder",
+            user_info={"reminder_id": reminder.reminder_id}
         )
         self.logger.info(f"Reminder due: {reminder.message} ({reminder.reminder_id}).")
