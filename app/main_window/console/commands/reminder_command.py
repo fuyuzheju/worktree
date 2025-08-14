@@ -1,4 +1,6 @@
 from .command_bases import CommandGroup, Subcommand
+from .utils import path_parser, time_parser, path_completor
+import uuid
 from typing import override
 
 class ReminderCommand(CommandGroup):
@@ -124,7 +126,11 @@ class ReminderAddCommand(Subcommand):
     
     @override
     def auto_complete(self, tree):
+        if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
+            incomplete_path = self.args["arguments"]["required"][-1]
+            return path_completor(incomplete_path, tree)
         return None, []
+
 
 
 @ReminderCommand.register_subcommand
@@ -256,11 +262,6 @@ class ReminderSetCommand(Subcommand):
         
         return 0
 
-        # TODO: NOT IMPLEMENTED!!! AND THE ABOVE CODE MAY NOT CORRECT AS WELL!!!
-
     @override
     def auto_complete(self, tree):
         return None, []
-
-# at the end of this file, COMMAND_REGISTRY has been automatically initialized,
-# through the __init_subclass__ method of Command class.
