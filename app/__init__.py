@@ -179,9 +179,9 @@ class Application(AppBasic):
 
         shutil.unpack_archive(filepath, extract_dir=self.STORAGE_DIR)
         try:
-            self.storage.current_snapshot_dir, self.storage.op_count_since_snapshot = self.storage.get_latest_snapshot()
-            self.storage.load_from_disk()
-            if self.storage.current_snapshot_dir == None:
+            self.storage.history_storage.current_snapshot_dir, self.storage.history_storage.op_count_since_snapshot = self.storage.history_storage.get_latest_snapshot()
+            self.storage.history_storage.load_from_disk()
+            if self.storage.history_storage.current_snapshot_dir == None:
                 raise ValueError("No history snapshots found.")
         except Exception as e:
             QMessageBox.critical(None ,'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
