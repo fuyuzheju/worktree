@@ -11,7 +11,7 @@ from .data import WorkTree
 from .data.storage import Storage
 from .settings import settings_manager
 from .controls import quit_signal
-from .utils import app_initialization, Notification
+from .utils import app_initialization
 
 ICON_PATH = "assets/worktree-icon.png"
 
@@ -22,7 +22,6 @@ class AppBasic(QApplication):
         self.setApplicationName("worktree")
         self.setOrganizationName("fuyuzheju")
         self.setOrganizationDomain("fuyuzheju.com")
-        app_initialization(self)
 
         # log
         log_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
@@ -59,11 +58,10 @@ class AppBasic(QApplication):
         self.mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", self.main_window)
         self.logger.debug("Hotkey manager created.")
 
-        # notifier
-        self.setup_notifier()
-
         quit_signal.connect(self.quit)
         self.logger.debug("Application Initialized.")
+
+        app_initialization(self)
     
     def setup_logging(self, log_dir: Path):
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -128,10 +126,7 @@ class AppBasic(QApplication):
             if reason == QSystemTrayIcon.DoubleClick:
                 connected_window.to_frontground()
         self.tray_icon.activated.connect(on_tray_icon_activated)
-    
-    def setup_notifier(self):
-        pass
-    
+
     def cleanup(self):
         self.quit()
         if self.mainwindow_hotkey_manager:
