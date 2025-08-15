@@ -1,10 +1,10 @@
 import importlib
-from pathlib import Path
+import pkgutil
 
-file_list = Path(__file__).parent.glob("*.py")
-for file in file_list:
-    if file.name.endswith("command.py"):
-        importlib.import_module(f".{file.stem}", package=__package__)
-        print(f"import {file.stem}")
+for module_info in pkgutil.iter_modules(__path__):
+    module_name = module_info.name
+    if module_name.endswith("command"):
+        importlib.import_module(f".{module_name}", package=__package__)
+        print(f"import {module_name}")
 
 from .command_bases import COMMAND_REGISTRY # export

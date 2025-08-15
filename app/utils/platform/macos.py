@@ -1,7 +1,8 @@
+from typing import Optional, Callable
+
 from AppKit import NSApp, NSApplicationActivationPolicyRegular, NSApplicationActivationPolicyAccessory, NSApplicationActivationPolicyProhibited # type: ignore
 
 def set_app_state(active):
-    return 1
     if not NSApp:
         return
     try:
@@ -71,5 +72,135 @@ def qkeysequence_to_pynput(qt_str: str) -> str | None:
     return "+".join(pynput_parts)
 
 
-class Notification:
+def app_initialization(app):
     pass
+
+
+import UserNotifications as UN
+from Foundation import NSObject, NSDictionary
+import uuid
+
+# assistant class to manage notifications interacting with the apis of the system
+# call a callback when the notification is triggered
+class _NotificationDelegate(NSObject):
+    def initWithCallback_(self, callback):
+        self = self.init()
+        if self is None: return None
+        self.callback_handler = callback
+        return self
+
+    # call this when the app is at frontend
+    def userNotificationCenter_willPresentNotification_withCompletionHandler_(self, center, notification, completionHandler):
+        completionHandler(UN.UNNotificationPresentationOptionAlert | UN.UNNotificationPresentationOptionSound)
+
+    # call this when the user interacted with the notification
+    def userNotificationCenter_didReceiveNotificationResponse_withCompletionHandler_(self, center, response, completionHandler):
+        if self.callback_handler:
+            action_id = response.actionIdentifier()
+            
+            user_info = response.notification().request().content().userInfo()
+
+            user_text = None
+            if response.isKindOfClass_(UN.UNTextInputNotificationResponse):
+                user_text = response.userText()
+            
+            self.callback_handler(action_id, user_info, user_text)
+        
+        # call completion to mark the finish of processing
+        completionHandler()
+
+
+class Notification:
+    def __init__(self, callback: Optional[Callable] = None):
+        """
+
+        init a notification manager with a callback.
+
+        signature of the callback:
+        :param1: action_id, literally the identifier of the button which the user clicked
+        :param2: user_info, the data which you passed when sending the notification
+        :param3: user_text, the input of the user if a input action is used
+        :return: None
+
+        """
+        self.center = UN.UNUserNotificationCenter.currentNotificationCenter()
+        self._delegate = _NotificationDelegate.alloc().initWithCallback_(callback)
+        self.center.setDelegate_(self._delegate)
+
+    def request_authorization_if_needed(self):
+        """
+        request the authorization of notifications. 
+        should be called before starting to send notifications.
+        """
+        self.center.requestAuthorizationWithOptions_completionHandler_(
+            UN.UNAuthorizationOptionAlert | UN.UNAuthorizationOptionSound,
+            lambda granted, error: print(f"notification authenticated: state={bool(granted)}, error={error}")
+        )
+
+    def add_category(self, category_id: str, actions: list[dict[str, str]]):
+        """
+        register a category of notification.
+        you can choose a registered category afterwards when sending a notification.
+
+        :param category_id: the unique identifier of the category. use this to identify a category when sending a notification.
+        :param actions: a list of actions of the category
+
+        actions: List[dict["id": str, "title": str, "type": str]]
+        every dict symbolizes an action.
+        """
+        notification_actions = []
+        for action_info in actions:
+            if action_info['type'] == 'text':
+                action = UN.UNTextInputNotificationAction.actionWithIdentifier_title_options_textInputButtonTitle_textInputPlaceholder_(
+                    action_info["id"],
+                    action_info["title"],
+                    0,                              # UNNotificationActionOptionNone
+                    "OK",                           # title of the input box
+                    "input text..."                 # placeholder text in the box
+                )
+            else:
+                action = UN.UNNotificationAction.actionWithIdentifier_title_options_(
+                    action_info["id"],
+                    action_info["title"],
+                    0,
+                )
+
+            notification_actions.append(action)
+        
+        category = UN.UNNotificationCategory.categoryWithIdentifier_actions_intentIdentifiers_options_(
+            category_id, notification_actions, [], 0
+        )
+        self.center.setNotificationCategories_({category})
+
+    def send_notification(self, title, body, 
+                          identifier: Optional[str] = None,
+                          category_id: Optional[str] = None,
+                          user_info: Optional[dict] = None) -> None:
+        """
+        send a notification.
+        :param title: title of notification
+        :param body: body of notification
+        :param identifier: unique identifier of the notification, used to update or remove a notification
+        :param category_id: the category registered with add_category. default to be simple notification(only title and body)
+        :param user_info: customized data, and receive it later in the callback.
+        :return: None
+        """
+        content = UN.UNMutableNotificationContent.alloc().init()
+        content.setTitle_(title)
+        content.setBody_(body)
+
+        if identifier is None:
+            identifier = str(uuid.uuid4())
+
+        if category_id:
+            content.setCategoryIdentifier_(category_id)
+        
+        if user_info:
+            content.setUserInfo_(NSDictionary.dictionaryWithDictionary_(user_info))
+
+        # trigger within 1.0 second
+        trigger = UN.UNTimeIntervalNotificationTrigger.triggerWithTimeInterval_repeats_(1.0, False)
+        req = UN.UNNotificationRequest.requestWithIdentifier_content_trigger_(
+            identifier, content, trigger
+        )
+        self.center.addNotificationRequest_withCompletionHandler_(req, lambda err: print(f"notification '{title}' added with error:", err))
