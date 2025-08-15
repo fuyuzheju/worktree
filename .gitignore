@@ -14,3 +14,4 @@ TODO.md
 
 build/
 dist/
+package-lock.json
