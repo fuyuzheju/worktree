@@ -147,6 +147,10 @@ class Notification:
 
         actions: List[dict["id": str, "title": str, "type": str]]
         every dict symbolizes an action.
+
+        type:
+            "text": Action including an input box
+            else: default action(only a button)
         """
         notification_actions = []
         for action_info in actions:
