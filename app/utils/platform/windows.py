@@ -136,6 +136,9 @@ class Notification:
         
         if self.input_xml == '' and self.action_xml == '':
             logger.debug('Before send a notification, you need to add a category.')
+
+        if user_info is None:
+            user_info = dict()
         
         xml_str = f"""
         <toast scenario="{self.category}">
@@ -174,16 +177,3 @@ class Notification:
         
         notification.add_activated(activated)
         notifier.show(notification)
-
-# if __name__ == '__main__':
-#     def f(action_id, user_info, user_text):
-#         print(action_id, user_info, user_text)
-
-#     n = Notification(f)
-#     n.add_category('test', [
-#             {"id": 'ID-1111', "title": "delay", "type": "text"},
-#             {"id": 'ID-3333', "title": "dd222", "type": "text"},
-#             {"id": 'ID-2222', "title": "complete", "type": ""},
-#         ])
-#     n.send_notification('title', 'body')
-#     _ = input()

@@ -18,6 +18,7 @@ ICON_PATH = "assets/worktree-icon.png"
 
 DELAY_ACTION_ID = 'delay'
 COMPLETE_ACTION_ID = 'complete'
+START_ACTION_ID = 'start'
 
 class AppBasic(QApplication):
     def __init__(self, argv):
@@ -143,12 +144,13 @@ class Application(AppBasic):
         super().__init__(argv)
         self.main_window.save_file_signal.connect(self.save_tree)
         self.main_window.open_file_signal.connect(self.open_tree)
-        # self.reminder_notifier = Notification(self.reminder_notification_process)
-        # self.reminder_notifier.request_authorization_if_needed()
-        # self.reminder_notifier.add_category("reminder", [
-        #     {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
-        #     {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
-        # ])
+        self.reminder_notifier = Notification(self.reminder_notification_process)
+        self.reminder_notifier.request_authorization_if_needed()
+        self.reminder_notifier.add_category("reminder", [
+            {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
+            {"id": START_ACTION_ID, "title": "start", "type": ""},
+            {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
+        ])
         self.work_tree.reminder_service.reminder_due.connect(self.reminder_notify)
 
     def save_tree(self, output_path: str):
@@ -203,11 +205,14 @@ class Application(AppBasic):
         elif action_id == COMPLETE_ACTION_ID:
             reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
             res = self.work_tree.complete_node(reminder.node_id)
-            if res != 0:
-                pass
 
-        else:
+        elif action_id == START_ACTION_ID:
+            reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
             self.main_window.to_frontground()
+            self.work_tree.switch_to(reminder.node_id)
+            
+        else:
+            pass
     
     def reminder_notify(self, reminder):
         self.reminder_notifier.send_notification(
