@@ -14,9 +14,8 @@ class ListCommand(Command):
         return "list the children of the current node.\n" \
             "Usage: ls [path]"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,

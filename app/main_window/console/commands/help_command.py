@@ -14,13 +14,12 @@ class HelpCommand(Command):
         return "view this help message.\n" \
             "Usage: help [command...]"
 
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,
-                "optional": float('inf'), # command_list
+                "optional": 1024, # command_list
             },
             "options": {
                 "short": {},

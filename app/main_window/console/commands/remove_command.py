@@ -14,9 +14,8 @@ class RemoveCommand(Command):
         return "remove a leaf node or a subtree.\n" \
             "Usage: rm <path> [-r]"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 1, # node_path

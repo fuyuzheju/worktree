@@ -14,9 +14,8 @@ class ReopenCommand(Command):
         return "reopen the completed node.\n" \
             "Usage: reopen <path>"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 1, # node_path

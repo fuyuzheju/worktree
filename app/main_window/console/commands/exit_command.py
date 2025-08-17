@@ -13,9 +13,8 @@ class ExitCommand(Command):
         return "exit the whole app.\n" \
             "Usage: exit"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,

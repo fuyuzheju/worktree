@@ -13,9 +13,8 @@ class UndoCommand(Command):
         return "undo the last operation.\n" \
             "Usage: undo"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,

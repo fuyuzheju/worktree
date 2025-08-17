@@ -13,9 +13,8 @@ class CompleteCurrentCommand(Command):
         return "complete the current node.\n" \
             "Usage: cc"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,
