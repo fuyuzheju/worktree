@@ -1,4 +1,4 @@
-from .command_bases import Command
+from .command_bases import Command, COMMAND_REGISTRY
 from .utils import max_common_prefix
 from typing import override
 
