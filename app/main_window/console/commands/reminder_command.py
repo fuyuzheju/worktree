@@ -147,34 +147,25 @@ class ReminderRemoveCommand(Subcommand):
     def command_arguments_numbers(self):
         return {
             "arguments": {
-                "required": 0, # reminder_id
-                "optional": 1,
+                "required": 1, # reminder specifier
+                "optional": 0,
             },
             "options": {
-                "short": {"-i": 1},
-                "long": {"--index": 1},
+                "short": {},
+                "long": {},
             }
         }
     
     @override
     def execute(self, tree):
-        if self.args["arguments"]["optional"]:
-            reminder_id = self.args["arguments"]["optional"][0]
-
-        else:
-            index = self.args["options"]["short"]["-i"] or self.args["options"]["long"]["--index"]
-            if index is None:
-                self.error_signal.emit("Error: Please specify either the index or id of the reminder.\n")
-                return -1
-            try:
-                index = int(index[0])
-                reminder_id = tree.reminder_service.list_reminders()[index].reminder_id
-            except IndexError:
-                self.error_signal.emit(f"Error: No such reminder at index '{index}'.\n")
-                return -1
-            except ValueError:
-                self.error_signal.emit("Error: Invalid index.\n")
-                return -1
+        specifier = self.args["arguments"]["required"][0]
+        try:
+            # index specifying
+            index = int(specifier)
+            reminder_id = tree.reminder_service.list_reminders()[index]
+        except (IndexError, ValueError):
+            # id specifying
+            reminder_id = specifier
 
         res = tree.remove_reminder(reminder_id)
         if res == -1:
@@ -204,33 +195,26 @@ class ReminderSetCommand(Subcommand):
     def command_arguments_numbers(self):
         return {
             "arguments": {
-                "required": 0, # reminder_id
-                "optional": 1,
+                "required": 1, # reminder specifier
+                "optional": 0,
             },
             "options": {
-                "short": {"-m": 1, "-t": 1, "-a": 1, "-i": 1},
-                "long": {"--message": 1, "--time": 1, "--active": 1, "--index": 1},
+                "short": {"-m": 1, "-t": 1, "-a": 1},
+                "long": {"--message": 1, "--time": 1, "--active": 1},
             }
         }
     
     @override
     def execute(self, tree):
-        if self.args["arguments"]["optional"]:
-            reminder_id = self.args["arguments"]["optional"][0]
-        else:
-            index = self.args["options"]["short"]["-i"] or self.args["options"]["long"]["--index"]
-            if index is None:
-                self.error_signal.emit("Error: Please specify either the index or id of the reminder.\n")
-                return -1
-            try:
-                index = int(index[0])
-                reminder_id = tree.reminder_service.list_reminders()[index].reminder_id
-            except IndexError:
-                self.error_signal.emit(f"Error: No such reminder at index '{index}'.\n")
-                return -1
-            except ValueError:
-                self.error_signal.emit("Error: Invalid index.\n")
-                return -1
+        specifier = self.args["arguments"]["required"][0]
+        try:
+            # index specifying
+            index = int(specifier)
+            reminder_id = tree.reminder_service.list_reminders()[index]
+        except (IndexError, ValueError):
+            # id specifying
+            reminder_id = specifier
+
         new_message = self.args["options"]["short"]["-m"] or self.args["options"]["long"]["--message"]
         new_due_time_format = self.args["options"]["short"]["-t"] or self.args["options"]["long"]["--time"]
         new_active = self.args["options"]["short"]["-a"] or self.args["options"]["long"]["--active"]
