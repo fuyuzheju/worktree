@@ -147,5 +147,9 @@ def proxy_factory(alias_name: str,
 
         @override
         def auto_complete(self, tree):
-            return None, []
+            original_class = COMMAND_REGISTRY.get(self._alias_content[0])
+            if original_class is None:
+                return None, []
+            original_instance = original_class(*(self._alias_content[1:] + self.parts))
+            return original_instance.auto_complete(tree)
             
