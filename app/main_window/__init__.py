@@ -1,6 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
+from datetime import timedelta, datetime
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
@@ -18,6 +19,7 @@ class MainWindow(QWidget):
     cleanup_history_signal = pyqtSignal()
     save_file_signal = pyqtSignal(str) # pass the path as an argument
     open_file_signal = pyqtSignal(str)
+    to_front_signal = pyqtSignal()
 
     """
     combines TreeGraphWidget and CommandWidget together
@@ -55,6 +57,9 @@ class MainWindow(QWidget):
         self.open_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)), self)
         self.open_file_shortcut.activated.connect(self.open_file)
         settings_manager.settings_changed.connect(self.update_settings)
+
+        # signal
+        self.to_front_signal.connect(self.to_frontground)
         
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
