@@ -5,14 +5,8 @@ from pathlib import Path
 import logging, shutil, os, zipfile
 from logging.config import dictConfig
 
-from .main_window import MainWindow
-from .keyboard_listener import HotkeyManager
-from .data import WorkTree
-from .data.storage import Storage
-from .settings import settings_manager
 from .controls import quit_signal
 from .utils import app_initialization, Notification
-from .main_window.console.commands.utils import time_parser
 
 ICON_PATH = "assets/worktree-icon.png"
 
@@ -34,16 +28,24 @@ class AppBasic(QApplication):
         self.logger: logging.Logger = logging.getLogger('app')
         self.logger.info(f"Logging configured. Dir: {log_dir}")
 
+        # settings
+        from .settings import settings_manager, SettingsManager
+        settings_manager = SettingsManager()
+        self.logger.debug(f'Settings manager created.')
+
         # work tree
+        from .data import WorkTree
         self.work_tree: WorkTree = WorkTree()
 
         # storage
+        from .data.storage import Storage
         self.storage_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
         self.storage_dir: Path = Path(self.storage_dir) / "storage"
         self.storage: Storage = Storage(self.work_tree, self.storage_dir)
         self.logger.debug(f"Storage configured. Dir: {self.storage_dir}")
         
         # main window
+        from .main_window import MainWindow
         self.main_window: MainWindow = MainWindow(self.work_tree)
         self.main_window.show()
         self.logger.debug("Main window created.")
@@ -60,12 +62,14 @@ class AppBasic(QApplication):
             self.logger.info("Tray icon hidden.")
 
         # hotkey
+        from .keyboard_listener import HotkeyManager
         self.mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", self.main_window)
         self.logger.debug("Hotkey manager created.")
 
         quit_signal.connect(self.quit)
         app_initialization(self)
         self.logger.debug("Application Initialized.")
+
     
     def setup_logging(self, log_dir: Path):
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -116,7 +120,7 @@ class AppBasic(QApplication):
         # print("--- Logging configured ---")
         return 0
 
-    def setup_tray_icon(self, connected_window: MainWindow):
+    def setup_tray_icon(self, connected_window: 'MainWindow'):
         from .controls import quit_signal
         self.tray_icon = QSystemTrayIcon(QIcon(ICON_PATH), connected_window)
         menu = QMenu()
@@ -195,6 +199,7 @@ class Application(AppBasic):
             reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
             # print(user_info, user_text)
             try:
+                from .main_window.console.commands.utils import time_parser
                 due_time = time_parser(user_text)
             except:
                 pass
