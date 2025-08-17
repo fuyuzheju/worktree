@@ -1,25 +1,129 @@
-from typing import Optional
+from typing import Optional, Callable
 import logging, sys, asyncio
 
 logger = logging.getLogger(__name__)
 
-class Notification:
-    """Show a notification."""
+def set_app_state(active):
+    return
 
-    @classmethod
-    async def notify(cls, title: str, 
-               message: str, 
-               actions: list[str], 
-               delay: Optional[list[str]] = None) -> tuple[str, str] | None:
+from pynput import keyboard
+import string
+def qkeysequence_to_pynput(qt_str: str) -> str | None:
+    """
+    transform strings given by QKeySequence.toString() to strings that pynput parses.
+    e.g. "Ctrl+Shift+S" -> "<ctrl>+<shift>+s"
+    """
+    if qt_str == "":
+        return None
+    
+    # map PyQt keys to pynput keys
+    modifier_map = {
+        'ctrl':   keyboard.Key.ctrl,
+        'shift':  keyboard.Key.shift,
+        'alt':    keyboard.Key.alt,
+        'meta':   keyboard.Key.cmd,
+    }
+
+    special_key_map = {
+        'esc':       keyboard.Key.esc,
+        'tab':       keyboard.Key.tab,
+        'backspace': keyboard.Key.backspace,
+        'return':    keyboard.Key.enter,
+        'enter':     keyboard.Key.enter,
+        'space':     keyboard.Key.space,
+        'delete':    keyboard.Key.delete,
+        'home':      keyboard.Key.home,
+        'end':       keyboard.Key.end,
+        'pageup':    keyboard.Key.page_up,
+        'pagedown':  keyboard.Key.page_down,
+        'up':        keyboard.Key.up,
+        'down':      keyboard.Key.down,
+        'left':      keyboard.Key.left,
+        'right':     keyboard.Key.right,
+    }
+    # f1-f12
+    for i in range(1, 21):
+        special_key_map[f'f{i}'] = getattr(keyboard.Key, f'f{i}')
+
+    pynput_parts = []
+
+    keys = [key.strip().lower() for key in qt_str.split('+')]
+    
+    for key in keys:
+        if key in modifier_map:
+            pynput_parts.append(f"<{modifier_map[key].name}>")
+        elif key in special_key_map:
+            pynput_parts.append(f"<{special_key_map[key].name}>")
+        else:
+            # simple character key
+            if not key in string.ascii_letters and not key in string.digits:
+                raise ValueError(f"Unable to parse key '{key}'")
+            pynput_parts.append(key)
+            
+    return "+".join(pynput_parts)
+
+
+def app_initialization(app):
+    pass
+
+class Notification:
+
+    def __init__(self, callback: Optional[Callable] = None):
         """
-        Call the APIs of various systems to generate a notification message.
-          - title: str - the string which will be showed in notifications' title.
-          - message: str - the descriptive information which will be showed in notifications' content.
-          - actions: list[str] - a list of strings that will be showed as buttons in notification.
-          - delay: Optional[list[str]] - a list of strings for the delay dropdown options.
-        return:
-          - tuple[str, str] - a tuple whose first element is 'action' or 'delay',
-            the second element is action name or delay time (minutes).
+
+        init a notification manager with a callback.
+
+        signature of the callback:
+        :param1: action_id, literally the identifier of the button which the user clicked
+        :param2: user_info, the data which you passed when sending the notification
+        :param3: user_text, the input of the user if a input action is used
+        :return: None
+
+        """
+        self.callback = callback
+        self.category : Optional[str] = None
+        self.actions = list[dict[str, str]]
+        self.xml_text = ''
+        self.input_xml = ''
+        self.action_xml = ''
+    
+    def request_authorization_if_needed(self):
+        return
+    
+    def add_category(self, category_id: str, actions: list[dict[str, str]]):
+        """
+        register a category of notification.
+        you can choose a registered category afterwards when sending a notification.
+
+        :param category_id: the unique identifier of the category. use this to identify a category when sending a notification.
+        :param actions: a list of actions of the category
+
+        actions: List[dict["id": str, "title": str, "type": str]]
+        every dict symbolizes an action.
+        """
+        self.category = category_id
+        self.actions = actions
+
+        # make xml
+        for action_info in actions:
+            if action_info['type'] == "text":
+                self.input_xml += f'<input id="{action_info['id']}" type="text" placeHolderContent="enter {action_info['title']}" />'
+                self.action_xml += f'<action content="{action_info["title"]}" arguments="__text:{action_info['id']}" activationType="foreground" />'
+            else:
+                self.action_xml = f'<action content="{action_info["title"]}" arguments="__action:{action_info['id']}" activationType="foreground" />' + self.action_xml            
+
+    def send_notification(self, title, body, 
+                          identifier: Optional[str] = None,
+                          category_id: Optional[str] = None,
+                          user_info: Optional[dict] = None) -> None:
+        """
+        send a notification.
+        :param title: title of notification
+        :param body: body of notification
+        :param identifier: unique identifier of the notification, used to update or remove a notification
+        :param category_id: the category registered with add_category. default to be simple notification(only title and body)
+        :param user_info: customized data, and receive it later in the callback.
+        :return: None
         """
         try:
             from winsdk.windows.ui.notifications import ToastNotificationManager, ToastNotification, ToastActivatedEventArgs
@@ -30,88 +134,56 @@ class Notification:
             logger.debug('Package Not Found: winsdk')
             return
         
-        result_value = None
-        
-        inputs_xml = ""
-        buttons_xml = ""
-
-        if delay:
-            inputs_xml += '<input id="delay" type="selection">'
-            for option in delay:
-                inputs_xml += f'<selection id="{option}" content="{option} min" />'
-            inputs_xml += '<selection id="custom" content="Custom..." />'
-            inputs_xml += '</input>'
-            inputs_xml += '<input id="custom_delay" type="text" placeHolderContent="Choose Custom to enter delay minute" />'
-            buttons_xml += '<action content="Delay" arguments="__delay" activationType="background" />'
-        
-        for text in actions:
-            buttons_xml += f'<action content="{text}" arguments="__action:{text}" />'
+        if self.input_xml == '' and self.action_xml == '':
+            logger.debug('Before send a notification, you need to add a category.')
         
         xml_str = f"""
-        <toast scenario="reminder">
+        <toast scenario="{self.category}">
             <visual>
                 <binding template="ToastGeneric">
                     <text>{title}</text>
-                    <text>{message}</text>
+                    <text>{body}</text>
                 </binding>
             </visual>
             <actions>
-                {inputs_xml}
-                {buttons_xml}
+                {self.input_xml}
+                {self.action_xml}
             </actions>
         </toast>
         """
-
         xml = XmlDocument()
         xml.load_xml(xml_str)
         notifier = ToastNotificationManager.create_toast_notifier(sys.executable)
         notification = ToastNotification(xml)
 
-        loop = asyncio.get_running_loop()
-        future = loop.create_future()
-        
-
         def activated(sender, args_obj):
-            nonlocal result_value
+            result_value = ''
+            action_id = ''
             try:
                 args = ToastActivatedEventArgs._from(args_obj).arguments
                 if args.startswith("__action:"):
-                    result_value = ('action', args[len("__action:"):])
-                elif args == "__delay":
+                    action_id = args[len("__action:"):]
+                elif args.startswith("__text"):
                     user_inputs = ToastActivatedEventArgs._from(args_obj).user_input
-                    delay_choice = IPropertyValue._from(user_inputs["delay"]).get_string()
-                    if delay_choice == "custom":
-                        custom_value = ""
-                        if "custom_delay" in user_inputs:
-                            custom_value = IPropertyValue._from(user_inputs["custom_delay"]).get_string()
-                            result_value = ('delay', custom_value)
-                    elif "delay" in user_inputs:
-                        result_value = ('delay', delay_choice)
+                    action_id = args[len('__text:'):]
+                    result_value = IPropertyValue._from(user_inputs[action_id]).get_string()
             except Exception as e:
                 logger.error(f"Error processing activation: {e}")
-                result_value = ("error", None)
-            finally:
-                if not future.done():
-                    loop.call_soon_threadsafe(future.set_result, result_value)
-
-        def dismissed(sender, args_obj):
-            if not future.done():
-                loop.call_soon_threadsafe(future.set_result, None)
-
-        def failed(sender, args_obj):
-            if not future.done():
-                loop.call_soon_threadsafe(future.set_result, None)
-
+                return
+            self.callback(action_id, user_info, result_value)
+        
         notification.add_activated(activated)
-        notification.add_dismissed(dismissed)
-        notification.add_failed(failed)
         notifier.show(notification)
 
-        return await future
+# if __name__ == '__main__':
+#     def f(action_id, user_info, user_text):
+#         print(action_id, user_info, user_text)
 
-async def main():
-        result = await Notification.notify('114', '114', actions=['1'], delay=['1', '2'])
-        print(result)
-
-if __name__ == '__main__':
-    asyncio.run(main())
+#     n = Notification(f)
+#     n.add_category('test', [
+#             {"id": 'ID-1111', "title": "delay", "type": "text"},
+#             {"id": 'ID-3333', "title": "dd222", "type": "text"},
+#             {"id": 'ID-2222', "title": "complete", "type": ""},
+#         ])
+#     n.send_notification('title', 'body')
+#     _ = input()
