@@ -132,8 +132,10 @@ class Tree:
         node = self.get_node_by_id(node_id)
         if node is None or not node.is_ready():
             return -1
-        if node.status != Status.WAITING:
+        if node.status == Status.COMPLETED:
             return -1
+        elif node.status == Status.CURRENT:
+            return self.complete_current()
         node.status = Status.COMPLETED
         return 0
 

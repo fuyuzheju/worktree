@@ -35,9 +35,8 @@ class ReminderListCommand(Subcommand):
             "\n  -a, --all    show all reminders, including inactive ones." \
             "\n  -l, --long   show long format of reminders."
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,
@@ -85,9 +84,8 @@ class ReminderAddCommand(Subcommand):
     def command_help(cls):
         return "Not Implemented"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 2, # node_path, due_time_format
@@ -106,7 +104,7 @@ class ReminderAddCommand(Subcommand):
 
         node = path_parser(node_path, tree)
         if node is None:
-            self.error_signal.emit("Error: No such node.\n")
+            self.error_signal.emit(f"Error: No such node '{node_path}'.\n")
             return -1
 
         message = self.args["options"]["short"]["-m"] or self.args["options"]["long"]["--message"]
@@ -145,9 +143,8 @@ class ReminderRemoveCommand(Subcommand):
     def command_help(cls):
         return "Not Implemented"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0, # reminder_id
@@ -173,7 +170,7 @@ class ReminderRemoveCommand(Subcommand):
                 index = int(index[0])
                 reminder_id = tree.reminder_service.list_reminders()[index].reminder_id
             except IndexError:
-                self.error_signal.emit("Error: No such reminder.\n")
+                self.error_signal.emit(f"Error: No such reminder at index '{index}'.\n")
                 return -1
             except ValueError:
                 self.error_signal.emit("Error: Invalid index.\n")
@@ -181,7 +178,7 @@ class ReminderRemoveCommand(Subcommand):
 
         res = tree.remove_reminder(reminder_id)
         if res == -1:
-            self.error_signal.emit("Error: No such reminder.\n")
+            self.error_signal.emit(f"Error: No such reminder '{reminder_id}'.\n")
             return -1
         self.output_signal.emit("Reminder removed.\n")
         return 0
@@ -203,9 +200,8 @@ class ReminderSetCommand(Subcommand):
     def command_help(cls):
         return "Not Implemented"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0, # reminder_id
@@ -230,7 +226,7 @@ class ReminderSetCommand(Subcommand):
                 index = int(index[0])
                 reminder_id = tree.reminder_service.list_reminders()[index].reminder_id
             except IndexError:
-                self.error_signal.emit("Error: No such reminder.\n")
+                self.error_signal.emit(f"Error: No such reminder at index '{index}'.\n")
                 return -1
             except ValueError:
                 self.error_signal.emit("Error: Invalid index.\n")
@@ -258,7 +254,7 @@ class ReminderSetCommand(Subcommand):
             new_due_time = None
         res = tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
         if res == -1:
-            self.error_signal.emit("Error: No such reminder.\n")
+            self.error_signal.emit(f"Error: No such reminder '{reminder_id}'.\n")
         
         return 0
 

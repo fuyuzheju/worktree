@@ -14,9 +14,8 @@ class MoveCommand(Command):
         return "move a node(subtree) to a new path.\n" \
             "Usage: mv <node_path> <new_parent_path>"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 2, # node_path, new_parent_path

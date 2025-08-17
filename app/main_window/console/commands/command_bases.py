@@ -2,7 +2,7 @@ from typing import override
 from abc import ABC, abstractmethod, ABCMeta
 from PyQt5.QtCore import pyqtSignal, QObject
 from .utils import max_common_prefix
-import time
+import time, copy
 
 from typing import TypedDict, Optional, Any, Mapping
 from ....data import WorkTree
@@ -59,6 +59,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
     def __init__(self, *args: str) -> None:
         super().__init__()
         self.parts: list[str] = list(args)
+        ca_num = self.command_arguments_numbers()
         self.args: ParsedArgs = {
             "arguments": {
                 "required": [],
@@ -66,10 +67,10 @@ class Command(ABC, QObject, metaclass=CustomMeta):
             },
             "options": {
                 "short": {
-                    kw: None for kw in self.command_arguments_numbers()['options']['short'].keys()
+                    kw: None for kw in ca_num['options']['short'].keys()
                 },
                 "long": {
-                    kw: None for kw in self.command_arguments_numbers()['options']['long'].keys()
+                    kw: None for kw in ca_num['options']['long'].keys()
                 }
             }
         }
@@ -123,16 +124,17 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
         stack = [] # stack to store the currently parsed things, which still requires arguments
 
-        if self.command_arguments_numbers()['arguments']['optional'] > 0:
+        ca_num = self.command_arguments_numbers()
+        if ca_num['arguments']['optional'] > 0:
             stack.append(['arguments', 'optional'])
-        if self.command_arguments_numbers()['arguments']['required'] > 0:
+        if ca_num['arguments']['required'] > 0:
             stack.append(['arguments', 'required'])
         for part in self.parts:
             if part.startswith('-'):
                 # option
                 if part.startswith('--'):
                     # long option
-                    if part in self.command_arguments_numbers()['options']['long']:
+                    if part in ca_num['options']['long']:
                         self.args['options']['long'][part] = []
                         stack.append(['options', 'long', part])
                     else:
@@ -140,7 +142,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                         return 1
                 else:
                     # short option
-                    if part in self.command_arguments_numbers()['options']['short']:
+                    if part in ca_num['options']['short']:
                         self.args['options']['short'][part] = []
                         stack.append(['options', 'short', part])
                     else:
@@ -153,7 +155,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
 
                 # argument for the currently parsed thing
                 current = get_value(self.args, stack[-1])
-                max_num = get_value(self.command_arguments_numbers(), stack[-1])
+                max_num = get_value(ca_num, stack[-1])
                 
                 current.append(part)
                 self.last_arg = (stack[-1], self.last_arg[1] + 1)
@@ -161,16 +163,16 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                     stack.pop()
 
         # check if all required arguments are provided
-        if len(self.args['arguments']['required']) != self.command_arguments_numbers()['arguments']['required']:
+        if len(self.args['arguments']['required']) != ca_num['arguments']['required']:
             return 3
 
-        for option in self.command_arguments_numbers()['options']['short'].keys():
+        for option in ca_num['options']['short'].keys():
             got = self.args['options']['short'][option]
-            if got is not None and len(got) != self.command_arguments_numbers()['options']['short'][option]:
+            if got is not None and len(got) != ca_num['options']['short'][option]:
                 return 3
-        for option in self.command_arguments_numbers()['options']['long'].keys():
+        for option in ca_num['options']['long'].keys():
             got = self.args['options']['long'][option]
-            if got is not None and len(got) != self.command_arguments_numbers()['options']['long'][option]:
+            if got is not None and len(got) != ca_num['options']['long'][option]:
                 return 3
         
         return 0
@@ -185,9 +187,8 @@ class Command(ABC, QObject, metaclass=CustomMeta):
     def command_help(cls) -> str:
         pass
 
-    @classmethod
     @abstractmethod
-    def command_arguments_numbers(cls) -> CommandArgsNumbers:
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         """
         return the arguments required and optional for the command
         :return: {
@@ -282,21 +283,26 @@ class CommandGroup(Command):
 
     def __init__(self, *args: str):
         self.subcommand: Optional[Subcommand] = None
-        super().__init__(*args)
-
-    @classmethod
-    @override
-    def command_arguments_numbers(cls) -> CommandArgsNumbers:
-        return {
+        self.ca_num: CommandArgsNumbers = {
             "arguments": {
-                "required": 0,
+                "required": 1,
                 "optional": 0,
             },
             "options": {
                 "short": {},
-                "long": {},
+                "long": {}
             }
         }
+        super().__init__(*args)
+        if self.subcommand is not None:
+            self.ca_num = self.subcommand.command_arguments_numbers()
+            self.ca_num['arguments']['required'] += 1
+
+    @override
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
+        # default value here
+        # if an instance has a subcommand, this method will be overrided in __init__()
+        return self.ca_num
     
     @override
     def parse_parts(self) -> int:
@@ -304,6 +310,10 @@ class CommandGroup(Command):
             self.subcommand_str = self.parts[0]
             if self.subcommand_str in self._subcommands:
                 self.subcommand = self._subcommands[self.subcommand_str](*self.parts[1:])
+                self.args = copy.deepcopy(self.subcommand.args)
+                self.args['arguments']['required'].insert(0, self.subcommand_str)
+                self.last_arg = self.subcommand.last_arg
+
                 return self.subcommand.status
                 # here during the initialization, the __init__ method of subcommand has been called,
                 # and the arguments will be parsed by the subcommand's parse_parts method.

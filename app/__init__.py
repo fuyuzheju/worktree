@@ -25,21 +25,22 @@ class AppBasic(QApplication):
         self.setApplicationName("worktree")
         self.setOrganizationName("fuyuzheju")
         self.setOrganizationDomain("fuyuzheju.com")
+        self.application_data_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
 
         # log
-        log_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
+        log_dir: Path = self.application_data_dir / "logs"
         self.setup_logging(log_dir)
         self.logger: logging.Logger = logging.getLogger('app')
         self.logger.info(f"Logging configured. Dir: {log_dir}")
 
-        # storage
-        self.STORAGE_DIR = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
-        self.STORAGE_DIR: Path = Path(self.STORAGE_DIR) / "storage"
-        self.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-
+        # work tree
         self.work_tree: WorkTree = WorkTree()
-        self.storage: Storage = Storage(self.work_tree, self.STORAGE_DIR)
-        self.logger.debug(f"Storage configured. Dir: {self.STORAGE_DIR}")
+
+        # storage
+        self.storage_dir = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        self.storage_dir: Path = Path(self.storage_dir) / "storage"
+        self.storage: Storage = Storage(self.work_tree, self.storage_dir)
+        self.logger.debug(f"Storage configured. Dir: {self.storage_dir}")
         
         # main window
         self.main_window: MainWindow = MainWindow(self.work_tree)
@@ -62,9 +63,8 @@ class AppBasic(QApplication):
         self.logger.debug("Hotkey manager created.")
 
         quit_signal.connect(self.quit)
-        self.logger.debug("Application Initialized.")
-
         app_initialization(self)
+        self.logger.debug("Application Initialized.")
     
     def setup_logging(self, log_dir: Path):
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -143,12 +143,12 @@ class Application(AppBasic):
         super().__init__(argv)
         self.main_window.save_file_signal.connect(self.save_tree)
         self.main_window.open_file_signal.connect(self.open_tree)
-        self.reminder_notifier = Notification(self.reminder_notification_process)
-        self.reminder_notifier.request_authorization_if_needed()
-        self.reminder_notifier.add_category("reminder", [
-            {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
-            {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
-        ])
+        # self.reminder_notifier = Notification(self.reminder_notification_process)
+        # self.reminder_notifier.request_authorization_if_needed()
+        # self.reminder_notifier.add_category("reminder", [
+        #     {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
+        #     {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
+        # ])
         self.work_tree.reminder_service.reminder_due.connect(self.reminder_notify)
 
     def save_tree(self, output_path: str):

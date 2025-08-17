@@ -15,9 +15,8 @@ class TreeCommand(Command):
         return "view the tree structure.\n" \
             "Usage: tree [path]"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 0,

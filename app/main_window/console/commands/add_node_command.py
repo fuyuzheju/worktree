@@ -1,5 +1,6 @@
 from .command_bases import Command
 from typing import override
+import uuid
 
 class AddNodeCommand(Command):
     @classmethod
@@ -13,9 +14,8 @@ class AddNodeCommand(Command):
         return "add a node as a child of the current node.\n" \
             "Usage: add <node_name>"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 1, # node_name

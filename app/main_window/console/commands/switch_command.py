@@ -14,9 +14,8 @@ class SwitchCommand(Command):
         return "change current node.\n" \
             "Usage: cd <path>"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self):
         return {
             "arguments": {
                 "required": 1, # node_path
