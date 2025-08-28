@@ -136,7 +136,8 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                     # long option
                     if part in ca_num['options']['long']:
                         self.args['options']['long'][part] = []
-                        stack.append(['options', 'long', part])
+                        if ca_num['options']['long'][part] > 0:
+                            stack.append(['options', 'long', part])
                     else:
                         # unknown long option
                         return 1
@@ -144,7 +145,8 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                     # short option
                     if part in ca_num['options']['short']:
                         self.args['options']['short'][part] = []
-                        stack.append(['options', 'short', part])
+                        if ca_num['options']['short'][part] > 0:
+                            stack.append(['options', 'short', part])
                     else:
                         # unknown short option
                         return 1
