@@ -154,6 +154,9 @@ class Tree:
             if curr == node:
                 return -1
             curr = curr.parent
+        
+        if any([child.name == node.name for child in new_parent.children]):
+            return -1
 
         node.parent.children.remove(node)
         new_parent.addChild(node)

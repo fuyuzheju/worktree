@@ -1,24 +1,24 @@
 from .command_bases import Command
 from typing import override
 
-class CheckStateCommand(Command):
+class CompleteCommand(Command):
     @classmethod
     @override
     def command_str(cls):
-        return "st"
+        return "cpl"
     
     @classmethod
     @override
     def command_help(cls):
         return "view the state of a node.\n" \
-            "Usage: st [path]"
+            "Usage: cpl [path]"
     
     @override
     def command_arguments_numbers(self):
         return {
             "arguments": {
-                "required": 0, # node_path
-                "optional": 1,
+                "required": 0,
+                "optional": 1, # node path
             },
             "options": {
                 "short": {},
@@ -28,7 +28,7 @@ class CheckStateCommand(Command):
 
     @override
     def execute(self, work_tree, shell):
-        if self.args["arguments"]["optional"][0]:
+        if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
         else:
             path = shell.pwd
@@ -36,8 +36,10 @@ class CheckStateCommand(Command):
         if node is None:
             self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
-        self.output_signal.emit("Node state: " + str(node.status.value) + '\n')
-        return 0
+        res = work_tree.complete_node(node.identity)
+        if res != 0:
+            self.error_signal.emit(f"Error: Failed to complete node {path}.\n")
+        return res
     
     @override
     def auto_complete(self, work_tree, shell):
