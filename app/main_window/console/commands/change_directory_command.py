@@ -1,8 +1,7 @@
 from .command_bases import Command
-from .utils import path_parser, path_completor
 from typing import override
 
-class SwitchCommand(Command):
+class ChangeDirectoryCommand(Command):
     @classmethod
     @override
     def command_str(cls):
@@ -28,22 +27,20 @@ class SwitchCommand(Command):
         }
 
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         path = self.args["arguments"]["required"][0]
-        target = path_parser(path, tree)
+        target = shell.path_parser(path)
         if target is None:
-            self.error_signal.emit("Error: No such node.\n")
+            self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
-        res = tree.switch_to(target.identity)
-        if res == -1:
-            self.error_signal.emit("Error: Node completed already.\n")
-            return -1
-        self.output_signal.emit("Switched to node " + target.name + '\n')
+        shell.pwd = shell.to_path(target)
+        shell.pwd_node = target
+        self.output_signal.emit("Changed to node " + target.name + '\n')
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
-            return path_completor(incomplete_path, tree)
+            return shell.path_completor(incomplete_path)
         return None, []

@@ -1,5 +1,4 @@
 from .command_bases import Command
-from .utils import path_parser, path_completor
 from typing import override
 
 class RemoveCommand(Command):
@@ -30,17 +29,17 @@ class RemoveCommand(Command):
         }
     
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         path = self.args["arguments"]["required"][0]
-        target = path_parser(path, tree)
+        target = shell.path_parser(path)
         if target is None:
-            self.error_signal.emit("Error: No such node.\n")
+            self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
 
         if self.args["options"]["short"]["-r"] is None:
-            st = tree.remove_node(target.identity)
+            st = work_tree.remove_node(target.identity)
         else:
-            st = tree.remove_subtree(target.identity)
+            st = work_tree.remove_subtree(target.identity)
         if st != 0:
             self.error_signal.emit("Error: Failed to remove node.\n")
             return -1
@@ -49,8 +48,8 @@ class RemoveCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
-            return path_completor(incomplete_path, tree)
+            return shell.path_completor(incomplete_path)
         return None, []

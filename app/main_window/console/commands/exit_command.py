@@ -27,10 +27,10 @@ class ExitCommand(Command):
         }
     
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         from ....controls import quit_signal
         quit_signal.emit()
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         return None, []

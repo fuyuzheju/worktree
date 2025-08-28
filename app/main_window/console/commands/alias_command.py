@@ -28,7 +28,7 @@ class AliasCommand(Command):
         }
 
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         from .command_bases import COMMAND_REGISTRY
         alias_name = self.args["arguments"]["required"][0]
         alias_content = self.args["arguments"]["required"][1:] + self.args["arguments"]["optional"]
@@ -39,7 +39,7 @@ class AliasCommand(Command):
         self.output_signal.emit("success\n")
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         return None, []
 
 
@@ -137,19 +137,19 @@ def proxy_factory(alias_name: str,
             return original_instance.status
         
         @override
-        def execute(self, tree):
+        def execute(self, work_tree, shell):
             original_class = COMMAND_REGISTRY.get(self._alias_content[0])
             original_instance = original_class(*(self._alias_content[1:] + self.parts))
             original_instance.output_signal.connect(self.output_signal)
             original_instance.error_signal.connect(self.error_signal)
             original_instance.finish_signal.connect(self.finish_signal)
-            return original_instance.execute(tree)
+            return original_instance.execute(work_tree, shell)
 
         @override
-        def auto_complete(self, tree):
+        def auto_complete(self, work_tree, shell):
             original_class = COMMAND_REGISTRY.get(self._alias_content[0])
             if original_class is None:
                 return None, []
             original_instance = original_class(*(self._alias_content[1:] + self.parts))
-            return original_instance.auto_complete(tree)
+            return original_instance.auto_complete(work_tree, shell)
             

@@ -1,5 +1,4 @@
 from .command_bases import Command
-from .utils import path_parser, path_completor
 from ....data.tree import Node
 from typing import override
 
@@ -29,15 +28,15 @@ class TreeCommand(Command):
         }
     
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
-            node = path_parser(path, tree)
-            if node is None:
-                self.error_signal.emit("Error: No such node.\n")
-                return -1
         else:
-            node = tree.tree.current_node
+            path = shell.pwd
+        node = shell.path_parser(path)
+        if node is None:
+            self.error_signal.emit(f"Error: No such node {path}.\n")
+            return -1
         self.output_signal.emit("Tree structure:\n")
         def print_tree(prefix: str, node: Node, is_last=True):
             self.output_signal.emit(prefix + ('└── ' if is_last else '├── ') + node.name + '\n')
@@ -50,8 +49,8 @@ class TreeCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["optional"][0]
-        return path_completor(incomplete_path, tree)
+        return shell.path_completor(incomplete_path)

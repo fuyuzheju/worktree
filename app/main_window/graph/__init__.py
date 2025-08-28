@@ -29,7 +29,6 @@ class GraphicsNodeItem(QGraphicsObject):
 
         self.setFlag(QGraphicsObject.ItemIsSelectable, True)
         self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor", type=QColor),
-                        Status.CURRENT: settings_manager.get("graph/currentColor", type=QColor),
                         Status.WAITING: settings_manager.get("graph/waitingColor", type=QColor)}
         self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
         self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))

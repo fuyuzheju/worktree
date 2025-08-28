@@ -27,10 +27,10 @@ class UndoCommand(Command):
         }
 
     @override
-    def execute(self, tree):
-        tree.undo()
+    def execute(self, work_tree, shell):
+        work_tree.undo()
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         return None, []

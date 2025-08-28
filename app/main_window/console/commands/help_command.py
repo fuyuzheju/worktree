@@ -28,7 +28,7 @@ class HelpCommand(Command):
         }
     
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         if not self.args["arguments"]["optional"]:
             command_list = COMMAND_REGISTRY.keys()
         else:
@@ -43,7 +43,7 @@ class HelpCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         if self.last_arg[0] == ['arguments', 'optional']:
             incomplete_command = self.args["arguments"]["optional"][-1]
             possible_completion_list = [command for command in COMMAND_REGISTRY.keys()

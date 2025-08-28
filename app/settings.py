@@ -19,7 +19,6 @@ DEFAULT_SETTINGS = {
     "graph/fontSize": 10,
     "graph/fontFamily": "Arial",
     "graph/completedColor": QColor("#c8e6c9"),
-    "graph/currentColor": QColor("#bbdefb"),
     "graph/waitingColor": QColor("#fff9c4"),
     "graph/rectColor": QColor(Qt.black),
     "graph/lineColor": QColor(Qt.gray),

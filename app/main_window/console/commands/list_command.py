@@ -1,5 +1,4 @@
 from .command_bases import Command
-from .utils import path_parser, path_completor
 from typing import override
 
 class ListCommand(Command):
@@ -28,23 +27,24 @@ class ListCommand(Command):
         }
     
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         if self.args["arguments"]["optional"]:
-            path = self.args["arguments"]["optional"][0]   
-            node = path_parser(path, tree)
-            if node is None:
-                self.error_signal.emit("Error: No such node.\n")
-                return -1
+            path = self.args["arguments"]["optional"][0]
         else:
-            node = tree.tree.current_node
+            path = shell.pwd
+           
+        node = shell.path_parser(path)
+        if node is None:
+            self.error_signal.emit(f"Error: No such node {path}.\n")
+            return -1
         self.output_signal.emit("Children of node " + node.name + ":\n")
         for child in node.children:
             self.output_signal.emit(child.name + '\n')
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["optional"][0]
-            return path_completor(incomplete_path, tree)
+            return shell.path_completor(incomplete_path)
         return None, []

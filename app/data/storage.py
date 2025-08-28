@@ -93,7 +93,6 @@ class HistoryStorage:
         new_root = Node.from_dict(snapshot)
         new_tree = WorkTree()
         new_tree.tree.root = new_root
-        new_tree.tree.current_node = new_tree.tree.get_current_node(new_root)
         for operation in operations:
             op_type = operation['type']
             args = operation['args']
@@ -101,7 +100,6 @@ class HistoryStorage:
             op_function(**args)
 
         self.work_tree.tree.root = new_tree.tree.root
-        self.work_tree.tree.current_node = new_tree.tree.current_node
         self.op_count_since_snapshot = len(operations)
 
     def load_from_disk(self) -> None:

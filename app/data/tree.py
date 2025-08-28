@@ -8,12 +8,10 @@ logger = logging.getLogger(__name__)
 class Status(Enum):
     """
     Status Clarification:
-    Waiting: a workstep whose dependencies not completed, but not in current work
-    Current: a workstep in current work (usually only one)
+    Waiting: a workstep waiting to be completed
     Completed: a workstep completed
     """
     WAITING = "Waiting"
-    CURRENT = "Current"
     COMPLETED = "Completed"
 
 
@@ -70,19 +68,6 @@ class Tree:
     def __init__(self):
         super().__init__()
         self.root = Node("WorkRoot")
-        self.root.status = Status.CURRENT
-        self.current_node = self.get_current_node()
-    
-    def get_current_node(self, start_node=None) -> Optional[Node]:
-        if start_node is None:
-            start_node = self.root
-        if start_node.status == Status.CURRENT:
-            return start_node
-        for child in start_node.children:
-            found = self.get_current_node(child)
-            if found:
-                return found
-        return None
 
     def get_node_by_id(self, identity: str, start_node=None) -> Optional[Node]:
         if start_node is None:
@@ -101,14 +86,12 @@ class Tree:
         parent_node = self.get_node_by_id(parent_node_id)
         if parent_node is None:
             return -1
+        if new_node_name in [child.name for child in parent_node.children]:
+            return -1
         new_node = Node(new_node_name, 
                         identity=new_node_id,
                         parent=parent_node)
         parent_node.addChild(new_node)
-        self.current_node.status = Status.WAITING
-        self.current_node = new_node
-        new_node.status = Status.CURRENT
-
         return 0
 
     def reopen_node(self, node_id: str) -> int:
@@ -134,44 +117,14 @@ class Tree:
             return -1
         if node.status == Status.COMPLETED:
             return -1
-        elif node.status == Status.CURRENT:
-            return self.complete_current()
         node.status = Status.COMPLETED
-        return 0
-
-    def complete_current(self) -> int:
-        if not self.current_node.is_ready():
-            return -1
-        self.current_node.status = Status.COMPLETED
-
-        if self.current_node.parent is None:
-            return 0
-        for child in self.current_node.parent.children:
-            if child.status == Status.WAITING:
-                self.current_node = child
-                self.current_node.status = Status.CURRENT
-                return 0
-        else:
-            self.current_node = self.current_node.parent
-            self.current_node.status = Status.CURRENT
-            return 0
-    
-    def switch_to(self, node_id: str) -> int:
-        node = self.get_node_by_id(node_id)
-        if node is None:
-            return -1
-        if node.status == Status.COMPLETED:
-            return -1
-        self.current_node.status = Status.WAITING
-        self.current_node = node
-        self.current_node.status = Status.CURRENT
         return 0
     
     def remove_node(self, node_id: str) -> int:
         node = self.get_node_by_id(node_id)
         if node is None:
             return -1
-        if node.children or node.parent is None or node == self.current_node:
+        if node.children or node.parent is None:
             return -1
         node.parent.children.remove(node)
         return 0
@@ -183,15 +136,7 @@ class Tree:
         if node.parent is None:
             return -1
 
-        p = self.current_node
-        while p != self.root:
-            if p == node:
-                return -1
-            p = p.parent
-
         node.parent.children.remove(node)
-        for child in node.children:
-            self.remove_subtree(child.identity)
         return 0
     
     def move_node(self, node_id: str, new_parent_id: str) -> int:

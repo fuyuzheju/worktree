@@ -1,53 +1,18 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
+from .shell import Shell
 from .commands import COMMAND_REGISTRY
 from .commands.utils import max_common_prefix
 import logging
 
 from ...data import WorkTree
+from ...data.tree import Node
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 COMMAND_HISTORY_LENGTH = 300
-
-class CommandRunner(QObject):
-    """
-    Generate command objects and run them.
-    """
-    output_signal = pyqtSignal(str)
-    error_signal = pyqtSignal(str)
-    finish_signal = pyqtSignal()
-
-    def __init__(self, work_tree: "WorkTree") -> None:
-        super().__init__()
-        self.is_running_command = False
-        self.work_tree = work_tree
-    
-    def run_command(self, command_text: str) -> int:
-        """
-        run the command and return the output as a parameter to the callback function.
-        :return: 0 for success, -1 for command error, 1 for invalid command
-        """
-        parts = command_text.split()
-        if len(parts) == 0:
-            self.finish_signal.emit()
-            return 0
-        
-        logger.debug(f"Running command: {command_text}")
-
-        command_str = parts[0]
-        command_class = COMMAND_REGISTRY.get(command_str)
-        if command_class is None:
-            self.error_signal.emit("Error: Invalid command.\n")
-            self.finish_signal.emit()
-            return 1
-
-        command = command_class(*parts[1:])
-        command.output_signal.connect(self.output_signal.emit)
-        command.error_signal.connect(self.error_signal.emit)
-        command.finish_signal.connect(self.finish_signal.emit)
-        return command(self.work_tree)
 
 
 class CommandLineEdit(QLineEdit):
@@ -213,12 +178,12 @@ class CommandWidget(QWidget):
     """
     def __init__(self, work_tree: "WorkTree", parent=None):
         super().__init__(parent)
-        self.work_tree = work_tree
+        self.shell = Shell(work_tree)
+        self.command_input = CommandLineEdit(work_tree)
         self.initUI()
-        self.command_runner = CommandRunner(work_tree)
-        self.command_runner.output_signal.connect(self.output_callback)
-        self.command_runner.error_signal.connect(self.error_callback)
-        self.command_runner.finish_signal.connect(self.finish_callback)
+        self.shell.output_signal.connect(self.output_callback)
+        self.shell.error_signal.connect(self.error_callback)
+        self.shell.finish_signal.connect(self.finish_callback)
 
     def initUI(self):
         self.Vlayout = QVBoxLayout()
@@ -230,9 +195,8 @@ class CommandWidget(QWidget):
         self.output_area.insertPlainText("> ")
         self.Vlayout.addWidget(self.output_area)
 
-        self.command_label = QLabel(f"({self.work_tree.tree.current_node.name}):")
+        self.command_label = QLabel(f"({self.shell.pwd}):")
         self.Hlayout.addWidget(self.command_label)
-        self.command_input = CommandLineEdit(self.work_tree)
         self.command_input.returnPressed.connect(self.input_command)
         self.Hlayout.addWidget(self.command_input)
         self.Vlayout.addLayout(self.Hlayout)
@@ -249,11 +213,11 @@ class CommandWidget(QWidget):
         self.output_area.moveCursor(QTextCursor.End)
         self.command_input.setReadOnly(False)
         self.command_input.setFocus()
-        self.command_label.setText(f"({self.work_tree.tree.current_node.name}):")
+        self.command_label.setText(f"({self.shell.pwd}):")
         self.output_area.insertPlainText("> ")    
 
     def input_command(self):
-        if self.command_runner.is_running_command:
+        if self.shell.is_running_command:
             return -1
         command = self.command_input.text()
         self.output_area.moveCursor(QTextCursor.End)
@@ -262,7 +226,7 @@ class CommandWidget(QWidget):
         self.command_input.update_history(command)
         self.command_input.setReadOnly(True)
 
-        self.command_runner.run_command(command)
+        self.shell.run_command(command)
         return 0
 
 

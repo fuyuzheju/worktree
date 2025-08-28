@@ -1,5 +1,4 @@
 from .command_bases import Command
-from .utils import path_parser, path_completor
 from typing import override
 
 class ReopenCommand(Command):
@@ -28,13 +27,13 @@ class ReopenCommand(Command):
         }
 
     @override
-    def execute(self, tree):
+    def execute(self, work_tree, shell):
         path = self.args["arguments"]["required"][0]
-        node = path_parser(path, tree)
+        node = shell.path_parser(path)
         if node is None:
-            self.error_signal.emit("Error: No such node.\n")
+            self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
-        res = tree.reopen_node(node.identity)
+        res = work_tree.reopen_node(node.identity)
         if res == -1:
             self.error_signal.emit("Error: Node is not completed.\n")
             return -1        
@@ -42,8 +41,8 @@ class ReopenCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, tree):
+    def auto_complete(self, work_tree, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
-            return path_completor(incomplete_path, tree)
+            return shell.path_completor(incomplete_path)
         return None, []
