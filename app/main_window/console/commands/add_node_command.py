@@ -49,7 +49,6 @@ class AddNodeCommand(Command):
             self.error_signal.emit("Error: Node already exists.\n")
             return -1
 
-        # switch to the new node
         self.output_signal.emit("Node added successfully.\n")
         return 0
     

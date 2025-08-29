@@ -31,6 +31,7 @@ class MainWindow(QWidget):
 
         self.tree_graph_widget = TreeGraphWidget(work_tree)
         self.command_widget = CommandWidget(work_tree)
+        self.command_widget.shell.post_command_signal.connect(self.tree_graph_widget.set_highlight_node)
         self.main_layout = QHBoxLayout()
         self.main_layout.addWidget(self.tree_graph_widget, stretch=2)
         self.main_layout.addWidget(self.command_widget, stretch=3)

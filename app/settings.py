@@ -21,6 +21,7 @@ DEFAULT_SETTINGS = {
     "graph/completedColor": QColor("#c8e6c9"),
     "graph/waitingColor": QColor("#fff9c4"),
     "graph/rectColor": QColor(Qt.black),
+    "graph/highlightRectColor": QColor("#5555ff"),
     "graph/lineColor": QColor(Qt.gray),
     "graph/textColor": QColor(Qt.black),
     "graph/rectPenWidth": 2,

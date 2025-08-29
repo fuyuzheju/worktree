@@ -18,7 +18,9 @@ class GraphicsNodeItem(QGraphicsObject):
     request_add_reminder = pyqtSignal(QGraphicsObject)
 
     def __init__(self, data_node: Node, prefix: list, 
-                 is_expanded: bool, reminder_inf: tuple[int, int] = (0,0)):
+                 is_expanded: bool, 
+                 reminder_inf: tuple[int, int] = (0,0),
+                 highlight: bool = False):
         super().__init__()
         self.data_node = data_node
         self.prefix = prefix
@@ -30,7 +32,10 @@ class GraphicsNodeItem(QGraphicsObject):
         self.setFlag(QGraphicsObject.ItemIsSelectable, True)
         self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor", type=QColor),
                         Status.WAITING: settings_manager.get("graph/waitingColor", type=QColor)}
-        self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
+        if highlight:
+            self.rect_pen = QPen(settings_manager.get("graph/highlightRectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
+        else:
+            self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
         self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))
         self.text_pen = QPen(settings_manager.get("graph/textColor", type=QColor), settings_manager.get("graph/textPenWidth", type=float))
         self.fixed_nodewidth, self.fixed_nodeheight = calculate_node_boundary(self.data_node.name)
@@ -151,6 +156,8 @@ class TreeGraphWidget(QWidget):
         self.work_tree.tree_edit_signal.connect(self.on_tree_edit)
         self.work_tree.reminder_edit_signal.connect(self.relayout_tree)
         self.work_tree.reminder_service.reminder_due.connect(self.relayout_tree)
+        self.hightlight_node = self.work_tree.tree.root
+
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
         self.view.setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -200,7 +207,8 @@ class TreeGraphWidget(QWidget):
                 is_expanded = True
                 self.expand_status[node.identity] = True
             reminders = self.work_tree.reminder_service.get_reminders_by_node_id(node.identity)
-            item = GraphicsNodeItem(node, prefix, is_expanded, calculate_reminder_type(reminders))
+            item = GraphicsNodeItem(node, prefix, is_expanded, calculate_reminder_type(reminders),
+                                    highlight=(node is self.hightlight_node))
             item.request_add_reminder.connect(self.on_reminder_add)
             self.init_item(item)
             self.scene.addItem(item)
@@ -230,7 +238,7 @@ class TreeGraphWidget(QWidget):
         etype = edit_data['type']
         if etype in ['remove_node', 'remove_subtree', 'move_node', '']:
             self.relayout_tree()
-        elif etype in ['complete_node', 'complete_current', 'reopen_node']:
+        elif etype in ['complete_node', 'reopen_node']:
             self.scene.update()
 
         if etype == 'add_node':
@@ -239,22 +247,14 @@ class TreeGraphWidget(QWidget):
             self.expand_status[new_node.identity] = True
             self.relayout_tree()
 
-        if etype == 'switch_to':
-            edit_node_id = edit_data['args']['node_id']
-            edit_node = self.work_tree.tree.get_node_by_id(edit_node_id)
-            def check_expanded(node):
-                if not self.expand_status[node.identity]:
-                    self.expand_status[node.identity] = True
-                if node.parent:
-                    check_expanded(node.parent)
-
-            check_expanded(edit_node)
-            self.relayout_tree()
-
     def on_reminder_add(self, graghnode: GraphicsNodeItem):
         node = graghnode.data_node
         dialog = SetReminderDialog(node, self.work_tree, None)
         dialog.exec_()
+        self.relayout_tree()
+    
+    def set_highlight_node(self, node):
+        self.hightlight_node = node
         self.relayout_tree()
 
 def calculate_node_boundary(text: str) -> tuple[float,float] :

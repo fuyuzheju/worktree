@@ -124,10 +124,6 @@ class WorkTree(QObject):
         return self.tree.complete_node(node_id)
     
     @send_signal('tree_edit_signal')
-    def switch_to(self, node_id: str) -> int:
-        return self.tree.switch_to(node_id)
-    
-    @send_signal('tree_edit_signal')
     def remove_node(self, node_id: str) -> int:
         return self.tree.remove_node(node_id)
     

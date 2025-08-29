@@ -16,6 +16,7 @@ class Shell(QObject):
     output_signal = pyqtSignal(str)
     error_signal = pyqtSignal(str)
     finish_signal = pyqtSignal()
+    post_command_signal = pyqtSignal(object) # to tell TreeGraphWidget to repaint, parameter: new pwd_node
 
     def __init__(self, work_tree: "WorkTree") -> None:
         super().__init__()
@@ -23,6 +24,7 @@ class Shell(QObject):
         self.work_tree = work_tree
         self.pwd = '/'
         self.pwd_node = work_tree.tree.root
+        self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
     
     def to_path(self, node: Node) -> str:
         if node.parent is None:
@@ -125,4 +127,5 @@ class Shell(QObject):
         command.finish_signal.connect(self.finish_signal.emit)
         res = command(self.work_tree, self)
         self.pwd_node = self.path_parser(self.pwd) # reload pwd node
+        self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
         return res

@@ -23,7 +23,7 @@ class CommandLineEdit(QLineEdit):
     - up arrow: browse command history up
     - down arrow: browse command history down
     """
-    def __init__(self, work_tree: WorkTree, parent=None):
+    def __init__(self, work_tree: WorkTree, shell: Shell, parent=None):
         super().__init__(parent)
         self.command_history: list[str] = []
         self.current_command_index = 0
@@ -32,6 +32,7 @@ class CommandLineEdit(QLineEdit):
         self.completion_index = -1 # to record the current completion index
         self.possible_completion_list: list[str] = []
         self.work_tree: WorkTree = work_tree
+        self.shell: Shell = shell
         self.textChanged.connect(self.on_changed)
         self.cursorPositionChanged.connect(self.on_changed)
     
@@ -160,7 +161,7 @@ class CommandLineEdit(QLineEdit):
             command_class = COMMAND_REGISTRY.get(parts[0])
             if command_class is not None:
                 command = command_class(*parts[1:])
-                res = command.auto_complete(self.work_tree)
+                res = command.auto_complete(self.work_tree, self.shell)
                 completed_command = res[0]
                 self.possible_completion_list = res[1]
                 if len(self.possible_completion_list) == 1:
@@ -179,7 +180,7 @@ class CommandWidget(QWidget):
     def __init__(self, work_tree: "WorkTree", parent=None):
         super().__init__(parent)
         self.shell = Shell(work_tree)
-        self.command_input = CommandLineEdit(work_tree)
+        self.command_input = CommandLineEdit(work_tree, self.shell)
         self.initUI()
         self.shell.output_signal.connect(self.output_callback)
         self.shell.error_signal.connect(self.error_callback)
