@@ -164,18 +164,8 @@ class Application(AppBasic):
         self.main_window.open_file_signal.connect(self.open_tree)
 
         # reminder notifications
-        from .utils import Notification
-        if self.settings_manager.get("reminderNotifications"):
-            self.reminder_notifier = Notification(self.reminder_notification_process)
-            self.reminder_notifier.request_authorization_if_needed()
-            self.reminder_notifier.add_category("reminder", [
-                {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
-                {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
-            ])
-            self.work_tree.reminder_service.reminder_due.connect(self.reminder_notify)
-            self.logger.info("Reminder notifications initialized.")
-        else:
-            self.logger.info("Reminder notifications cancelled due to user preferences.")
+        self.setup_reminder_notifications()
+        self.settings_manager.settings_changed.connect(self.on_settings_changed)
 
         # hotkey
         from .keyboard_listener import HotkeyManager
@@ -188,6 +178,21 @@ class Application(AppBasic):
         quit_signal.connect(self.quit)
         app_initialization(self)
         self.logger.info("Application Initialized.")
+
+    def setup_reminder_notifications(self):
+        from .utils import Notification
+        if self.settings_manager.get("reminderNotifications"):
+            self.reminder_notifier = Notification(self.reminder_notification_process)
+            self.reminder_notifier.request_authorization_if_needed()
+            self.reminder_notifier.add_category("reminder", [
+                {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
+                {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
+            ])
+            self.work_tree.reminder_service.reminder_due.connect(self.reminder_notify)
+            self.logger.info("Reminder notifications initialized.")
+        else:
+            self.reminder_notifier = None
+            self.logger.info("Reminder notifications cancelled due to user preferences.")
 
     def setup_tray_icon(self, connected_window):
         from .controls import quit_signal
@@ -203,6 +208,16 @@ class Application(AppBasic):
             if reason == QSystemTrayIcon.DoubleClick:
                 connected_window.to_frontground()
         self.tray_icon.activated.connect(on_tray_icon_activated)
+    
+    def on_settings_changed(self, keys: list[str]):
+        if "reminderNotifications" in keys:
+            self.setup_reminder_notifications()
+        if "createTrayIcon" in keys:
+            res = self.settings_manager.get("createTrayIcon", type=bool)
+            if res:
+                self.tray_icon.show()
+            else:
+                self.tray_icon.hide()
 
     def save_tree(self, output_path: str):
         if self.storage == None:
@@ -263,6 +278,8 @@ class Application(AppBasic):
             self.main_window.to_frontground()
     
     def reminder_notify(self, reminder):
+        if self.reminder_notifier is None:
+            return
         self.reminder_notifier.send_notification(
             "Reminder Due",
             reminder.message,

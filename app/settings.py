@@ -6,7 +6,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
     "createTrayIcon": True, 
-    "showReminderHint": True,
     "reminderNotifications": False,
 
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
@@ -33,6 +32,7 @@ DEFAULT_SETTINGS = {
     "graph/reminderDotOffset": 6,
     "graph/activeReminderDotColor": QColor(Qt.red),
     "graph/inactiveReminderDotColor": QColor(Qt.blue),
+    "graph/showReminderHint": True,
 }
 
 class SettingsManager(QObject):

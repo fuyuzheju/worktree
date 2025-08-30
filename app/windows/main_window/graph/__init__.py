@@ -107,7 +107,8 @@ class GraphicsNodeItem(QGraphicsObject):
         painter.restore()
 
         # reminder hint icon
-        if self.active_reminder_count > 0 or self.inactive_reminder_count > 0:
+        if self.context.settings_manager.get("graph/showReminderHint") and \
+                (self.active_reminder_count > 0 or self.inactive_reminder_count > 0):
             painter.save()
             start_x = self.fixed_nodewidth - self.reminder_dot_size + self.reminder_dot_offset
             dot_y = - self.reminder_dot_offset
