@@ -162,7 +162,7 @@ class ReminderRemoveCommand(Subcommand):
         try:
             # index specifying
             index = int(specifier)
-            reminder_id = context.work_tree.list_reminders()[index]
+            reminder_id = context.work_tree.list_reminders()[index].reminder_id
         except (IndexError, ValueError):
             # id specifying
             reminder_id = specifier
@@ -210,7 +210,7 @@ class ReminderSetCommand(Subcommand):
         try:
             # index specifying
             index = int(specifier)
-            reminder_id = context.work_tree.list_reminders()[index]
+            reminder_id = context.work_tree.list_reminders()[index].reminder_id
         except (IndexError, ValueError):
             # id specifying
             reminder_id = specifier
