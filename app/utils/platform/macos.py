@@ -76,8 +76,8 @@ def app_initialization(app):
     pass
 
 
-import UserNotifications as UN
-from Foundation import NSObject, NSDictionary
+import UserNotifications as UN # type: ignore
+from Foundation import NSObject, NSDictionary # type: ignore
 import uuid
 
 # assistant class to manage notifications interacting with the apis of the system
