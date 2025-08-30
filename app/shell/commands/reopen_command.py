@@ -27,13 +27,13 @@ class ReopenCommand(Command):
         }
 
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         path = self.args["arguments"]["required"][0]
         node = shell.path_parser(path)
         if node is None:
             self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
-        res = work_tree.reopen_node(node.identity)
+        res = context.work_tree.reopen_node(node.identity)
         if res == -1:
             self.error_signal.emit("Error: Node is not completed.\n")
             return -1        
@@ -41,7 +41,7 @@ class ReopenCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return shell.path_completor(incomplete_path)

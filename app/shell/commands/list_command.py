@@ -27,7 +27,7 @@ class ListCommand(Command):
         }
     
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
         else:
@@ -43,7 +43,7 @@ class ListCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["optional"][0]
             return shell.path_completor(incomplete_path)

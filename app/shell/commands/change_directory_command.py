@@ -27,7 +27,7 @@ class ChangeDirectoryCommand(Command):
         }
 
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         path = self.args["arguments"]["required"][0]
         target = shell.path_parser(path)
         if target is None:
@@ -39,7 +39,7 @@ class ChangeDirectoryCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return shell.path_completor(incomplete_path)

@@ -1,24 +1,28 @@
 from PyQt5.QtCore import Qt, pyqtSignal, QObject, QTimer
 from pynput import keyboard
 import logging
-from .settings import settings_manager
 from .utils import qkeysequence_to_pynput
+
+from app.setup import AppContext
 
 logger = logging.getLogger(__name__)
 
 class HotkeyManager(QObject):
     hotkeyPressed = pyqtSignal()
-    def __init__(self, key_name, connected_window):
+    def __init__(self, context: AppContext, 
+                 connected_window,
+                 key_name: str = "hotkey/mainWindowHotkey",):
         """
         :param key_name: the key name of the hotkey to listen in the settings
         :param connected_window: the window to connect to the hotkey
         """
         super().__init__()
+        self.context = context
         self.key_name = key_name
         self.connected_window = connected_window
-        self.hotkeyPressed.connect(connected_window.toggle_state, Qt.QueuedConnection)
+        self.hotkeyPressed.connect(connected_window.toggle_state)
 
-        settings_manager.settings_changed.connect(self.update_settings)
+        self.context.settings_manager.settings_changed.connect(self.update_settings)
         self.global_listen()
 
         self.check_timer = QTimer(self)
@@ -45,7 +49,7 @@ class HotkeyManager(QObject):
             logger.debug(f"Hotkey Pressed.")
             self.hotkeyPressed.emit()
 
-        key_sequence = settings_manager.get(self.key_name, type=str) # get a PyQt key sequence string here
+        key_sequence = self.context.settings_manager.get(self.key_name, type=str) # get a PyQt key sequence string here
         hotkey = qkeysequence_to_pynput(key_sequence) # transform it into something that pynput can parse
         hotkeys_config = {
             hotkey: on_press

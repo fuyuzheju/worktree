@@ -4,22 +4,26 @@ from PyQt5.QtWidgets import (
     QColorDialog, QFontComboBox, QKeySequenceEdit, QCheckBox
 )
 from PyQt5.QtGui import QColor, QPalette, QKeySequence
-from PyQt5.QtCore import Qt
-from ...settings import settings_manager, DEFAULT_SETTINGS
+from PyQt5.QtCore import Qt, QObject
+from ...settings import DEFAULT_SETTINGS
+
+from app.setup import AppContext
 
 class SettingsDialog(QDialog):
     """
     A Dialog to view and edit settings.
     Dynamically generate tab pages and editors according to settings.
     """
-    def __init__(self, parent=None):
+    def __init__(self, context: AppContext, parent=None):
         super().__init__(parent)
+        self.context = context
+
         self.setWindowTitle("应用设置")
         self.setMinimumWidth(450)
         self.setModal(True)
 
         # store all editor buttons
-        self.editors = []
+        self.editors: list[QObject] = []
 
         main_layout = QVBoxLayout(self)
 
@@ -38,7 +42,7 @@ class SettingsDialog(QDialog):
         """
         dynamically create ui elements based on DEFAULT_SETTINGS
         """
-        groups = {}
+        groups: dict[str, QFormLayout] = {}
 
         for key, default_value in DEFAULT_SETTINGS.items():
 
@@ -55,7 +59,7 @@ class SettingsDialog(QDialog):
                 self.tabs.addTab(tab_page, group_name.capitalize())
                 groups[group_name] = form_layout
 
-            current_value = settings_manager.get(key, type=type(default_value))
+            current_value = self.context.settings_manager.get(key, type=type(default_value))
             label_text = setting_name.replace('_', ' ').capitalize()
             
             editor = None
@@ -98,7 +102,7 @@ class SettingsDialog(QDialog):
         button.clicked.connect(lambda: self._on_color_button_clicked(button))
         return button
 
-    def _update_button_style(self, button, color: QColor):
+    def _update_button_style(self, button: QPushButton, color: QColor):
         button.setText(color.name())
         button.setStyleSheet(f"background-color: {color.name()};")
         palette = button.palette()
@@ -108,7 +112,7 @@ class SettingsDialog(QDialog):
             palette.setColor(QPalette.ButtonText, Qt.black)
         button.setPalette(palette)
 
-    def _on_color_button_clicked(self, button):
+    def _on_color_button_clicked(self, button: QPushButton):
         """
         open the color dialog when color button is clicked
         """
@@ -142,11 +146,11 @@ class SettingsDialog(QDialog):
                 continue
             
             value_type = type(DEFAULT_SETTINGS[key])
-            if value != settings_manager.get(key, type=value_type):
+            if value != self.context.settings_manager.get(key, type=value_type):
                 keys_to_set.append(key)
                 values_to_set.append(value)
         
         if keys_to_set:
-            settings_manager.set(keys_to_set, values_to_set)
+            self.context.settings_manager.set(keys_to_set, values_to_set)
 
         super().accept()

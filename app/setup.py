@@ -5,13 +5,20 @@ from pathlib import Path
 import logging, shutil, os, zipfile
 from logging.config import dictConfig
 
+from .data.worktree import WorkTree
+from .settings import SettingsManager
+
 ICON_PATH = "assets/worktree-icon.png"
 
 DELAY_ACTION_ID = 'delay'
 COMPLETE_ACTION_ID = 'complete'
 
 class AppContext:
-    def __init__(self, *, work_tree, settings_manager):
+    """
+    provide a context for deep nested references
+    the context is passed to every object
+    """
+    def __init__(self, *, work_tree: WorkTree, settings_manager: SettingsManager):
         self.work_tree = work_tree
         self.settings_manager = settings_manager
 
@@ -45,8 +52,8 @@ class AppBasic(QApplication):
         self.logger.info(f"Logging configured. Dir: {log_dir}")
 
         # settings
-        from .settings import settings_manager
-        self.settings_manager = settings_manager
+        from .settings import SettingsManager
+        self.settings_manager = SettingsManager()
 
         # work tree
         from .data.worktree import WorkTree
@@ -59,7 +66,7 @@ class AppBasic(QApplication):
         # storage
         from .data.storage import Storage
         self.storage_dir: Path = Path(self.app_data_dir) / "storage"
-        self.storage: Storage = Storage(self.work_tree, self.storage_dir)
+        self.storage: Storage = Storage(self.context, self.storage_dir)
         self.logger.info(f"Storage configured. Dir: {self.storage_dir}")
     
     def setup_logging(self, log_dir: Path):
@@ -127,7 +134,7 @@ class Application(AppBasic):
         
         # main window
         from .windows.main_window import MainWindow
-        self.main_window: MainWindow = MainWindow(self.work_tree)
+        self.main_window: MainWindow = MainWindow(self.context)
         self.main_window.show()
         self.logger.info("Main window created.")
 
@@ -162,7 +169,7 @@ class Application(AppBasic):
 
         # hotkey
         from .keyboard_listener import HotkeyManager
-        self.mainwindow_hotkey_manager = HotkeyManager("hotkey/mainWindowHotkey", self.main_window)
+        self.mainwindow_hotkey_manager = HotkeyManager(self.context, self.main_window)
         self.logger.info("Hotkey manager created.")
 
         # other

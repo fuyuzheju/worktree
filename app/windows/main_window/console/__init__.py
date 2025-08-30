@@ -1,13 +1,12 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
-from ....shell import Shell
-# from .commands import COMMAND_REGISTRY
-# from .commands.utils import max_common_prefix
+from app.shell import Shell
 import logging
 
-from ....data.worktree import WorkTree
-from ....data.worktree.tree import Node
+from app.data.worktree import WorkTree
+from app.data.worktree.tree import Node
+from app.setup import AppContext
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ class CommandLineEdit(QLineEdit):
     - up arrow: browse command history up
     - down arrow: browse command history down
     """
-    def __init__(self, work_tree: WorkTree, shell: Shell, parent=None):
+    def __init__(self, shell: Shell, parent=None):
         super().__init__(parent)
         self.command_history: list[str] = []
         self.current_command_index = 0
@@ -31,7 +30,6 @@ class CommandLineEdit(QLineEdit):
         self.is_completing = False # to record if the user is trying to complete the command
         self.completion_index = -1 # to record the current completion index
         self.possible_completion_list: list[str] = []
-        self.work_tree: WorkTree = work_tree
         self.shell: Shell = shell
         self.textChanged.connect(self.on_changed)
         self.cursorPositionChanged.connect(self.on_changed)
@@ -149,10 +147,10 @@ class CommandWidget(QWidget):
     """
     Main widget of the console, including a command input area and a output area.
     """
-    def __init__(self, work_tree: "WorkTree", parent=None):
+    def __init__(self, context: AppContext, parent=None):
         super().__init__(parent)
-        self.shell = Shell(work_tree)
-        self.command_input = CommandLineEdit(work_tree, self.shell)
+        self.shell = Shell(context)
+        self.command_input = CommandLineEdit(self.shell)
         self.initUI()
         self.shell.output_signal.connect(self.output_callback)
         self.shell.error_signal.connect(self.error_callback)

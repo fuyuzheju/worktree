@@ -1,7 +1,7 @@
 from pathlib import Path
 import logging, shutil
 
-from ..worktree import WorkTree
+from app.setup import AppContext
 
 logger = logging.getLogger(__name__)
 
@@ -11,11 +11,12 @@ class Storage:
     A manager which processes both history storage and reminder storage.
     """
 
-    def __init__(self, work_tree: WorkTree, STORAGE_DIR: Path):
+    def __init__(self, context: AppContext, STORAGE_DIR: Path):
         from .history_storage import HistoryStorage
         from .reminder_storage import ReminderStorage
-        self.history_storage = HistoryStorage(work_tree, STORAGE_DIR / "history", 20)
-        self.reminder_storage = ReminderStorage(work_tree, STORAGE_DIR / "reminder")
+        self.context = context
+        self.history_storage = HistoryStorage(context, STORAGE_DIR / "history", 20)
+        self.reminder_storage = ReminderStorage(context, STORAGE_DIR / "reminder")
     
     def cleanup_history(self):
         """

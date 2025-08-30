@@ -80,6 +80,10 @@ class WorkTree(QObject):
         logger.debug("Reminder edited: %s", edit_data)
     
     def undo(self):
+        """
+        send a 'undo_request' signal to tell 'storage' module to execute undo operation
+        send a 'tree_edit_signal' to tell other parts to update tree state
+        """
         self.undo_request.emit()
         self.tree_edit_signal.emit({
             'type': '',
@@ -89,6 +93,9 @@ class WorkTree(QObject):
     # below are the apis to operate the reminders
     def get_reminder_by_id(self, reminder_id: str) -> Optional[Reminder]:
         return self.reminder_service.get_reminder_by_id(reminder_id)
+
+    def list_reminders(self) -> list[Reminder]:
+        return self.reminder_service.list_reminders()
 
     @send_signal('reminder_edit_signal')
     def add_reminder(self, node_id: str, due_time: datetime, message: str,
@@ -135,75 +142,3 @@ class WorkTree(QObject):
     def move_node(self, node_id: str, new_parent_id: str) -> int:
         return self.tree.move_node(node_id, new_parent_id)
     
-    # below are the apis to operate the reminders
-    # def init_reminder_apis(self):
-    #     api_names = [
-    #         'add_reminder',
-    #         'remove_reminder',
-    #         'set_reminder',
-    #     ]
-
-    #     success_conditions = {
-    #     }
-    #     default_success_condition = lambda res: res == 0
-
-    #     for name in api_names:
-    #         success_cond = success_conditions.get(name, default_success_condition)
-    #         original_func = getattr(self.reminder_service, name)
-
-    #         def create_api(func, s_cond, api_type):
-    #             def api_method(self, *args, **kwargs):
-    #                 bound_args = inspect.signature(func).bind(*args, **kwargs)
-    #                 bound_args.apply_defaults()
-    #                 signal_args = dict(bound_args.arguments)
-
-    #                 res = func(*args, **kwargs)
-
-    #                 if s_cond(res):
-    #                     self.reminder_edit_signal.emit({
-    #                         'type': api_type,
-    #                         'args': signal_args
-    #                     })
-    #                 return res
-    #             return api_method
-
-    #         api_method = create_api(original_func, success_cond, name)
-    #         setattr(self, name, api_method.__get__(self))
-
-    # # below are the apis to edit the tree
-    # def init_tree_apis(self):
-    #     api_names = [
-    #         'add_node',
-    #         'reopen_node',
-    #         'complete_node',
-    #         'remove_node',
-    #         'remove_subtree',
-    #         'move_node',
-    #     ]
-
-    #     success_conditions = {
-    #     }
-    #     default_success_condition = lambda res: res == 0
-
-    #     for name in api_names:
-    #         success_cond = success_conditions.get(name, default_success_condition)
-    #         original_func = getattr(self.tree, name)
-
-    #         def create_api(func, s_cond, api_type):
-    #             def api_method(self, *args, **kwargs):
-    #                 bound_args = inspect.signature(func).bind(*args, **kwargs)
-    #                 bound_args.apply_defaults()
-    #                 signal_args = dict(bound_args.arguments)
-
-    #                 res = func(*args, **kwargs)
-
-    #                 if s_cond(res):
-    #                     self.tree_edit_signal.emit({
-    #                         'type': api_type,
-    #                         'args': signal_args
-    #                     })
-    #                 return res
-    #             return api_method
-
-    #         api_method = create_api(original_func, success_cond, name)
-    #         setattr(self, name, api_method.__get__(self))

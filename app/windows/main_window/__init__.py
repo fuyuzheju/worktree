@@ -1,13 +1,13 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
-from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
-from ...settings import settings_manager
 from ...utils import set_app_state
 from ..settings_window import SettingsDialog
 from ..reminders_window import RemindersDialog
+
+from app.setup import AppContext
 
 import logging
 
@@ -23,14 +23,14 @@ class MainWindow(QWidget):
     combines TreeGraphWidget and CommandWidget together
     provides a menu bar
     """
-    def __init__(self, work_tree):
+    def __init__(self, context: AppContext):
         super().__init__()
         self.setWindowTitle("worktree")
 
-        self.worktree = work_tree
+        self.context = context
 
-        self.tree_graph_widget = TreeGraphWidget(work_tree)
-        self.command_widget = CommandWidget(work_tree)
+        self.tree_graph_widget = TreeGraphWidget(context)
+        self.command_widget = CommandWidget(context)
         self.command_widget.shell.post_command_signal.connect(self.tree_graph_widget.set_highlight_node)
         self.main_layout = QHBoxLayout()
         self.main_layout.addWidget(self.tree_graph_widget, stretch=2)
@@ -47,15 +47,15 @@ class MainWindow(QWidget):
         self.reminder_menu.addAction('Manage Reminder', self.open_reminder_dialog)
         self.settings_menu = self.menu_bar.addMenu("Settings")
         self.settings_menu.addAction("Open settings window", self.open_settings_window)
-        self.settings_menu.addAction("Recover to default settings", settings_manager.recover_default)
+        self.settings_menu.addAction("Recover to default settings", self.context.settings_manager.recover_default)
         self.main_layout.setMenuBar(self.menu_bar)
 
         # hotkeys
-        self.save_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/saveFileHotkey", type=str)), self)
+        self.save_file_shortcut = QShortcut(QKeySequence(self.context.settings_manager.get("hotkey/saveFileHotkey", type=str)), self)
         self.save_file_shortcut.activated.connect(self.save_file)
-        self.open_file_shortcut = QShortcut(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)), self)
+        self.open_file_shortcut = QShortcut(QKeySequence(self.context.settings_manager.get("hotkey/openFileHotkey", type=str)), self)
         self.open_file_shortcut.activated.connect(self.open_file)
-        settings_manager.settings_changed.connect(self.update_settings)
+        self.context.settings_manager.settings_changed.connect(self.update_settings)
         
         self.setLayout(self.main_layout)
         self.setGeometry(300, 300, 500, 300)
@@ -64,9 +64,9 @@ class MainWindow(QWidget):
     
     def update_settings(self, keys):
         if "hotkey/saveFileHotkey" in keys:
-            self.save_file_shortcut.setKey(QKeySequence(settings_manager.get("hotkey/saveFileHotkey", type=str)))
+            self.save_file_shortcut.setKey(QKeySequence(self.context.settings_manager.get("hotkey/saveFileHotkey", type=str)))
         if "hotkey/openFileHotkey" in keys:
-            self.open_file_shortcut.setKey(QKeySequence(settings_manager.get("hotkey/openFileHotkey", type=str)))
+            self.open_file_shortcut.setKey(QKeySequence(self.context.settings_manager.get("hotkey/openFileHotkey", type=str)))
 
     def to_frontground(self):
         self.show()
@@ -102,11 +102,11 @@ class MainWindow(QWidget):
         return super().eventFilter(obj, event)
     
     def open_settings_window(self):
-        dialog = SettingsDialog(self)
+        dialog = SettingsDialog(self.context, parent=self)
         dialog.exec_()
 
     def open_reminder_dialog(self):
-        dialog = RemindersDialog(self.worktree)
+        dialog = RemindersDialog(self.context, parent=self)
         ret = dialog.exec_()
         self.tree_graph_widget.relayout_tree()
     

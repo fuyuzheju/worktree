@@ -49,7 +49,7 @@ class ReminderListCommand(Subcommand):
         }
     
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         if self.args['options']['short']['-l'] is not None or self.args['options']['long']['--long'] is not None:
             def format_reminder(reminder, index):
                 return f"[{index}]   {reminder.message}     {reminder.node_id}     {reminder.due_time.isoformat()}     {reminder.active}     {reminder.reminder_id}\n"
@@ -58,17 +58,17 @@ class ReminderListCommand(Subcommand):
                 return f"[{index}]   {reminder.message}     {reminder.due_time}\n"
 
         if self.args['options']['short']['-a'] is not None or self.args['options']['long']['--all'] is not None:
-            for index, reminder in enumerate(work_tree.reminder_service.list_reminders()):
+            for index, reminder in enumerate(context.work_tree.list_reminders()):
                 self.output_signal.emit(format_reminder(reminder, index))
         
         else:
-            for index, reminder in enumerate(work_tree.reminder_service.list_reminders()):
+            for index, reminder in enumerate(context.work_tree.list_reminders()):
                 if reminder.active:
                     self.output_signal.emit(format_reminder(reminder, index))
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         return None, []
 
 
@@ -98,7 +98,7 @@ class ReminderAddCommand(Subcommand):
         }
     
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         node_path = self.args["arguments"]["required"][0]
         due_time_format = self.args["arguments"]["required"][1]
 
@@ -119,11 +119,11 @@ class ReminderAddCommand(Subcommand):
             self.error_signal.emit(f"Error: {str(e)}\n")
             return -1
             
-        work_tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4()))
+        context.work_tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4()))
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][-1]
             return shell.path_completor(incomplete_path)
@@ -157,17 +157,17 @@ class ReminderRemoveCommand(Subcommand):
         }
     
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         specifier = self.args["arguments"]["required"][0]
         try:
             # index specifying
             index = int(specifier)
-            reminder_id = work_tree.reminder_service.list_reminders()[index]
+            reminder_id = context.work_tree.list_reminders()[index]
         except (IndexError, ValueError):
             # id specifying
             reminder_id = specifier
 
-        res = work_tree.remove_reminder(reminder_id)
+        res = context.work_tree.remove_reminder(reminder_id)
         if res == -1:
             self.error_signal.emit(f"Error: No such reminder '{reminder_id}'.\n")
             return -1
@@ -175,7 +175,7 @@ class ReminderRemoveCommand(Subcommand):
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         return None, []
 
 
@@ -205,12 +205,12 @@ class ReminderSetCommand(Subcommand):
         }
     
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         specifier = self.args["arguments"]["required"][0]
         try:
             # index specifying
             index = int(specifier)
-            reminder_id = work_tree.reminder_service.list_reminders()[index]
+            reminder_id = context.work_tree.list_reminders()[index]
         except (IndexError, ValueError):
             # id specifying
             reminder_id = specifier
@@ -236,7 +236,7 @@ class ReminderSetCommand(Subcommand):
                 return -1
         else:
             new_due_time = None
-        res = work_tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
+        res = context.work_tree.set_reminder(reminder_id, new_due_time, new_message, new_active)
         if res == -1:
             self.error_signal.emit(f"Error: No such reminder '{reminder_id}'.\n")
         

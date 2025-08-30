@@ -1,8 +1,9 @@
 from pathlib import Path
 import json, time, logging
+from ..worktree import WorkTree
 
 from typing import Optional
-from ..worktree import WorkTree
+from app.setup import AppContext
 from ..worktree.tree import Node
 
 logger = logging.getLogger(__name__)
@@ -12,8 +13,8 @@ class HistoryStorage:
     Observes a WorkTree, and stores the history to a file.
     snapshots tree every {snapshot_interval} events.
     """
-    def __init__(self, work_tree: WorkTree, history_dir: Path, snapshot_interval: int = 10):
-        self.work_tree = work_tree
+    def __init__(self, context: AppContext, history_dir: Path, snapshot_interval: int = 10):
+        self.context = context
         self.history_dir = history_dir
         self.history_dir.mkdir(parents=True, exist_ok=True)
 
@@ -23,8 +24,8 @@ class HistoryStorage:
             self.take_snapshot()
         self.snapshot_interval = snapshot_interval
 
-        self.work_tree.tree_edit_signal.connect(self.handle_edit)
-        self.work_tree.undo_request.connect(self.undo)
+        self.context.work_tree.tree_edit_signal.connect(self.handle_edit)
+        self.context.work_tree.undo_request.connect(self.undo)
 
         self.load_from_disk()
     
@@ -62,7 +63,7 @@ class HistoryStorage:
     
     def take_snapshot(self):
         logger.debug("Taking snapshot.")
-        root_dict = self.work_tree.tree.root.to_dict()
+        root_dict = self.context.work_tree.tree.root.to_dict()
         timestamp = int(time.time())
         snapshot_dir = self.history_dir / f"snapshot_{timestamp}"
         snapshot_dir.mkdir()
@@ -98,7 +99,7 @@ class HistoryStorage:
             op_function = getattr(new_tree.tree, op_type)
             op_function(**args)
 
-        self.work_tree.tree.root = new_tree.tree.root
+        self.context.work_tree.tree.root = new_tree.tree.root
         self.op_count_since_snapshot = len(operations)
 
     def load_from_disk(self) -> None:
@@ -115,7 +116,7 @@ class HistoryStorage:
         with open(self.current_snapshot_dir / 'op.log', 'r') as f:
             operations = [json.loads(line) for line in f]
         self.load_snapshot(snapshot, operations)
-        self.work_tree.tree_edit_signal.emit({
+        self.context.work_tree.tree_edit_signal.emit({
             'type': '',
             'args': {}
         })

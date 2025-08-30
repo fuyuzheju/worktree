@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 from ..data.worktree.tree import Node, Tree
 from ..data.worktree import WorkTree
+from app.setup import AppContext
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,12 @@ class Shell(QObject):
     finish_signal = pyqtSignal()
     post_command_signal = pyqtSignal(object) # to tell TreeGraphWidget to repaint, parameter: new pwd_node
 
-    def __init__(self, work_tree: "WorkTree") -> None:
+    def __init__(self, context: AppContext) -> None:
         super().__init__()
         self.is_running_command = False
-        self.work_tree = work_tree
+        self.context = context
         self.pwd = '/'
-        self.pwd_node = work_tree.tree.root
+        self.pwd_node = self.context.work_tree.tree.root
         self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
     
     def to_path(self, node: Node) -> str:
@@ -77,7 +78,7 @@ class Shell(QObject):
         path = self.path_normalizer(path, path_separator)
 
         parts = path.split(path_separator)[1:-1] # slice to exclude the empty parts at the endpoint
-        current = self.work_tree.tree.root
+        current = self.context.work_tree.tree.root
         for p in parts:
             # search for node
             for child in current.children:
@@ -127,7 +128,7 @@ class Shell(QObject):
         command.output_signal.connect(self.output_signal.emit)
         command.error_signal.connect(self.error_signal.emit)
         command.finish_signal.connect(self.finish_signal.emit)
-        res = command(self.work_tree, self)
+        res = command(self.context, self)
         self.pwd_node = self.path_parser(self.pwd) # reload pwd node
         self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
         return res
@@ -159,6 +160,6 @@ class Shell(QObject):
             command_class = COMMAND_REGISTRY.get(parts[0])
             if command_class is not None:
                 command = command_class(*parts[1:])
-                return command.auto_complete(self.work_tree, self)
+                return command.auto_complete(self.context, self)
         
         return None, []

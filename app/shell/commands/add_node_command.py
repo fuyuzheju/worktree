@@ -28,7 +28,7 @@ class AddNodeCommand(Command):
         }
 
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         name = self.args["arguments"]["required"][0]
         if '.' in name or '/' in name or ':' in name or name == '':
             self.error_signal.emit("Error: Invalid node name.\n")
@@ -44,7 +44,7 @@ class AddNodeCommand(Command):
             self.error_signal.emit(f"Error: No such node {parent_path}.\n")
             return -1
 
-        res = work_tree.add_node(parent_node.identity, name, str(uuid.uuid4()))
+        res = context.work_tree.add_node(parent_node.identity, name, str(uuid.uuid4()))
         if res == -1:
             self.error_signal.emit("Error: Node already exists.\n")
             return -1
@@ -53,5 +53,5 @@ class AddNodeCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         return None, []

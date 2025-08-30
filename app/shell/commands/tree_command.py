@@ -28,7 +28,7 @@ class TreeCommand(Command):
         }
     
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
         else:
@@ -49,7 +49,7 @@ class TreeCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["optional"][0]

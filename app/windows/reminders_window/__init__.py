@@ -8,6 +8,7 @@ from PyQt5.QtCore import QDateTime, Qt
 from functools import partial
 from datetime import datetime
 from typing import Optional
+from app.setup import AppContext
 
 class SetReminderDialog(QDialog):
     """
@@ -19,15 +20,15 @@ class SetReminderDialog(QDialog):
         current_reminder (Optional[Reminder]): The current reminder to edit. Defaults to None.
         parent (Optional[QWidget]): The parent widget. Defaults to None.
     """
-    def __init__(self, node: Node, worktree: WorkTree,
+    def __init__(self, node: Node, context: AppContext,
                  current_reminder: Optional[Reminder] = None,
                  parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle(f'Set Reminder On {node.name}')
         self.setFixedSize(300, 180)
 
-        self.worktree = worktree
-        self.reminder_service = worktree.reminder_service
+        self.context = context
+        self.reminder_service = self.context.work_tree.reminder_service
         self.current_reminder = current_reminder
         self.node = node
 
@@ -91,20 +92,19 @@ class SetReminderDialog(QDialog):
         is_active, duetime, message = self.get_reminder_data()
         if is_active is not None and duetime and message:
             if self.current_reminder == None:
-                self.worktree.add_reminder(self.node.identity, duetime, message, None, is_active)
+                self.context.work_tree.add_reminder(self.node.identity, duetime, message, None, is_active)
             else:
-                self.worktree.set_reminder(self.current_reminder.reminder_id, duetime, message, is_active)
+                self.context.work_tree.set_reminder(self.current_reminder.reminder_id, duetime, message, is_active)
         self.accept()
 
 class RemindersDialog(QDialog):
 
-    def __init__(self, worktree: 'WorkTree'):
-        super().__init__()
+    def __init__(self, context: AppContext, parent=None):
+        super().__init__(parent)
         self.setWindowTitle('Reminder Manage')
         self.setGeometry(300, 300, 1000, 300)
 
-        self.worktree = worktree
-        self.reminder_service = worktree.reminder_service
+        self.context = context
         self.uid_list: list[str] = []
 
         self.setup_ui()
@@ -157,18 +157,18 @@ class RemindersDialog(QDialog):
         self.reminder_table.setCellWidget(row_position, 4, delete_button)
 
     def set_reminder(self, row_position):
-        node_id = self.reminder_service.get_reminder_by_id(self.uid_list[row_position]).node_id
-        node = self.worktree.tree.get_node_by_id(node_id)
+        node_id = self.context.work_tree.get_reminder_by_id(self.uid_list[row_position]).node_id
+        node = self.context.work_tree.get_node_by_id(node_id)
         current_id = self.uid_list[row_position]
-        current_reminder = self.reminder_service.get_reminder_by_id(current_id)
-        set_dialog = SetReminderDialog(node, self.worktree, current_reminder)
+        current_reminder = self.context.work_tree.get_reminder_by_id(current_id)
+        set_dialog = SetReminderDialog(node, self.context, current_reminder)
         ret = set_dialog.exec_()
         self.refresh()
 
     def refresh(self):
         self.reminder_table.setRowCount(0)
         self.uid_list = []
-        for reminder_event in self.reminder_service.reminders: 
+        for reminder_event in self.context.work_tree.list_reminders(): 
             self._add_event_to_table(reminder_event.active ,reminder_event.due_time , reminder_event.message)
             self.uid_list.append(reminder_event.reminder_id)
     
@@ -177,9 +177,9 @@ class RemindersDialog(QDialog):
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             reminder_id = self.uid_list[row_position]
-            self.worktree.remove_reminder(reminder_id)
+            self.context.work_tree.remove_reminder(reminder_id)
             self.refresh()
     
     def update_active_status(self, data_store_index, state):
-        if 0 <= data_store_index < len(self.reminder_service.reminders):
-            self.worktree.set_reminder(self.uid_list[data_store_index], active=(state==Qt.Checked))
+        if 0 <= data_store_index < len(self.context.work_tree.list_reminders()):
+            self.context.work_tree.set_reminder(self.uid_list[data_store_index], active=(state==Qt.Checked))

@@ -3,8 +3,9 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
 from ....data.worktree.tree import Status, Node
-from ....settings import settings_manager
 from ...reminders_window import SetReminderDialog
+
+from app.setup import AppContext
 
 class GraphicsNodeItem(QGraphicsObject):
     """
@@ -17,11 +18,13 @@ class GraphicsNodeItem(QGraphicsObject):
 
     request_add_reminder = pyqtSignal(QGraphicsObject)
 
-    def __init__(self, data_node: Node, prefix: list, 
+    def __init__(self, context: AppContext,
+                 data_node: Node, prefix: list, 
                  is_expanded: bool, 
                  reminder_inf: tuple[int, int] = (0,0),
                  highlight: bool = False):
         super().__init__()
+        self.context = context
         self.data_node = data_node
         self.prefix = prefix
         self.is_expanded = is_expanded
@@ -30,31 +33,31 @@ class GraphicsNodeItem(QGraphicsObject):
         self.reminder_count = self.active_reminder_count + self.inactive_reminder_count
 
         self.setFlag(QGraphicsObject.ItemIsSelectable, True)
-        self.colors = {Status.COMPLETED: settings_manager.get("graph/completedColor", type=QColor),
-                        Status.WAITING: settings_manager.get("graph/waitingColor", type=QColor)}
+        self.colors = {Status.COMPLETED: self.context.settings_manager.get("graph/completedColor", type=QColor),
+                        Status.WAITING: self.context.settings_manager.get("graph/waitingColor", type=QColor)}
         if highlight:
-            self.rect_pen = QPen(settings_manager.get("graph/highlightRectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
+            self.rect_pen = QPen(self.context.settings_manager.get("graph/highlightRectColor", type=QColor), self.context.settings_manager.get("graph/rectPenWidth", type=float))
         else:
-            self.rect_pen = QPen(settings_manager.get("graph/rectColor", type=QColor), settings_manager.get("graph/rectPenWidth", type=float))
-        self.line_pen = QPen(settings_manager.get("graph/lineColor", type=QColor), settings_manager.get("graph/linePenWidth", type=float))
-        self.text_pen = QPen(settings_manager.get("graph/textColor", type=QColor), settings_manager.get("graph/textPenWidth", type=float))
-        self.fixed_nodewidth, self.fixed_nodeheight = calculate_node_boundary(self.data_node.name)
+            self.rect_pen = QPen(self.context.settings_manager.get("graph/rectColor", type=QColor), self.context.settings_manager.get("graph/rectPenWidth", type=float))
+        self.line_pen = QPen(self.context.settings_manager.get("graph/lineColor", type=QColor), self.context.settings_manager.get("graph/linePenWidth", type=float))
+        self.text_pen = QPen(self.context.settings_manager.get("graph/textColor", type=QColor), self.context.settings_manager.get("graph/textPenWidth", type=float))
+        self.fixed_nodewidth, self.fixed_nodeheight = calculate_node_boundary(self.context, self.data_node.name)
 
-        self.reminder_dot_size = settings_manager.get("graph/reminderDotSize", type=float)
-        self.reminder_dot_spacing = settings_manager.get("graph/reminderDotSpacing", type=float)
-        self.reminder_dot_offset = settings_manager.get("graph/reminderDotOffset", type=float)
-        self.active_reminder_dot_color = settings_manager.get("graph/activeReminderDotColor", type=QColor)
-        self.inactive_reminder_dot_color = settings_manager.get("graph/inactiveReminderDotColor", type=QColor)
+        self.reminder_dot_size = self.context.settings_manager.get("graph/reminderDotSize", type=float)
+        self.reminder_dot_spacing = self.context.settings_manager.get("graph/reminderDotSpacing", type=float)
+        self.reminder_dot_offset = self.context.settings_manager.get("graph/reminderDotOffset", type=float)
+        self.active_reminder_dot_color = self.context.settings_manager.get("graph/activeReminderDotColor", type=QColor)
+        self.inactive_reminder_dot_color = self.context.settings_manager.get("graph/inactiveReminderDotColor", type=QColor)
         self.active_reminder_dot_pen = QPen(self.active_reminder_dot_color, 1)
         self.active_reminder_dot_brush = QBrush(self.active_reminder_dot_color)
         self.inactive_reminder_dot_pen = QPen(self.inactive_reminder_dot_color, 1)
         self.inactive_reminder_dot_brush = QBrush(self.inactive_reminder_dot_color)
 
     def boundingRect(self) -> QRectF:
-        # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
-        # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
-        H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
-        V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
+        # NODE_WIDTH = self.context.settings_manager.get("graph/nodeWidth", type=float)
+        # NODE_HEIGHT = self.context.settings_manager.get("graph/nodeHeight", type=float)
+        H_SPACING = self.context.settings_manager.get("graph/nodeHSpacing", type=float)
+        V_SPACING = self.context.settings_manager.get("graph/nodeVSpacing", type=float)
         width_fixed_for_reminder_hint = self.reminder_count * \
             (self.reminder_dot_size + self.reminder_dot_spacing) if self.reminder_count > 0 else 0
         return QRectF(-self.depth * H_SPACING, -V_SPACING,
@@ -62,12 +65,12 @@ class GraphicsNodeItem(QGraphicsObject):
                       V_SPACING + self.fixed_nodeheight)
 
     def paint(self, painter, option, widget=None):
-        # NODE_WIDTH = settings_manager.get("graph/nodeWidth", type=float)
-        # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
-        H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
-        V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
-        FONT_SIZE = settings_manager.get("graph/fontSize", type=int)
-        FONT_FAMALY = settings_manager.get("graph/fontFamily", type=str)
+        # NODE_WIDTH = self.context.settings_manager.get("graph/nodeWidth", type=float)
+        # NODE_HEIGHT = self.context.settings_manager.get("graph/nodeHeight", type=float)
+        H_SPACING = self.context.settings_manager.get("graph/nodeHSpacing", type=float)
+        V_SPACING = self.context.settings_manager.get("graph/nodeVSpacing", type=float)
+        FONT_SIZE = self.context.settings_manager.get("graph/fontSize", type=int)
+        FONT_FAMALY = self.context.settings_manager.get("graph/fontFamily", type=str)
         self.font = QFont(FONT_FAMALY, FONT_SIZE)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(self.line_pen)
@@ -143,31 +146,31 @@ class TreeGraphWidget(QWidget):
     the tree graph window widget
     controls the graph node items and node expansion logics
     """
-    def __init__(self, work_tree, parent=None):
+    def __init__(self, context: AppContext, parent=None):
         super().__init__(parent)
 
         self.setWindowTitle("Tree Graph View")
         self.setGeometry(100, 100, 800, 700)
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.work_tree = work_tree
-        self.work_tree.tree_edit_signal.connect(self.on_tree_edit)
-        self.work_tree.reminder_edit_signal.connect(self.relayout_tree)
-        self.work_tree.reminder_service.reminder_due.connect(self.relayout_tree)
-        self.hightlight_node = self.work_tree.tree.root
+        self.context = context
+        self.context.work_tree.tree_edit_signal.connect(self.on_tree_edit)
+        self.context.work_tree.reminder_edit_signal.connect(self.relayout_tree)
+        self.context.work_tree.reminder_service.reminder_due.connect(self.relayout_tree)
+        self.hightlight_node = self.context.work_tree.tree.root
 
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene, self)
         self.view.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         self.view.setDragMode(QGraphicsView.ScrollHandDrag)
-        self.layout.addWidget(self.view)
+        self.main_layout.addWidget(self.view)
 
-        self.expand_status = {self.work_tree.tree.root.identity: True} # store the expand status of each node item, updated dynamically by signals sent from node items
+        self.expand_status = {self.context.work_tree.tree.root.identity: True} # store the expand status of each node item, updated dynamically by signals sent from node items
         self.relayout_tree()
 
-        settings_manager.settings_changed.connect(self.update_settings)
+        self.context.settings_manager.settings_changed.connect(self.update_settings)
     
     def update_settings(self, keys):
         flag = False
@@ -178,14 +181,15 @@ class TreeGraphWidget(QWidget):
         if flag:
             self.relayout_tree()
 
-    def init_item(self, item):
+    def init_item(self, item: GraphicsNodeItem):
         item.change_expanded.connect(self.change_expanded)
         item.request_relayout.connect(self.relayout_tree)
 
     def relayout_tree(self):
-        H_SPACING = settings_manager.get("graph/nodeHSpacing", type=float)
-        V_SPACING = settings_manager.get("graph/nodeVSpacing", type=float)
-        # NODE_HEIGHT = settings_manager.get("graph/nodeHeight", type=float)
+        H_SPACING = self.context.settings_manager.get("graph/nodeHSpacing", type=float)
+        V_SPACING = self.context.settings_manager.get("graph/nodeVSpacing", type=float)
+
+        # NODE_HEIGHT = self.context.settings_manager.get("graph/nodeHeight", type=float)
         self.scene.clear()
 
         y_cursor = 0 # shared across all recursive calls
@@ -198,7 +202,7 @@ class TreeGraphWidget(QWidget):
             """
             nonlocal y_cursor
 
-            fixed_nodewidth, fixed_nodeheight = calculate_node_boundary(node.name)
+            fixed_nodewidth, fixed_nodeheight = calculate_node_boundary(self.context, node.name)
 
             x_pos = depth * H_SPACING
             y_pos = y_cursor
@@ -206,8 +210,8 @@ class TreeGraphWidget(QWidget):
             if is_expanded is None:
                 is_expanded = True
                 self.expand_status[node.identity] = True
-            reminders = self.work_tree.reminder_service.get_reminders_by_node_id(node.identity)
-            item = GraphicsNodeItem(node, prefix, is_expanded, calculate_reminder_type(reminders),
+            reminders = self.context.work_tree.reminder_service.get_reminders_by_node_id(node.identity)
+            item = GraphicsNodeItem(self.context, node, prefix, is_expanded, calculate_reminder_type(reminders),
                                     highlight=(node is self.hightlight_node))
             item.request_add_reminder.connect(self.on_reminder_add)
             self.init_item(item)
@@ -228,7 +232,7 @@ class TreeGraphWidget(QWidget):
                         new_prefix.append(1)
                     recursively_layout_tree(child, depth + 1, new_prefix, last_child)
         
-        recursively_layout_tree(self.work_tree.tree.root, 0, list(), True)
+        recursively_layout_tree(self.context.work_tree.tree.root, 0, list(), True)
     
     def change_expanded(self, node_item):
         self.expand_status[node_item.data_node.identity] = not self.expand_status[node_item.data_node.identity]
@@ -243,13 +247,13 @@ class TreeGraphWidget(QWidget):
 
         if etype == 'add_node':
             new_node_id = edit_data['args']['new_node_id']
-            new_node = self.work_tree.tree.get_node_by_id(new_node_id)
+            new_node = self.context.work_tree.tree.get_node_by_id(new_node_id)
             self.expand_status[new_node.identity] = True
             self.relayout_tree()
 
     def on_reminder_add(self, graghnode: GraphicsNodeItem):
         node = graghnode.data_node
-        dialog = SetReminderDialog(node, self.work_tree, None)
+        dialog = SetReminderDialog(node, self.context, None)
         dialog.exec_()
         self.relayout_tree()
     
@@ -257,16 +261,16 @@ class TreeGraphWidget(QWidget):
         self.hightlight_node = node
         self.relayout_tree()
 
-def calculate_node_boundary(text: str) -> tuple[float,float] :
+def calculate_node_boundary(context: AppContext, text: str) -> tuple[float,float] :
     """calculate a node's width and height according to its text"""
     # According to text, adjust node_length
-    FONT_OBJECT = QFont(settings_manager.get("graph/fontFamily", type=str), settings_manager.get("graph/fontSize", type=int))
+    FONT_OBJECT = QFont(context.settings_manager.get("graph/fontFamily", type=str), context.settings_manager.get("graph/fontSize", type=int))
     # build QfontMetrics Objext, compute NodeWidth
     METRICS = QFontMetrics(FONT_OBJECT)
-    fixed_nodewidth = max(settings_manager.get("graph/minNodeWidth", type=float),
-            METRICS.horizontalAdvance(text+' [+]') + 2 * settings_manager.get("graph/rectPenWidth", type=float))
-    fixed_nodeheight = max(settings_manager.get("graph/minNodeHeight", type=float),
-            METRICS.height() + 2 * settings_manager.get("graph/rectPenWidth", type=float),
+    fixed_nodewidth = max(context.settings_manager.get("graph/minNodeWidth", type=float),
+            METRICS.horizontalAdvance(text+' [+]') + 2 * context.settings_manager.get("graph/rectPenWidth", type=float))
+    fixed_nodeheight = max(context.settings_manager.get("graph/minNodeHeight", type=float),
+            METRICS.height() + 2 * context.settings_manager.get("graph/rectPenWidth", type=float),
         )
     return (fixed_nodewidth, fixed_nodeheight)
 

@@ -27,7 +27,7 @@ class CompleteCommand(Command):
         }
 
     @override
-    def execute(self, work_tree, shell):
+    def execute(self, context, shell):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
         else:
@@ -36,13 +36,13 @@ class CompleteCommand(Command):
         if node is None:
             self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
-        res = work_tree.complete_node(node.identity)
+        res = context.work_tree.complete_node(node.identity)
         if res != 0:
             self.error_signal.emit(f"Error: Failed to complete node {path}.\n")
         return res
     
     @override
-    def auto_complete(self, work_tree, shell):
+    def auto_complete(self, context, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return shell.path_completor(incomplete_path)

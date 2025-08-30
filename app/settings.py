@@ -60,5 +60,3 @@ class SettingsManager(QObject):
         # recover all settings to default by remove the storage
         self.settings.clear()
         self.settings_changed.emit(list(DEFAULT_SETTINGS.keys()))
-
-settings_manager = SettingsManager()
