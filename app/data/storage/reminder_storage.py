@@ -1,7 +1,6 @@
 import json, logging
 
 from pathlib import Path
-from ..worktree import WorkTree
 from ..worktree.reminder import Reminder
 from app.setup import AppContext
 

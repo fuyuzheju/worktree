@@ -1,14 +1,14 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QHBoxLayout, QPushButton,
                              QTableWidgetItem, QCheckBox, QMessageBox, QDialog, QLabel,
                              QLineEdit, QDateTimeEdit)
-from ...data.worktree import WorkTree
-from ...data.worktree.reminder import Reminder
-from ...data.worktree.tree import Node
 from PyQt5.QtCore import QDateTime, Qt
 from functools import partial
 from datetime import datetime
+
 from typing import Optional
 from app.setup import AppContext
+from ...data.worktree.reminder import Reminder
+from ...data.worktree.tree import Node
 
 class SetReminderDialog(QDialog):
     """

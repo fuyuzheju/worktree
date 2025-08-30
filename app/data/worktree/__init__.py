@@ -1,10 +1,11 @@
 from PyQt5.QtCore import QObject, pyqtSignal
-from .tree import Tree, Node
+from .tree import Tree
 from .reminder import ReminderService
 import logging, inspect, functools
 
 from typing import TypedDict, Any, Callable, Optional
 from datetime import datetime
+from .tree import Node
 from .reminder import Reminder
 
 
@@ -19,7 +20,8 @@ logger = logging.getLogger(__name__)
 def send_signal(signal_name: str, 
                 success_condition: Callable[[int], bool] = lambda res: res == 0):
     """
-    a decorator that creates an api to send a signal
+    a decorator
+    send a signal accordingly when a tree operation succeeded
     """
     def dec(func: Callable):
         @functools.wraps(func)

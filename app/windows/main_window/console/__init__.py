@@ -1,13 +1,10 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
-from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
+from PyQt5.QtCore import Qt, QEvent
 from app.shell import Shell
 import logging
 
-from app.data.worktree import WorkTree
-from app.data.worktree.tree import Node
 from app.setup import AppContext
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

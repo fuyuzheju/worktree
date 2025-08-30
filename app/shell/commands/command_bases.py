@@ -5,7 +5,6 @@ from .utils import max_common_prefix
 import time, copy
 
 from typing import TypedDict, Optional, Any, Mapping
-from ...data.worktree import WorkTree
 from .. import Shell
 from app.setup import AppContext
 

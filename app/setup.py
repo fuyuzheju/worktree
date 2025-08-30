@@ -7,6 +7,9 @@ from logging.config import dictConfig
 
 from .data.worktree import WorkTree
 from .settings import SettingsManager
+from typing import Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    from .data.storage import Storage
 
 ICON_PATH = "assets/worktree-icon.png"
 
@@ -18,9 +21,15 @@ class AppContext:
     provide a context for deep nested references
     the context is passed to every object
     """
-    def __init__(self, *, work_tree: WorkTree, settings_manager: SettingsManager):
+    def __init__(self, *, 
+                 work_tree: WorkTree, 
+                 settings_manager: SettingsManager):
         self.work_tree = work_tree
         self.settings_manager = settings_manager
+        self.storage: Optional["Storage"] = None
+    
+    def register_storage(self, storage: "Storage"):
+        self.storage = storage
 
 
 class AppBasic(QApplication):
@@ -68,6 +77,7 @@ class AppBasic(QApplication):
         self.storage_dir: Path = Path(self.app_data_dir) / "storage"
         self.storage: Storage = Storage(self.context, self.storage_dir)
         self.logger.info(f"Storage configured. Dir: {self.storage_dir}")
+        self.context.register_storage(self.storage)
     
     def setup_logging(self, log_dir: Path):
         log_dir.mkdir(parents=True, exist_ok=True)
