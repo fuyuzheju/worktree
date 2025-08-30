@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QColor, QPalette, QKeySequence
 from PyQt5.QtCore import Qt
-from ..settings import settings_manager, DEFAULT_SETTINGS
+from ...settings import settings_manager, DEFAULT_SETTINGS
 
 class SettingsDialog(QDialog):
     """

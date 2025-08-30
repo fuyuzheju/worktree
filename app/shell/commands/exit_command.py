@@ -28,7 +28,7 @@ class ExitCommand(Command):
     
     @override
     def execute(self, work_tree, shell):
-        from ....controls import quit_signal
+        from ...controls import quit_signal
         quit_signal.emit()
     
     @override

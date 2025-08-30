@@ -2,8 +2,8 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 from typing import Optional
-from ....data import WorkTree
-from ....data.tree import Node
+from ...data.worktree import WorkTree
+from ...data.worktree.tree import Node
 
 def max_common_prefix(strings: list[str]) -> Optional[str]:
     """

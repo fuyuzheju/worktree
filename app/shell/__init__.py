@@ -1,11 +1,9 @@
 from PyQt5.QtCore import QObject, pyqtSignal
-from .commands.utils import max_common_prefix
-from .commands import COMMAND_REGISTRY
 import logging
 
 from typing import Optional
-from ...data.tree import Node, Tree
-from ...data import WorkTree
+from ..data.worktree.tree import Node, Tree
+from ..data.worktree import WorkTree
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +47,7 @@ class Shell(QObject):
             path = self.pwd + path
         
         parts = path.split(path_separator)
-        new_parts = []
+        new_parts: list[str] = []
         for part in parts:
             if part == '':
                 continue
@@ -91,6 +89,8 @@ class Shell(QObject):
         return current
 
     def path_completor(self, incomplete_path: str) -> tuple[Optional[str], list[str]]:
+        from .commands.utils import max_common_prefix
+
         idx = incomplete_path.rfind('/')
         prefix = incomplete_path[:idx+1]
         suffix = incomplete_path[idx+1:]
@@ -107,6 +107,8 @@ class Shell(QObject):
         run the command and return the output as a parameter to the callback function.
         :return: 0 for success, -1 for command error, 1 for invalid command
         """
+        from .commands import COMMAND_REGISTRY
+
         parts = command_text.split()
         if len(parts) == 0:
             self.finish_signal.emit()
@@ -129,3 +131,34 @@ class Shell(QObject):
         self.pwd_node = self.path_parser(self.pwd) # reload pwd node
         self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
         return res
+
+    def auto_complete(self, incomplete_command: str) -> tuple[Optional[str], list[str]]:
+        from .commands.utils import max_common_prefix
+        from .commands import COMMAND_REGISTRY
+
+        if incomplete_command == '':
+            return None, []
+        parts = incomplete_command.split()
+        if incomplete_command[-1] == ' ':
+            parts.append('')
+        if len(parts) == 0:
+            return None, []
+
+        if len(parts) == 1:
+            # complete command name
+            possible_completion_list = [
+                command for command in COMMAND_REGISTRY.keys()
+                if command.startswith(parts[0])
+            ]
+
+            mcp = max_common_prefix(possible_completion_list)
+            return mcp, possible_completion_list
+        
+        else:
+            # complete command arguments
+            command_class = COMMAND_REGISTRY.get(parts[0])
+            if command_class is not None:
+                command = command_class(*parts[1:])
+                return command.auto_complete(self.work_tree, self)
+        
+        return None, []

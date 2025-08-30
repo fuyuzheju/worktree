@@ -152,4 +152,6 @@ def proxy_factory(alias_name: str,
                 return None, []
             original_instance = original_class(*(self._alias_content[1:] + self.parts))
             return original_instance.auto_complete(work_tree, shell)
+    
+    return AliasProxy
             

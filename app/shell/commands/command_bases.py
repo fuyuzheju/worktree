@@ -5,7 +5,8 @@ from .utils import max_common_prefix
 import time, copy
 
 from typing import TypedDict, Optional, Any, Mapping
-from ....data import WorkTree
+from ...data.worktree import WorkTree
+from .. import Shell
 
 COMMAND_REGISTRY: dict[str, type["Command"]] = {} # registry table of all commands, structure: {command_str: command_class}
 

@@ -1,10 +1,9 @@
 from pathlib import Path
-from . import WorkTree
-from .tree import Node
-from .reminder import Reminder
-import json, time, logging, shutil
+import json, time, logging
 
 from typing import Optional
+from ..worktree import WorkTree
+from ..worktree.tree import Node
 
 logger = logging.getLogger(__name__)
 
@@ -153,67 +152,3 @@ class HistoryStorage:
             op_file.writelines([json.dumps(op) + '\n' for op in rollbacked_operations])
 
         self.load_from_disk()
-
-
-class ReminderStorage:
-    """
-    A manager which processes the reminder storage.
-    """
-    def __init__(self, work_tree: WorkTree, reminder_dir: Path):
-        self.work_tree = work_tree
-        self.reminder_dir = reminder_dir
-        self.reminder_dir.mkdir(parents=True, exist_ok=True)
-        reminder_file = self.reminder_dir / 'reminders.json'
-
-        if reminder_file.exists():
-            logger.debug("Loading reminders from disk.")
-            self.load_from_disk()
-        else:
-            logger.debug("No reminders found. Nothing to load.")
-
-        self.work_tree.reminder_edit_signal.connect(self.handle_edit)
-    
-    def handle_edit(self, operation: dict):
-        self.save_reminders()
-
-    def save_reminders(self):
-        logger.debug("Saving reminders.")
-        data = []
-        for reminder in self.work_tree.reminder_service.reminders:
-            data.append(reminder.to_dict())
-
-        with open(self.reminder_dir / 'reminders.json', 'w') as f:
-            json.dump(data, f)
-    
-    def load_from_disk(self):
-        with open(self.reminder_dir / 'reminders.json', 'r') as f:
-            data = json.load(f)
-        
-        self.work_tree.reminder_service.reminders = []
-        for reminder_data in data:
-            reminder = Reminder.from_dict(reminder_data)
-            self.work_tree.reminder_service.reminders.append(reminder)
-
-
-class Storage:
-    """
-    A manager which processes both history storage and reminder storage.
-    """
-
-    def __init__(self, work_tree: WorkTree, STORAGE_DIR: Path):
-        self.history_storage = HistoryStorage(work_tree, STORAGE_DIR / "history", 20)
-        self.reminder_storage = ReminderStorage(work_tree, STORAGE_DIR / "reminder")
-    
-    def cleanup_history(self):
-        """
-        clean up all the history.
-        """
-        shutil.rmtree(self.history_storage.history_dir)
-        self.history_storage.history_dir.mkdir()
-        self.history_storage.current_snapshot_dir = None
-        self.history_storage.op_count_since_snapshot = 0
-        self.history_storage.take_snapshot()
-        logger.info("History cleaned up.")
-
-
-            

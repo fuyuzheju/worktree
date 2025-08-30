@@ -1,13 +1,13 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QTextEdit, QLabel
 from PyQt5.QtGui import QTextCursor
 from PyQt5.QtCore import QObject, pyqtSignal, Qt, QEvent
-from .shell import Shell
-from .commands import COMMAND_REGISTRY
-from .commands.utils import max_common_prefix
+from ....shell import Shell
+# from .commands import COMMAND_REGISTRY
+# from .commands.utils import max_common_prefix
 import logging
 
-from ...data import WorkTree
-from ...data.tree import Node
+from ....data.worktree import WorkTree
+from ....data.worktree.tree import Node
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -125,52 +125,24 @@ class CommandLineEdit(QLineEdit):
         """
         start completion:
         jump to the first completion(usually max common prefix of the possible completion list)
-        provided by the 'auto_complete' method of command class.
+        provided by the 'auto_complete' method of shell.
         """
         # start completion
         incomplete_command = self.text()[:self.cursorPosition()]
-        if incomplete_command == '':
-            return 
-        parts = incomplete_command.split()
-        if incomplete_command[-1] == ' ':
-            parts.append('')
-        if len(parts) == 0  or \
-            (len(incomplete_command) != self.cursorPosition() and incomplete_command[self.cursorPosition()] == ' '):
-            return 
+        res = self.shell.auto_complete(incomplete_command)
+        if res[0] is None:
+            return
+        
+        if len(res[1]) == 1:
+            # only 1 possibility
+            # directly complete and add a space, making it ready to input the next argument
+            # no need to set self.is_completing
+            self.set_current_argument(res[0] + ' ')
+            return
         
         self.is_completing = True
-        if len(parts) == 1:
-            # complete command name
-            self.possible_completion_list = [
-                command for command in COMMAND_REGISTRY.keys()
-                if command.startswith(parts[0])
-            ]
-
-            mcp = max_common_prefix(self.possible_completion_list)
-            if len(self.possible_completion_list) == 1:
-                mcp += ' '
-                self.is_completing = False
-
-            if mcp == None:
-                return 
-            if mcp != parts[0]:
-                self.set_current_argument(mcp)
-        
-        else:
-            # complete command arguments
-            command_class = COMMAND_REGISTRY.get(parts[0])
-            if command_class is not None:
-                command = command_class(*parts[1:])
-                res = command.auto_complete(self.work_tree, self.shell)
-                completed_command = res[0]
-                self.possible_completion_list = res[1]
-                if len(self.possible_completion_list) == 1:
-                    self.is_completing = False
-
-                if completed_command == None:
-                    return
-                if completed_command != incomplete_command:
-                    self.set_current_argument(completed_command)
+        mcp, self.possible_completion_list = res
+        self.set_current_argument(mcp)
 
 
 class CommandWidget(QWidget):

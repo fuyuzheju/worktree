@@ -4,8 +4,8 @@ from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 from app.settings import settings_manager
 from .graph import TreeGraphWidget
 from .console import CommandWidget
-from ..settings import settings_manager
-from ..utils import set_app_state
+from ...settings import settings_manager
+from ...utils import set_app_state
 from ..settings_window import SettingsDialog
 from ..reminders_window import RemindersDialog
 

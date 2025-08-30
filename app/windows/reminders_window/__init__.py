@@ -1,9 +1,9 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QTableWidget, QHBoxLayout, QPushButton,
                              QTableWidgetItem, QCheckBox, QMessageBox, QDialog, QLabel,
                              QLineEdit, QDateTimeEdit)
-from ..data import WorkTree
-from ..data.reminder import Reminder
-from ..data.tree import Node
+from ...data.worktree import WorkTree
+from ...data.worktree.reminder import Reminder
+from ...data.worktree.tree import Node
 from PyQt5.QtCore import QDateTime, Qt
 from functools import partial
 from datetime import datetime

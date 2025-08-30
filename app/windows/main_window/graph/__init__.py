@@ -2,9 +2,9 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
     QWidget, QVBoxLayout, QMenu, QAction
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
-from ...data.tree import Status, Node
-from ...settings import settings_manager
-from app.reminders_window import SetReminderDialog
+from ....data.worktree.tree import Status, Node
+from ....settings import settings_manager
+from ...reminders_window import SetReminderDialog
 
 class GraphicsNodeItem(QGraphicsObject):
     """

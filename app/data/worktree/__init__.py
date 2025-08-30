@@ -176,7 +176,6 @@ class WorkTree(QObject):
     #         'add_node',
     #         'reopen_node',
     #         'complete_node',
-    #         'switch_to',
     #         'remove_node',
     #         'remove_subtree',
     #         'move_node',

@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_SETTINGS = {
     "createTrayIcon": True, 
     "showReminderHint": True,
+    "reminderNotifications": False,
 
     "hotkey/mainWindowHotkey": QKeySequence(Qt.CTRL + Qt.Key_B).toString(),
     "hotkey/saveFileHotkey": QKeySequence(Qt.CTRL + Qt.Key_S).toString(), 
@@ -59,6 +60,5 @@ class SettingsManager(QObject):
         # recover all settings to default by remove the storage
         self.settings.clear()
         self.settings_changed.emit(list(DEFAULT_SETTINGS.keys()))
-
 
 settings_manager = SettingsManager()

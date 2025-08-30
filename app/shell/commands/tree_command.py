@@ -1,5 +1,5 @@
 from .command_bases import Command
-from ....data.tree import Node
+from ...data.worktree.tree import Node
 from typing import override
 
 class TreeCommand(Command):
