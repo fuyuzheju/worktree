@@ -1,17 +1,31 @@
+# --- General ---
 .env
-
-__pycache__
-*.pyc
-.DS_Store
-
-logs
+TODO.md
+tmp/
+logs/
 *.log
-tmp
-viztracer.json
+.vscode/
+
 test.py
 
-TODO.md
+.DS_Store
 
+
+# --- desktop ---
+# python
+__pycache__/
+*.pyc
+
+# pyinstaller
 build/
 dist/
-package-lock.json
+
+# viztracer
+viztracer.json
+
+
+# --- backend ---
+node_modules/
+npm-debug.log*
+yarn-error.log
+yarn-debug.log
