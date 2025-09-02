@@ -37,7 +37,7 @@ class Shell(QObject):
         and transfer it to absolute path ending with the path separator.
         """
         if path == "":
-            return path
+            return self.pwd
         
         if not path.endswith(path_separator):
             path += path_separator
