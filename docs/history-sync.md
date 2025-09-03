@@ -5,9 +5,14 @@ class Operation:
     payload: dict
     hash_code: str # hash code from all the history
     next_ptr: object # pointer to build linked-list
-    def serialize(self):
+    def serialize(self) -> str:
         pass
 ```
+--- WARNING ---
+the serialization implementation should be the strictly consistent between server and client,
+including string encoding, json formatting, and key sorting,
+in order to keep the hash code identical between terminals.
+
 
 # core designs
 server is the canonical data center.  
@@ -34,6 +39,7 @@ a linked-list of all history operations
 - when having received a force overriding request
     1. create new operations nodes for every new operation
     1. move the HEAD pointer
+    1. broadcast the update
     > optional: call GC to cleanup unreachable nodes
 
 ### API
@@ -56,17 +62,16 @@ two cases: online and offline
 ### running
 - online(websocket connected with server)
     - always
-        - if pending queue is non-empty: check conflicts with confirmed history
-            - if conflict: show hint to user, inquire to discard or override
-                - discard: pop the current operation
-                - override: get the latest non-conflict history, from which calculate a new serial number, call server's override API with this serial number(with user confirm)
-            - no conflict: send a operation request to server
-        - UI render: apply both confirmed and pending operations
+        - if pending queue is non-empty: send a operation request to server
 
     - when having received an update broadcast
+        1. stop pending queue sending
         1. if it's the head of pending queue, pop it from the queue
         1. store it to confirmed_history with the serial number assigned
-        1. calculate new hash code
+        1. reload the current tree of UI(starting from the end of confirmed history, one by one on pending queue), if conflict: show hint to user, inquire to discard or override
+            - discard: pop the current operation
+            - override: get the latest non-conflict history, from which calculate a new serial number, call server's override API with this serial number(with user confirm)
+        1. until all conflicts are resolved, start pending queue sending
 
 - re-connect init
     1. examine history hash codes(HTTP GET API) to get the latest identical operation
@@ -80,4 +85,6 @@ two cases: online and offline
 
 
 # user management
-every user possesses a whole, separated system as above
+every user possesses a whole, separated confirmed history
+
+when no user is logged in, it behaves like a local user is logged in, but not sending any packages to server.
