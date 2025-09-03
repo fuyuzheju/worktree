@@ -1,7 +1,7 @@
 import json, logging
 
 from pathlib import Path
-from ..worktree.reminder import Reminder
+from ..core.reminder import Reminder
 from app.setup import AppContext
 
 logger = logging.getLogger(__name__)

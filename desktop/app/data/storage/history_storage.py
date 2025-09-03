@@ -1,10 +1,11 @@
 from pathlib import Path
 import json, time, logging
-from ..worktree import WorkTree
+from ..core.work_tree import WorkTree
+from ..core import ExtOperation, PseudoOperationType, Operation, OperationType
 
 from typing import Optional
 from app.setup import AppContext
-from ..worktree.tree import Node
+from ..core.tree import Node
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,10 @@ class HistoryStorage:
         self.snapshot_interval = snapshot_interval
 
         self.context.work_tree.tree_edit_signal.connect(self.handle_edit)
-        self.context.work_tree.undo_request.connect(self.undo)
 
         self.load_from_disk()
     
-    def handle_edit(self, operation: dict):
+    def handle_edit(self, operation: ExtOperation):
         """
         handle edition and write to disk.
         take snapshot every {snapshot_interval} operations.
@@ -48,13 +48,13 @@ class HistoryStorage:
             self.take_snapshot()
         assert self.current_snapshot_dir is not None
         
-        if operation['type'] == '':
+        if not operation.op_type.value in OperationType:
             # empty operation type is not recorded
             # details in the clarifications of WorkTree.tree_edit_signal
             return
         
         with open(self.current_snapshot_dir / 'op.log', 'a') as f:
-            f.write(json.dumps(operation) + '\n')
+            f.write(operation.stringify() + '\n')
 
         self.op_count_since_snapshot += 1
         if self.op_count_since_snapshot >= self.snapshot_interval:
@@ -86,7 +86,7 @@ class HistoryStorage:
             op_count = len(f.readlines())
         return latest_snapshot, op_count
     
-    def load_snapshot(self, snapshot: dict, operations: list) -> None:
+    def load_snapshot(self, snapshot: dict, operations: list[Operation]) -> None:
         """
         load a snapshot to a tree.
         """
@@ -94,10 +94,11 @@ class HistoryStorage:
         new_tree = WorkTree()
         new_tree.tree.root = new_root
         for operation in operations:
-            op_type = operation['type']
-            args = operation['args']
-            op_function = getattr(new_tree.tree, op_type)
-            op_function(**args)
+            op_type = operation.op_type
+            payload = operation.payload
+
+            op_function = getattr(new_tree.tree, op_type.value)
+            op_function(**payload)
 
         self.context.work_tree.tree.root = new_tree.tree.root
         self.op_count_since_snapshot = len(operations)
@@ -114,12 +115,13 @@ class HistoryStorage:
         with open(self.current_snapshot_dir / 'snapshot.json', 'r') as f:
             snapshot = json.load(f)
         with open(self.current_snapshot_dir / 'op.log', 'r') as f:
-            operations = [json.loads(line) for line in f]
+            operations = [Operation.from_dict(json.loads(line)) for line in f]
         self.load_snapshot(snapshot, operations)
-        self.context.work_tree.tree_edit_signal.emit({
-            'type': '',
-            'args': {}
-        })
+        self.context.work_tree.tree_edit_signal.emit(ExtOperation.from_dict({
+            "op_type": PseudoOperationType.UNDO.value,
+            "payload": {},
+            "timestamp": int(time.time()),
+        }))
 
     def undo(self):
         """

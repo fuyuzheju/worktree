@@ -2,7 +2,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 import logging
 
 from typing import Optional
-from ..data.worktree.tree import Node
+from ..data.core.tree import Node
 from app.setup import AppContext
 
 logger = logging.getLogger(__name__)

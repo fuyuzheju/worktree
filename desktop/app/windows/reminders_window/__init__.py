@@ -7,8 +7,8 @@ from datetime import datetime
 
 from typing import Optional
 from app.setup import AppContext
-from ...data.worktree.reminder import Reminder
-from ...data.worktree.tree import Node
+from ...data.core.reminder import Reminder
+from ...data.core.tree import Node
 
 class SetReminderDialog(QDialog):
     """

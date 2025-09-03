@@ -1,7 +1,7 @@
 ```python
 class Operation:
     serial_num: int
-    op_type: str
+    op_type: OperationType
     payload: dict
     hash_code: str # hash code from all the history
     next_ptr: object # pointer to build linked-list

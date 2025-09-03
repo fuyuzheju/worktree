@@ -1,19 +1,11 @@
 from PyQt5.QtCore import QObject, pyqtSignal
-from dataclasses import dataclass
-from enum import Enum
-from .tree import Tree
-from .reminder import ReminderService
-import logging, inspect, functools, json
+import logging, inspect, functools, time
 
-from typing import TypedDict, Any, Callable, Optional
+from typing import Callable, Optional
 from datetime import datetime
 from .tree import Node
 from .reminder import Reminder
-
-
-class EditData(TypedDict):
-    type: str
-    args: dict[str, Any]
+from . import EditData, ExtOperation
 
 
 logger = logging.getLogger(__name__)
@@ -34,15 +26,15 @@ def send_signal(signal_name: str,
                 
                 bound_args = inspect.signature(func).bind(self, *args, **kwargs)
                 bound_args.apply_defaults()
-                signal_args = dict(bound_args.arguments)
-                signal_args.pop('self', None)
+                signal_payload = dict(bound_args.arguments)
+                signal_payload.pop('self', None)
 
-                edit_data: EditData = {
-                    "type": func.__name__,
-                    "args": signal_args,
-                }
-
-                signal.emit(edit_data)
+                ext_operation = ExtOperation.from_dict({
+                    "op_type": func.__name__,
+                    "payload": signal_payload,
+                    "timestamp": int(time.time()),
+                })
+                signal.emit(ext_operation)
             return res
                 
         return wrapper
@@ -54,8 +46,7 @@ class WorkTree(QObject):
     This class manages all the data of the worktree.
     It possesses a Tree object and provides apis to edit it.
     """
-    undo_request = pyqtSignal()
-    tree_edit_signal = pyqtSignal(dict)
+    tree_edit_signal = pyqtSignal(ExtOperation)
     reminder_edit_signal = pyqtSignal(dict)
 
     # tree_edit_signal: a signal to emit the edit data, which should contain the following keys:
@@ -65,6 +56,8 @@ class WorkTree(QObject):
 
     def __init__(self):
         super().__init__()
+        from .tree import Tree
+        from .reminder import ReminderService
         self.tree = Tree()
         self.reminder_service = ReminderService()
         self.tree_edit_signal.connect(self.on_tree_edit)
@@ -77,22 +70,11 @@ class WorkTree(QObject):
         # self.init_tree_apis()
         # self.init_reminder_apis()
     
-    def on_tree_edit(self, edit_data):
-        logger.debug("Tree edited: %s", edit_data)
+    def on_tree_edit(self, ext_operation: ExtOperation):
+        logger.debug("Tree edited: %s", ext_operation.stringify())
     
     def on_reminder_edit(self, edit_data):
         logger.debug("Reminder edited: %s", edit_data)
-    
-    def undo(self):
-        """
-        send a 'undo_request' signal to tell 'storage' module to execute undo operation
-        send a 'tree_edit_signal' to tell other parts to update tree state
-        """
-        self.undo_request.emit()
-        self.tree_edit_signal.emit({
-            'type': '',
-            'args':{}
-        })
     
     # below are the apis to operate the reminders
     def get_reminder_by_id(self, reminder_id: str) -> Optional[Reminder]:
@@ -145,51 +127,3 @@ class WorkTree(QObject):
     @send_signal('tree_edit_signal')
     def move_node(self, node_id: str, new_parent_id: str) -> int:
         return self.tree.move_node(node_id, new_parent_id)
-
-
-class OperationType(Enum):
-    ADD_NODE = "add_node"
-    REOPEN_NODE = "reopen_node"
-    COMPLETE_NODE = "complete_node"
-    REMOVE_NODE = "remove_node"
-    REMOVE_SUBTREE = "remove_subtree"
-    MOVE_NODE = "move_node"
-
-class PseudoOperationType(Enum):
-    UNDO = "undo"
-    # REDO = "redo"
-
-ExtOpType = OperationType | PseudoOperationType
-
-
-@dataclass
-class Operation:
-    op_type: OperationType
-    payload: dict
-    timestamp: int
-    def stringify(self) -> str:
-        return json.dumps(self.to_dict(), sort_keys=True, separators=(',', ':'), ensure_ascii=False)
-    
-    def to_dict(self) -> dict:
-        return {
-            "op_type": self.op_type,
-            "payload": self.payload,
-            "timestamp": self.timestamp,
-        }
-
-    @classmethod
-    def from_dict(cls, data):
-        return cls(data["op_type"], data["payload"], data["timestamp"])
-    
-    def apply(self, tree: Tree):
-        method = getattr(tree, self.op_type, None)
-        if method is None:
-            raise RuntimeError(f"No operation named '{self.op_type}'")
-        
-        res = method(**self.payload)
-        return res
-
-@dataclass
-class ExtOperation(Operation):
-    op_type: ExtOpType
-

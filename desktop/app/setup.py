@@ -5,7 +5,7 @@ from pathlib import Path
 import logging, shutil, os, zipfile
 from logging.config import dictConfig
 
-from .data.worktree import WorkTree
+from .data.core.work_tree import WorkTree
 from .settings import SettingsManager
 from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING:
@@ -52,7 +52,8 @@ class AppBasic(QApplication):
         self.setApplicationName("worktree")
         self.setOrganizationName("fuyuzheju")
         self.setOrganizationDomain("fuyuzheju.com")
-        self.app_data_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
+        # self.app_data_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
+        self.app_data_dir = Path("")
 
         # log
         log_dir: Path = self.app_data_dir / "logs"
@@ -65,7 +66,7 @@ class AppBasic(QApplication):
         self.settings_manager = SettingsManager()
 
         # work tree
-        from .data.worktree import WorkTree
+        from .data.core.work_tree import WorkTree
         self.work_tree: WorkTree = WorkTree()
 
         # shared context
@@ -181,7 +182,8 @@ class Application(AppBasic):
 
     def setup_reminder_notifications(self):
         from .utils import Notification
-        if self.settings_manager.get("reminderNotifications"):
+        # if self.settings_manager.get("reminderNotifications"):
+        if False:
             self.reminder_notifier = Notification(self.reminder_notification_process)
             self.reminder_notifier.request_authorization_if_needed()
             self.reminder_notifier.add_category("reminder", [

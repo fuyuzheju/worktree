@@ -2,11 +2,12 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
     QWidget, QVBoxLayout, QMenu, QAction
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
-from ....data.worktree.tree import Status
+from app.data.core.tree import Status
+from app.data.core import ExtOperation, OperationType
 from ...reminders_window import SetReminderDialog
 
 from app.setup import AppContext
-from ....data.worktree.tree import Node
+from app.data.core.tree import Node
 
 class GraphicsNodeItem(QGraphicsObject):
     """
@@ -240,15 +241,22 @@ class TreeGraphWidget(QWidget):
         self.expand_status[node_item.data_node.identity] = not self.expand_status[node_item.data_node.identity]
         self.relayout_tree()
     
-    def on_tree_edit(self, edit_data):
-        etype = edit_data['type']
-        if etype in ['remove_node', 'remove_subtree', 'move_node', '']:
+    def on_tree_edit(self, ext_operation: ExtOperation):
+        op_type = ext_operation.op_type
+        if op_type.value in [
+            OperationType.REMOVE_NODE,
+            OperationType.REMOVE_SUBTREE,
+            OperationType.MOVE_NODE,
+        ]:
             self.relayout_tree()
-        elif etype in ['complete_node', 'reopen_node']:
+        elif op_type.value in [
+            OperationType.COMPLETE_NODE,
+            OperationType.REOPEN_NODE,
+        ]:
             self.scene.update()
 
-        if etype == 'add_node':
-            new_node_id = edit_data['args']['new_node_id']
+        if op_type.value == OperationType.ADD_NODE:
+            new_node_id = ext_operation.payload['new_node_id']
             new_node = self.context.work_tree.tree.get_node_by_id(new_node_id)
             self.expand_status[new_node.identity] = True
             self.relayout_tree()

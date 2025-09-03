@@ -3,6 +3,8 @@ from datetime import datetime
 import uuid, logging
 
 from typing import Optional
+from . import ExtOperation, OperationType
+
 
 logger = logging.getLogger(__name__)
 
@@ -119,9 +121,9 @@ class ReminderService(QObject):
     def list_reminders(self) -> list[Reminder]:
         return self.reminders
     
-    def on_tree_edit(self, edit_data):
-        if edit_data['type'] == 'remove':
-            node_id = edit_data['args']['node_id']
+    def on_tree_edit(self, ext_operation: ExtOperation):
+        if ext_operation.op_type.value == OperationType.REMOVE_NODE:
+            node_id = ext_operation.payload['node_id']
             for reminder in self.reminders:
                 if reminder.node_id == node_id:
                     self.remove_reminder(reminder.reminder_id)

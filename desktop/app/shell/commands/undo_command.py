@@ -1,5 +1,7 @@
 from .command_bases import Command
+from app.data.core import ExtOperation
 from typing import override
+import time
 
 class UndoCommand(Command):
     @classmethod
@@ -28,7 +30,12 @@ class UndoCommand(Command):
 
     @override
     def execute(self, context, shell):
-        context.work_tree.undo()
+        context.storage.history_storage.undo()
+        context.work_tree.tree_edit_signal.emit(ExtOperation.from_dict({
+            "op_type": "undo",
+            "payload": {},
+            "timestamp": int(time.time()),
+        }))
         return 0
     
     @override
