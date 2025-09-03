@@ -1,4 +1,4 @@
-from typing import TypedDict, Any
+from typing import TypedDict, Any, override
 from enum import Enum
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -12,6 +12,15 @@ class EditData(TypedDict):
     type: str
     args: dict[str, Any]
 
+
+# ----- WARNING -----
+# when you're trying to compare two operation types,
+# don't directly compare them with 'type1 == type2',
+# but do 'type1.value == type2.value'
+# where type1 and type2 are OperationType or ExtOperation instances
+# because logically ExtOperationType includes OperationType,
+# but in the code they are two separated classes(no extending relationships)
+# so instances of the two classes are different, even if their value are the same
 
 class OperationType(Enum):
     ADD_NODE = "add_node"
@@ -74,16 +83,17 @@ class AbstractOperation(ABC):
         return res
 
 @dataclass
-class Operation(AbstractOperation):
-    @classmethod
-    def _TYPE(cls):
-        return OperationType
-
-@dataclass
 class ExtOperation(AbstractOperation):
     @classmethod
     def _TYPE(cls):
         return ExtOperationType
+
+@dataclass
+class Operation(ExtOperation):
+    @override
+    @classmethod
+    def _TYPE(cls):
+        return OperationType
 
 
 
