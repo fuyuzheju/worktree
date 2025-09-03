@@ -1,7 +1,9 @@
 from PyQt5.QtCore import QObject, pyqtSignal
+from dataclasses import dataclass
+from enum import Enum
 from .tree import Tree
 from .reminder import ReminderService
-import logging, inspect, functools
+import logging, inspect, functools, json
 
 from typing import TypedDict, Any, Callable, Optional
 from datetime import datetime
@@ -143,4 +145,51 @@ class WorkTree(QObject):
     @send_signal('tree_edit_signal')
     def move_node(self, node_id: str, new_parent_id: str) -> int:
         return self.tree.move_node(node_id, new_parent_id)
+
+
+class OperationType(Enum):
+    ADD_NODE = "add_node"
+    REOPEN_NODE = "reopen_node"
+    COMPLETE_NODE = "complete_node"
+    REMOVE_NODE = "remove_node"
+    REMOVE_SUBTREE = "remove_subtree"
+    MOVE_NODE = "move_node"
+
+class PseudoOperationType(Enum):
+    UNDO = "undo"
+    # REDO = "redo"
+
+ExtOpType = OperationType | PseudoOperationType
+
+
+@dataclass
+class Operation:
+    op_type: OperationType
+    payload: dict
+    timestamp: int
+    def stringify(self) -> str:
+        return json.dumps(self.to_dict(), sort_keys=True, separators=(',', ':'), ensure_ascii=False)
     
+    def to_dict(self) -> dict:
+        return {
+            "op_type": self.op_type,
+            "payload": self.payload,
+            "timestamp": self.timestamp,
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["op_type"], data["payload"], data["timestamp"])
+    
+    def apply(self, tree: Tree):
+        method = getattr(tree, self.op_type, None)
+        if method is None:
+            raise RuntimeError(f"No operation named '{self.op_type}'")
+        
+        res = method(**self.payload)
+        return res
+
+@dataclass
+class ExtOperation(Operation):
+    op_type: ExtOpType
+
