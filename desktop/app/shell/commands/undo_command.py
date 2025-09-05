@@ -31,11 +31,6 @@ class UndoCommand(Command):
     @override
     def execute(self, context, shell):
         context.storage.history_storage.undo()
-        context.work_tree.tree_edit_signal.emit(ExtOperation.from_dict({
-            "op_type": "undo",
-            "payload": {},
-            "timestamp": int(time.time()),
-        }))
         return 0
     
     @override

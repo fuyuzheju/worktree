@@ -119,7 +119,7 @@ class ReminderAddCommand(Subcommand):
             self.error_signal.emit(f"Error: {str(e)}\n")
             return -1
             
-        context.work_tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4()))
+        context.work_tree.add_reminder(node.identity, due_time, message, str(uuid.uuid4().hex))
         return 0
     
     @override

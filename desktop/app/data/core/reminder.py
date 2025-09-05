@@ -18,7 +18,7 @@ class Reminder:
         self.node_id = node_id
         self.due_time = due_time
         self.message = message
-        self.reminder_id = reminder_id or str(uuid.uuid4())
+        self.reminder_id = reminder_id or str(uuid.uuid4().hex)
         self.active = active
     
     def set(self, due_time: Optional[datetime] = None, message: Optional[str] = None, active: Optional[bool] = None):

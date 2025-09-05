@@ -5,7 +5,8 @@ from typing import Callable, Optional
 from datetime import datetime
 from .tree import Node
 from .reminder import Reminder
-from . import EditData, ExtOperation
+from . import EditData, ExtOperation, Operation
+
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ def send_signal(signal_name: str,
                 signal_payload = dict(bound_args.arguments)
                 signal_payload.pop('self', None)
 
-                ext_operation = ExtOperation.from_dict({
+                ext_operation = Operation.from_dict({
                     "op_type": func.__name__,
                     "payload": signal_payload,
                     "timestamp": int(time.time()),

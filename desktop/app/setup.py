@@ -76,6 +76,7 @@ class AppBasic(QApplication):
         # storage
         from .data.storage import Storage
         self.storage_dir: Path = Path(self.app_data_dir) / "storage"
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.storage: Storage = Storage(self.context, self.storage_dir)
         self.logger.info(f"Storage configured. Dir: {self.storage_dir}")
         self.context.register_storage(self.storage)

@@ -44,7 +44,7 @@ class AddNodeCommand(Command):
             self.error_signal.emit(f"Error: No such node {parent_path}.\n")
             return -1
 
-        res = context.work_tree.add_node(parent_node.identity, name, str(uuid.uuid4()))
+        res = context.work_tree.add_node(parent_node.identity, name, str(uuid.uuid4().hex))
         if res == -1:
             self.error_signal.emit("Error: Node already exists.\n")
             return -1

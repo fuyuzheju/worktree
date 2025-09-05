@@ -67,7 +67,11 @@ class Node:
 class Tree:
     def __init__(self):
         super().__init__()
-        self.root = Node("WorkRoot")
+        import hashlib
+        # persist the initial id of WorkRoot
+        # in order to prevent troublesome problems loading the operations
+        INITIAL_ID = hashlib.sha256(b"WorkRoot").hexdigest()
+        self.root = Node("WorkRoot", identity=INITIAL_ID)
 
     def get_node_by_id(self, identity: str, start_node=None) -> Optional[Node]:
         if start_node is None:
@@ -124,7 +128,7 @@ class Tree:
         node = self.get_node_by_id(node_id)
         if node is None:
             return -1
-        if node.children or node.parent is None:
+        if node.children or (node.parent is None):
             return -1
         node.parent.children.remove(node)
         return 0

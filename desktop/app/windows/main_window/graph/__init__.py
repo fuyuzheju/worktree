@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsObject, \
 from PyQt5.QtCore import Qt, QRectF, QPointF, pyqtSignal
 from PyQt5.QtGui import QColor, QPen, QBrush, QFont, QPainter, QFont, QFontMetrics
 from app.data.core.tree import Status
-from app.data.core import ExtOperation, OperationType
+from app.data.core import ExtOperation, OperationType, ExtOperationType
 from ...reminders_window import SetReminderDialog
 
 from app.setup import AppContext
@@ -244,14 +244,16 @@ class TreeGraphWidget(QWidget):
     def on_tree_edit(self, ext_operation: ExtOperation):
         op_type = ext_operation.op_type
         if op_type.value in [
-            OperationType.REMOVE_NODE,
-            OperationType.REMOVE_SUBTREE,
-            OperationType.MOVE_NODE,
+            OperationType.REMOVE_NODE.value,
+            OperationType.REMOVE_SUBTREE.value,
+            OperationType.MOVE_NODE.value,
+            ExtOperationType.UNDO.value,
+            ExtOperationType.FLUSH.value,
         ]:
             self.relayout_tree()
         elif op_type.value in [
-            OperationType.COMPLETE_NODE,
-            OperationType.REOPEN_NODE,
+            OperationType.COMPLETE_NODE.value,
+            OperationType.REOPEN_NODE.value,
         ]:
             self.scene.update()
 

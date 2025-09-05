@@ -194,7 +194,7 @@ class Notification:
         content.setBody_(body)
 
         if identifier is None:
-            identifier = str(uuid.uuid4())
+            identifier = str(uuid.uuid4().hex)
 
         if category_id:
             content.setCategoryIdentifier_(category_id)

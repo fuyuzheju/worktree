@@ -32,6 +32,7 @@ class OperationType(Enum):
 
 class PseudoOperationType(Enum):
     UNDO = "undo"
+    FLUSH = "flush"
     # REDO = "redo"
 
 class ExtOperationType(Enum):
@@ -44,6 +45,7 @@ class ExtOperationType(Enum):
     
     # extended
     UNDO = PseudoOperationType.UNDO.value
+    FLUSH = PseudoOperationType.FLUSH.value
 
 
 @dataclass
@@ -75,7 +77,7 @@ class AbstractOperation(ABC):
         return cls(op_type, payload, timestamp)
     
     def apply(self, tree: Tree):
-        method = getattr(tree, self.op_type, None)
+        method = getattr(tree, self.op_type.value, None)
         if method is None:
             raise RuntimeError(f"No operation named '{self.op_type}'")
         

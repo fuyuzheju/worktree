@@ -15,7 +15,8 @@ class Storage:
         from .history_storage import HistoryStorage
         from .reminder_storage import ReminderStorage
         self.context = context
-        self.history_storage = HistoryStorage(context, STORAGE_DIR / "history", 20)
+        db_url = f"sqlite:///{STORAGE_DIR}/worktree.db"
+        self.history_storage = HistoryStorage(context, db_url)
         self.reminder_storage = ReminderStorage(context, STORAGE_DIR / "reminder")
     
     def cleanup_history(self):
