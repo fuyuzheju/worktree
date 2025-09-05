@@ -1,4 +1,6 @@
 ### requires GC
+# expire cache in sql session
+# delete popped nodes in queue
 
 from sqlalchemy import create_engine, Column, Integer, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -39,6 +41,11 @@ class PendingQueue:
             self.metadata = PendingQueueMetadata(head_id=1, tail_id=1)
             self.session.add(self.metadata)
             self.session.commit()
+    
+    def reload(self):
+        self.session.close()
+        self.engine.dispose()
+        self.__init__(self.engine.url)
     
     def get_metadata(self):
         return self.metadata

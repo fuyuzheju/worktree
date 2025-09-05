@@ -23,6 +23,10 @@ class HistoryStorage:
         if operation.op_type.value in OperationType:
             self.pending_queue.push(operation)
     
+    def reload(self):
+        self.confirmed_history.reload()
+        self.pending_queue.reload()
+    
     def load_tree(self):
         loader: Iterable[PendingOperationNode] = self.loader.pending_queue_loader()
         while True:
@@ -45,6 +49,10 @@ class HistoryStorage:
                 "payload": {},
                 "timestamp": int(time.time()),
             }))
+        
+        elif self.confirmed_history.get_head_node() is None:
+            # all history is empty
+            return
 
         else:
             undo_operation = ExtOperation.from_dict({

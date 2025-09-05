@@ -2,8 +2,9 @@ from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QAction, QMenu, QWidg
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
-import logging, shutil, os, zipfile
 from logging.config import dictConfig
+from .data.core import ExtOperation, ExtOperationType
+import logging, shutil, os, zipfile, time
 
 from .data.core.work_tree import WorkTree
 from .settings import SettingsManager
@@ -250,10 +251,14 @@ class Application(AppBasic):
 
         shutil.unpack_archive(filepath, extract_dir=self.storage_dir)
         try:
-            self.storage.history_storage.current_snapshot_dir, self.storage.history_storage.op_count_since_snapshot = self.storage.history_storage.get_latest_snapshot()
-            self.storage.history_storage.load_from_disk()
-            if self.storage.history_storage.current_snapshot_dir == None:
-                raise ValueError("No history snapshots found.")
+            self.storage.history_storage.reload()
+            self.storage.history_storage.load_tree()
+            print("1")
+            self.work_tree.tree_edit_signal.emit(ExtOperation.from_dict({
+                "op_type": ExtOperationType.FLUSH.value,
+                "payload": {},
+                "timestamp": int(time.time()),
+            }))
         except Exception as e:
             QMessageBox.critical(None ,'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
             shutil.rmtree(self.storage_dir)

@@ -1,4 +1,6 @@
 ### requires GC
+# expire cache of sql session
+# delete unreachable nodes in linked list
 
 from sqlalchemy import create_engine, Column, Integer, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
@@ -47,6 +49,11 @@ class ConfirmedHistory:
             self.current_branch = ConfirmedHistoryBranch(head_id=None, name="main")
             self.session.add(self.current_branch)
             self.session.commit()
+    
+    def reload(self):
+        self.session.close()
+        self.engine.dispose()
+        self.__init__(self.engine.url)
 
     def get_head_node(self):
         return self.current_branch.head_node
