@@ -161,7 +161,6 @@ class TreeGraphWidget(QWidget):
         self.context = context
         self.context.work_tree.tree_edit_signal.connect(self.on_tree_edit)
         self.context.work_tree.reminder_edit_signal.connect(self.relayout_tree)
-        self.context.work_tree.reminder_service.reminder_due.connect(self.relayout_tree)
         self.hightlight_node = self.context.work_tree.tree.root
 
         self.scene = QGraphicsScene()

@@ -54,7 +54,7 @@ class AppBasic(QApplication):
         self.setOrganizationName("fuyuzheju")
         self.setOrganizationDomain("fuyuzheju.com")
         # self.app_data_dir: Path = Path(QStandardPaths.writableLocation(QStandardPaths.AppDataLocation))
-        self.app_data_dir = Path("")
+        self.app_data_dir = Path("tmp")
 
         # log
         log_dir: Path = self.app_data_dir / "logs"

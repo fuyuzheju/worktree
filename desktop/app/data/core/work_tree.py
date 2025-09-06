@@ -12,34 +12,51 @@ from . import EditData, ExtOperation, Operation
 logger = logging.getLogger(__name__)
 
 
-def send_signal(signal_name: str, 
-                success_condition: Callable[[int], bool] = lambda res: res == 0):
+def send_tree_edit_signal(func):
     """
     a decorator
     send a signal accordingly when a tree operation succeeded
     """
-    def dec(func: Callable):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            res = func(self, *args, **kwargs)
-            if success_condition(res):
-                signal = getattr(self, signal_name) # possible AttributeError
-                
-                bound_args = inspect.signature(func).bind(self, *args, **kwargs)
-                bound_args.apply_defaults()
-                signal_payload = dict(bound_args.arguments)
-                signal_payload.pop('self', None)
+    @functools.wraps(func)
+    def wrapper(self: "WorkTree", *args, **kwargs):
+        res = func(self, *args, **kwargs)
+        if res == 0: # operation success
+            bound_args = inspect.signature(func).bind(self, *args, **kwargs)
+            bound_args.apply_defaults()
+            signal_payload = dict(bound_args.arguments)
+            signal_payload.pop('self', None)
 
-                ext_operation = Operation.from_dict({
-                    "op_type": func.__name__,
-                    "payload": signal_payload,
-                    "timestamp": int(time.time()),
-                })
-                signal.emit(ext_operation)
-            return res
-                
-        return wrapper
-    return dec
+            ext_operation = Operation.from_dict({
+                "op_type": func.__name__,
+                "payload": signal_payload,
+                "timestamp": int(time.time()),
+            })
+            self.tree_edit_signal.emit(ext_operation)
+        return res
+            
+    return wrapper
+
+def send_reminder_edit_signal(func):
+    """
+    a decorator
+    send a signal accordingly when a reminder operation succeeded
+    """
+    @functools.wraps(func)
+    def wrapper(self: "WorkTree", *args, **kwargs):
+        res = func(self, *args, **kwargs)
+        if res == 0: # operation success
+            bound_args = inspect.signature(func).bind(self, *args, **kwargs)
+            bound_args.apply_defaults()
+            signal_args = dict(bound_args.arguments)
+            signal_args.pop('self', None)
+
+            self.reminder_edit_signal.emit({
+                "type": func.__name__,
+                "args": signal_args,
+            })
+        return res
+            
+    return wrapper
 
 
 class WorkTree(QObject):
@@ -84,16 +101,16 @@ class WorkTree(QObject):
     def list_reminders(self) -> list[Reminder]:
         return self.reminder_service.list_reminders()
 
-    @send_signal('reminder_edit_signal')
+    @send_reminder_edit_signal
     def add_reminder(self, node_id: str, due_time: datetime, message: str,
                      reminder_id : Optional[str] = None, active: bool = True) -> int:
         return self.reminder_service.add_reminder(node_id, due_time, message, reminder_id, active)
     
-    @send_signal('reminder_edit_signal')
+    @send_reminder_edit_signal
     def remove_reminder(self, reminder_id: str) -> int:
         return self.reminder_service.remove_reminder(reminder_id)
     
-    @send_signal('reminder_edit_signal')
+    @send_reminder_edit_signal
     def set_reminder(self, reminder_id: str,
                      due_time: Optional[datetime] = None,
                      message: Optional[str] = None,
@@ -105,26 +122,26 @@ class WorkTree(QObject):
     def get_node_by_id(self, identity: str) -> Optional[Node]:
         return self.tree.get_node_by_id(identity)
 
-    @send_signal('tree_edit_signal')
+    @send_tree_edit_signal
     def add_node(self, parent_node_id: str, new_node_name: str, new_node_id: Optional[str] = None) -> int:
         return self.tree.add_node(parent_node_id, new_node_name, new_node_id)
 
-    @send_signal('tree_edit_signal')
+    @send_tree_edit_signal
     def reopen_node(self, node_id: str) -> int:
         return self.tree.reopen_node(node_id)
     
-    @send_signal('tree_edit_signal')
+    @send_tree_edit_signal
     def complete_node(self, node_id: str) -> int:
         return self.tree.complete_node(node_id)
     
-    @send_signal('tree_edit_signal')
+    @send_tree_edit_signal
     def remove_node(self, node_id: str) -> int:
         return self.tree.remove_node(node_id)
     
-    @send_signal('tree_edit_signal')
+    @send_tree_edit_signal
     def remove_subtree(self, node_id: str) -> int:
         return self.tree.remove_subtree(node_id)
     
-    @send_signal('tree_edit_signal')
+    @send_tree_edit_signal
     def move_node(self, node_id: str, new_parent_id: str) -> int:
         return self.tree.move_node(node_id, new_parent_id)
