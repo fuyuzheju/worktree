@@ -50,10 +50,11 @@ class ConfirmedHistory:
             self.session.add(self.current_branch)
             self.session.commit()
     
-    def reload(self):
+    def reload(self, db_url: Optional[str] = None):
         self.session.close()
         self.engine.dispose()
-        self.__init__(self.engine.url)
+        db_url = self.engine.url if db_url is None else db_url
+        self.__init__(db_url)
 
     def get_head_node(self):
         return self.current_branch.head_node

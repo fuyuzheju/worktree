@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, Column, Integer, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from ...core import ExtOperation
+from typing import Optional
 
 
 PENDING_OPERATION_TABLE = "pending_operations"
@@ -42,10 +43,11 @@ class PendingQueue:
             self.session.add(self.metadata)
             self.session.commit()
     
-    def reload(self):
+    def reload(self, db_url: Optional[str] = None):
         self.session.close()
         self.engine.dispose()
-        self.__init__(self.engine.url)
+        db_url = self.engine.url if db_url is None else db_url
+        self.__init__(db_url)
     
     def get_metadata(self):
         return self.metadata

@@ -24,6 +24,16 @@ class ReminderStorage:
 
         self.context.work_tree.reminder_edit_signal.connect(self.handle_edit)
     
+    def reload(self, reminder_dir: Path):
+        self.reminder_dir = reminder_dir
+        self.reminder_dir.mkdir(parents=True, exist_ok=True)
+        reminder_file = self.reminder_dir / 'reminders.json'
+        if reminder_file.exists():
+            logger.debug("Loading reminders from disk.")
+            self.load_from_disk()
+        else:
+            logger.debug("No reminders found. Nothing to load.")
+    
     def handle_edit(self, operation: dict):
         self.save_reminders()
 

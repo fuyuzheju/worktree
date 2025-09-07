@@ -5,12 +5,13 @@ from pathlib import Path
 from logging.config import dictConfig
 from .data.core import ExtOperation, ExtOperationType
 import logging, shutil, os, zipfile, time
-
 from .data.core.work_tree import WorkTree
 from .settings import SettingsManager
+
 from typing import Optional, TYPE_CHECKING
-if TYPE_CHECKING:
-    from .data.storage import Storage
+if TYPE_CHECKING: # avoid cyclic import
+    from .data.users import UsersManager
+
 
 ICON_PATH = "assets/worktree-icon.png"
 
@@ -27,10 +28,10 @@ class AppContext:
                  settings_manager: SettingsManager):
         self.work_tree = work_tree
         self.settings_manager = settings_manager
-        self.storage: Optional["Storage"] = None
+        self.users_manager: Optional["UsersManager"] = None
     
-    def register_storage(self, storage: "Storage"):
-        self.storage = storage
+    def register_users_manager(self, users_manager: "UsersManager"):
+        self.users_manager = users_manager
 
 
 class AppBasic(QApplication):
@@ -44,7 +45,7 @@ class AppBasic(QApplication):
         - data core initialization
             - create WorkTree
             - app context
-            - configure storage to the disk
+            - configure users manager(also managing data storage)
     """
     def __init__(self, argv):
         super().__init__(argv)
@@ -74,13 +75,12 @@ class AppBasic(QApplication):
         self.context = AppContext(work_tree=self.work_tree,
                                   settings_manager=self.settings_manager,)
 
-        # storage
-        from .data.storage import Storage
-        self.storage_dir: Path = Path(self.app_data_dir) / "storage"
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        self.storage: Storage = Storage(self.context, self.storage_dir)
-        self.logger.info(f"Storage configured. Dir: {self.storage_dir}")
-        self.context.register_storage(self.storage)
+        # users manager
+        from .data.users import UsersManager
+        self.users_root: Path = Path(self.app_data_dir) / "users"
+        self.users_manager = UsersManager(self.context, self.users_root)
+        self.logger.info(f"Users manager configured. Dir: {self.users_root}")
+        self.context.register_users_manager(self.users_manager)
     
     def setup_logging(self, log_dir: Path):
         log_dir.mkdir(parents=True, exist_ok=True)
@@ -151,7 +151,7 @@ class Application(AppBasic):
         self.main_window.show()
         self.logger.info("Main window created.")
 
-        self.main_window.cleanup_history_signal.connect(self.storage.cleanup_history)
+        # self.main_window.cleanup_history_signal.connect(self.storage.cleanup_history)
 
         # tray icon
         self.setup_tray_icon(self.main_window)

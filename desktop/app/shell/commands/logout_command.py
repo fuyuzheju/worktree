@@ -1,25 +1,24 @@
 from .command_bases import Command
-from app.data.core import ExtOperation
 from typing import override
-import time
 
-class UndoCommand(Command):
+class LoginCommand(Command):
     @classmethod
     @override
     def command_str(cls):
-        return "undo"
+        return "login"
     
     @classmethod
     @override
     def command_help(cls):
-        return "undo the last operation.\n" \
-            "Usage: undo"
+        return "Login a user.\n" \
+            "Usage: login <user_id>"
     
+    @classmethod
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(cls):
         return {
             "arguments": {
-                "required": 0,
+                "required": 1,
                 "optional": 0,
             },
             "options": {
@@ -30,7 +29,9 @@ class UndoCommand(Command):
 
     @override
     def execute(self, context, shell):
-        context.users_manager.storage.history_storage.undo()
+        user_id = self.args["arguments"]["required"][0]
+        context.users_manager.logout()
+        self.output_signal.emit(f"Logged in as {user_id}.\n")
         return 0
     
     @override

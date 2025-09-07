@@ -7,11 +7,12 @@ import time
 
 from ...core import Operation
 from .pending_queue import PendingOperationNode
-from typing import Iterable
+from typing import Iterable, Optional
 
 class HistoryStorage:
     def __init__(self, context: AppContext, db_url: str):
         self.context = context
+        self.db_url = db_url
         self.confirmed_history = ConfirmedHistory(db_url)
         self.pending_queue = PendingQueue(db_url)
         self.loader = HistoryLoader(self.confirmed_history, self.pending_queue)
@@ -23,11 +24,13 @@ class HistoryStorage:
         if operation.op_type.value in OperationType:
             self.pending_queue.push(operation)
     
-    def reload(self):
-        self.confirmed_history.reload()
-        self.pending_queue.reload()
+    def reload(self, db_url: Optional[str] = None):
+        self.confirmed_history.reload(db_url)
+        self.pending_queue.reload(db_url)
+        self.load_tree()
     
     def load_tree(self):
+        print(f"LOADING TREE FROM {self.db_url}")
         loader: Iterable[PendingOperationNode] = self.loader.pending_queue_loader()
         while True:
             try:
