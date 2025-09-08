@@ -15,6 +15,7 @@ test.*
 # python
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # pyinstaller
 build/
