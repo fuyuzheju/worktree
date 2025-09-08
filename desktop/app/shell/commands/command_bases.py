@@ -353,11 +353,8 @@ class CommandGroup(Command):
         A decorator,
         registering a subcommand to this command group.
         """
-        if not issubclass(subcommand_class, Subcommand):
-            raise TypeError(f"subcommand_class must be a subclass of Subcommand, not {subcommand_class}")
-        
-        if subcommand_class.command_str() in cls._subcommands:
-            raise ValueError(f"subcommand {subcommand_class.command_str()} has already been registered")
+        assert issubclass(subcommand_class, Subcommand)
+        assert not subcommand_class.command_str() in cls._subcommands, "subcommand has already been registered"
         
         # register
         cls._subcommands[subcommand_class.command_str()] = subcommand_class

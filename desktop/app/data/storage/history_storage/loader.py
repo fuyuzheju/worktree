@@ -25,11 +25,7 @@ class HistoryLoader:
         for node in nodes:
             op = Operation.from_dict(json.loads(node.operation))
             res = op.apply(tree)
-            if res != 0:
-                # unexpcted
-                # maybe suggests the damage of data
-                # confirmed history should be integral
-                raise RuntimeError(f"Operation failed: {op}")
+            assert res == 0, f"Confirmed history damaged, operation: {op}"
         return tree
     
     def pending_queue_loader(self):
@@ -73,10 +69,9 @@ class HistoryLoader:
         while head_id < tail_id:
             node = self.pending_queue.get_by_id(head_id)
             op = ExtOperation.from_dict(json.loads(node.operation))
-            if op.op_type.value == PseudoOperationType.UNDO:
-                raise RuntimeError("Undo pseudo-operation found in pending queue behind head")
-            elif op.op_type.value in OperationType:
-                res = op.apply(tree)
+            assert op.op_type.value != PseudoOperationType.UNDO, "Undo pseudo-operation found in pending queue behind head"
+
+            res = op.apply(tree)
             if res != 0:
                 # conflict
                 yield node
