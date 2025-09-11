@@ -1,17 +1,17 @@
 from .command_bases import Command
 from typing import override
 
-class LoginCommand(Command):
+class LogoutCommand(Command):
     @classmethod
     @override
     def command_str(cls):
-        return "login"
+        return "logout"
     
     @classmethod
     @override
     def command_help(cls):
-        return "Login a user.\n" \
-            "Usage: login <user_id>"
+        return "logout a user.\n" \
+            "Usage: logout"
     
     @classmethod
     @override
@@ -31,7 +31,7 @@ class LoginCommand(Command):
     def execute(self, context, shell):
         user_id = self.args["arguments"]["required"][0]
         context.users_manager.logout()
-        self.output_signal.emit(f"Logged in as {user_id}.\n")
+        self.output_signal.emit(f"Logged out.\n")
         return 0
     
     @override
