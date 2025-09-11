@@ -21,7 +21,7 @@ class HistoryLoader:
 
     def load_confirmed_history(self, pop_num: int = 0) -> Tree:
         tree = Tree()
-        nodes = self.confirmed_history.get_branch("main", pop_num=pop_num)
+        nodes = self.confirmed_history.get_branch("main", pop_num=pop_num)[::-1]
         for node in nodes:
             op = Operation.from_dict(json.loads(node.operation))
             res = op.apply(tree)

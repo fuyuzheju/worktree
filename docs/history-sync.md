@@ -44,6 +44,7 @@ a linked-list of all history operations
 
 ### API
 - HTTP GET
+    - health check
     - get a specific operation content with its serial number(batch supported)
     - get a specific hash code with its serial number(batch supported)
 

@@ -4,6 +4,7 @@
 
 from sqlalchemy import create_engine, Column, Integer, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
+from ...core import OperationType
 import hashlib
 
 from ...core import Operation
@@ -89,6 +90,8 @@ class ConfirmedHistory:
         if len(operations) != len(serial_nums):
             raise ValueError("operations and serial_nums must have the same length")
         for operation, serial_num in zip(operations, serial_nums):
+            assert operation.op_type.value in OperationType, \
+                "operation must be an instance of Operation"
             node = ConfirmedHistoryNode(operation=operation.stringify(), serial_num=serial_num)
             if self.current_branch.head_node is None:
                 node.history_hash = calculate_hash("", operation)
