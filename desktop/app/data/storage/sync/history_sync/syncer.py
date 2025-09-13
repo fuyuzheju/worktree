@@ -11,7 +11,8 @@ from app.setup import AppContext
 
 logger = logging.getLogger(__name__)
 
-CHECK_CONNECTION_URI = "http://localhost:8080/"
+CHECK_CONNECTION_URI = "http://localhost:1215/health/"
+WEBSOCKET_URI = "ws://localhost:1215/"
 
 class UpdateSyncer(QObject):
     request_tree_load = pyqtSignal()
@@ -22,7 +23,7 @@ class UpdateSyncer(QObject):
                  context: AppContext,
                  confirmed_history: ConfirmedHistory,
                  pending_queue: PendingQueue,
-                 uri: str):
+                 uri: str = WEBSOCKET_URI):
         super().__init__()
 
         self.context = context
@@ -42,6 +43,7 @@ class UpdateSyncer(QObject):
     async def main(self, uri):
         while True:
             try:
+                print("connecting...")
                 await self.connect(uri)
             except (ConnectionRefusedError, OSError,
                     websockets.exceptions.ConnectionClosed):
@@ -51,6 +53,7 @@ class UpdateSyncer(QObject):
                 if self.sender is not None:
                     await self.sender.stop()
                 while not await self.check_conenction(CHECK_CONNECTION_URI):
+                    print("checking connection...")
                     await asyncio.sleep(5)
                 
                 # continue the loop to reconnect

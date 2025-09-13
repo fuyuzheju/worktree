@@ -19,8 +19,7 @@ class HistorySync(QObject):
         self.thread = QThread()
         self.syncer = UpdateSyncer(context=self.context,
                                    confirmed_history=history_storage.confirmed_history,
-                                   pending_queue=history_storage.pending_queue,
-                                   uri="ws://localhost:8889")
+                                   pending_queue=history_storage.pending_queue)
         
         self.syncer.moveToThread(self.thread)
         self.thread.started.connect(self.syncer.start)
