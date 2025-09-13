@@ -27,6 +27,7 @@ viztracer.json
 
 # --- backend ---
 node_modules/
+dist/
 npm-debug.log*
 yarn-error.log
 yarn-debug.log
