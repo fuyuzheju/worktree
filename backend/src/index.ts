@@ -31,26 +31,4 @@
 //     console.log(`listening on ${PORT}`);
 // })
 
-import Tree from "./core/tree.js";
-import Operation from "./core/operation.js";
-import { OperationType } from "./core/operation.js";
-let tree = new Tree();
-
-tree.addNode({
-    parentNodeId: tree.root.identity,
-    newNodeName: "1",
-});
-
-let op = new Operation({
-    opType: OperationType.ADD_NODE,
-    payload: {
-        parentNodeId: tree.root.identity,
-        newNodeName: "2",
-    },
-    timestamp: 0,
-});
-
-op.apply(tree);
-
-console.log(tree.root);
 
