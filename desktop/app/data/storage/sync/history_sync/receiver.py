@@ -17,14 +17,11 @@ class UpdateReceiver(QObject):
         self.running = False
     
     async def start(self):
-        self.running = True
         async for message in self.socket:
-            if not self.running:
-                break
             data = json.loads(message)
             self.received.emit(data)
     
-    async def stop(self):
+    def stop(self):
         self.running = False
     
     

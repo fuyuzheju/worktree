@@ -126,9 +126,12 @@ class AppBasic(QApplication):
                 "handlers": ["debug", "error", "console"]
             }
         }
-
         dictConfig(LOGGING_CONFIG)
-        # print("--- Logging configured ---")
+
+        import qasync
+        logger = logging.getLogger("qasync")
+        logger.setLevel(logging.WARNING)
+
         return 0
 
 
@@ -302,4 +305,6 @@ class Application(AppBasic):
         if self.mainwindow_hotkey_manager:
             self.mainwindow_hotkey_manager.cleanup()
             self.logger.info("Global listener stopped.")
+        self.users_manager.storage.history_sync.stop()
+        self.logger.info("History synchronizations stopped.")
         self.logger.info("Application quited.\n\n\n\n\n\n\n\n\n\n")

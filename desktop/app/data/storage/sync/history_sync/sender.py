@@ -23,7 +23,7 @@ class UpdateSender:
             await self.check_queue()
             await asyncio.sleep(1)
     
-    async def stop(self):
+    def stop(self):
         self.running = False
     
     async def refresh(self):

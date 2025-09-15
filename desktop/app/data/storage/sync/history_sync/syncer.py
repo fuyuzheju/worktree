@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QThread
 from ...history_storage.confirmed_history import ConfirmedHistory
 from ...history_storage.pending_queue import PendingQueue
 from .sender import UpdateSender
@@ -16,6 +16,7 @@ WEBSOCKET_URI = "ws://localhost:1215/"
 
 class UpdateSyncer(QObject):
     request_tree_load = pyqtSignal()
+    close = pyqtSignal()
     """
     running on subthread, managing all the synchoronizations
     """
@@ -33,15 +34,27 @@ class UpdateSyncer(QObject):
 
         self.wait_flag = threading.Event()
         self.wait_flag.clear()
+        self.running = True
+        self.close.connect(self.stop)
 
         self.sender: Optional[UpdateSender] = None
         self.receiver: Optional[UpdateReceiver] = None
+        self.socket: Optional[websockets.ClientConnection] = None
     
     def start(self):
-        asyncio.run(self.main(self.uri))
+        asyncio.get_event_loop().run_until_complete(self.main(self.uri))
+        self.deleteLater()
+    
+    @pyqtSlot()
+    def stop(self):
+        self.running = False
+        if self.socket is not None:
+            asyncio.create_task(self.socket.close()) # receiver stops automatically here
+        if self.sender is not None:
+            self.sender.stop()
     
     async def main(self, uri):
-        while True:
+        while self.running:
             try:
                 print("connecting...")
                 await self.connect(uri)
@@ -49,14 +62,14 @@ class UpdateSyncer(QObject):
                     websockets.exceptions.ConnectionClosed):
                 logger.warning("Websocket connection lost.")
                 if self.receiver is not None:
-                    await self.receiver.stop()
+                    self.receiver.stop()
                 if self.sender is not None:
-                    await self.sender.stop()
-                while not await self.check_conenction(CHECK_CONNECTION_URI):
+                    self.sender.stop()
+                while not await self.check_connection(CHECK_CONNECTION_URI):
                     print("checking connection...")
                     await asyncio.sleep(5)
-                
-                # continue the loop to reconnect
+                    if not self.running:
+                        break
 
     async def connect(self, uri):
         await self.reconnect_init()
@@ -67,6 +80,7 @@ class UpdateSyncer(QObject):
     
     async def build_connection(self, uri):
         async with websockets.connect(uri) as socket:
+            self.socket = socket
             self.sender = UpdateSender(self.pending_queue, socket)
             self.receiver = UpdateReceiver(socket)
             self.receiver.received.connect(lambda operation:
@@ -75,7 +89,7 @@ class UpdateSyncer(QObject):
             receiving = asyncio.create_task(self.receiver.start())
             await asyncio.gather(sending, receiving)
     
-    async def check_conenction(self, uri):
+    async def check_connection(self, uri):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(uri, timeout=5) as response:
