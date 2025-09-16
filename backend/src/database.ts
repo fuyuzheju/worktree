@@ -24,6 +24,23 @@ export default class HistoryManager {
         return user;
     }
 
+    async getHeadNode(userId: number) {
+        const metadata = await prisma.historyMetadata.findUnique({
+            where: {userId: userId},
+            include: {head: true},
+        });
+        if (metadata === null) return null;
+        
+        return metadata.head;
+    }
+
+    async getById(id: number) {
+        const node = await prisma.confirmedHistory.findUnique({
+            where: {id: id},
+        });
+        return node;
+    }
+
     async insertAtHead(operation: Operation, userId: number): Promise<number> {
         const metadata = await prisma.historyMetadata.findUnique({
             where: {userId: userId},
@@ -57,14 +74,22 @@ export default class HistoryManager {
         return 0;
     }
 
-    async getHeadNode(userId: number) {
+    async popHead(userId: number): Promise<number> {
         const metadata = await prisma.historyMetadata.findUnique({
             where: {userId: userId},
-            include: {head: true},
+            include: {head: true}
         });
-        if (metadata === null) return null;
+
+        if (metadata === null) return -1;
+        if (metadata.head === null) return -1;
         
-        return metadata.head;
+        await prisma.historyMetadata.update({
+            where: {id: metadata.id},
+            data: {
+                headId: metadata.head.nextId
+            }
+        });
+        return 0;
     }
 }
 
