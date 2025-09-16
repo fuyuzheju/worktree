@@ -31,3 +31,5 @@ dist/
 npm-debug.log*
 yarn-error.log
 yarn-debug.log
+generated/
+*.db

@@ -19,6 +19,7 @@
     // "noUnusedParameters": true,
     // "noFallthroughCasesInSwitch": true,
     // "noPropertyAccessFromIndexSignature": true,
+    "noImplicitAny": true,
     "baseUrl": ".",
     "paths": {"@/*": ["src/*"]},
     "types": ["vitest/globals", "node"],

@@ -90,7 +90,11 @@ export default class Operation {
     }
 
     stringify(): string {
-        return stringify(this);
+        return stringify({
+            op_type: this.opType,
+            payload: this.payload,
+            timestamp: this.timestamp,
+        });
     }
 
     apply(tree: Tree): number {

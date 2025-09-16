@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int                @id
+  name     String
+  history  ConfirmedHistory[] @relation("UserHistory")
+  metadata HistoryMetadata?   @relation("UserMetadata")
+}
+
+model ConfirmedHistory {
+  id          Int               @id @default(autoincrement())
+  serialNum   Int
+  operation   String
+  historyHash String
+
+  prev        ConfirmedHistory? @relation("HistoryLink")
+  next        ConfirmedHistory? @relation("HistoryLink", fields: [nextId], references: [id])
+  nextId      Int?             @unique // foreign key
+
+  user        User             @relation("UserHistory", fields: [userId], references: [id])
+  userId      Int // foreign key
+
+  metadata    HistoryMetadata? @relation("Metadata")
+}
+
+model HistoryMetadata {
+  id     Int               @id @default(autoincrement())
+  head   ConfirmedHistory? @relation("Metadata", fields: [headId], references: [id])
+  headId Int?              @unique // foreign key
+  user   User              @relation("UserMetadata", fields: [userId], references: [id])
+  userId Int               @unique // foreign key
+}
