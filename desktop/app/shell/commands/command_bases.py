@@ -160,6 +160,8 @@ class Command(ABC, QObject, metaclass=CustomMeta):
                 current = get_value(self.args, stack[-1])
                 max_num = get_value(ca_num, stack[-1])
                 
+                assert isinstance(current, list)
+                assert isinstance(max_num, int)
                 current.append(part)
                 self.last_arg = (stack[-1], self.last_arg[1] + 1)
                 if len(current) == max_num:
@@ -231,6 +233,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         pass
 
     def __call__(self, context: AppContext, shell: Shell) -> int:
+        code = None
         if self.status == 0:
             code = self.execute(context, shell)
         elif self.status == 1:
@@ -242,6 +245,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         elif self.status == 3:
             self.error_signal.emit("Error: Not enough arguments.\n")
             code = 103
+        assert code is not None
 
         self.finish_signal.emit()
         return code
