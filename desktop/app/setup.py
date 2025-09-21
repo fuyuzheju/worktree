@@ -1,17 +1,14 @@
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QAction, QMenu, QWidget, QMessageBox
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QAction, QMenu
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
 from logging.config import dictConfig
-from .data.core import ExtOperation, ExtOperationType
-import logging, shutil, os, zipfile, time
+import logging
 from .data.core.work_tree import WorkTree
 from .settings import SettingsManager
 
 from typing import Optional, TYPE_CHECKING
 if TYPE_CHECKING: # avoid cyclic import
     from .data.users import UsersManager
-
 
 ICON_PATH = "assets/worktree-icon.png"
 
@@ -128,7 +125,7 @@ class AppBasic(QApplication):
         }
         dictConfig(LOGGING_CONFIG)
 
-        import qasync
+        import qasync # to initialize it and its loggings
         logger = logging.getLogger("qasync")
         logger.setLevel(logging.WARNING)
 
@@ -153,8 +150,6 @@ class Application(AppBasic):
         self.main_window: MainWindow = MainWindow(self.context)
         self.main_window.show()
         self.logger.info("Main window created.")
-
-        # self.main_window.cleanup_history_signal.connect(self.storage.cleanup_history)
 
         # tray icon
         self.setup_tray_icon(self.main_window)
@@ -227,66 +222,10 @@ class Application(AppBasic):
                 self.tray_icon.hide()
 
     def save_tree(self, output_path: str):
-        if self.storage == None:
-            return
-        if output_path.endswith('.zip'):
-            output_path = output_path[:-4]
-        shutil.make_archive(output_path, 'zip', root_dir=self.storage_dir, 
-                            base_dir='.')
-        self.logger.debug(f'Save Tree to {output_path}')
+        self.users_manager.save_tree(output_path)
 
     def open_tree(self, filepath: str):
-        if self.storage == None:
-            return
-
-        try:
-            with zipfile.ZipFile(filepath, 'r') as f:
-                contents = f.namelist()
-        except zipfile.BadZipFile as e:
-            QMessageBox.critical(None ,'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
-        except Exception as e:
-            QMessageBox.critical(None ,'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
-        
-        if os.path.exists(self.storage_dir):
-            shutil.rmtree(self.storage_dir)
-        if not os.path.exists(self.storage_dir):
-            os.mkdir(self.storage_dir)   #clean storage
-
-        shutil.unpack_archive(filepath, extract_dir=self.storage_dir)
-        try:
-            self.storage.history_storage.reload()
-            self.storage.history_storage.load_tree()
-            print("1")
-            self.work_tree.tree_edit_signal.emit(ExtOperation.from_dict({
-                "op_type": ExtOperationType.FLUSH.value,
-                "payload": {},
-                "timestamp": int(time.time()),
-            }))
-        except Exception as e:
-            QMessageBox.critical(None ,'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
-            shutil.rmtree(self.storage_dir)
-            os.mkdir(self.storage_dir)
-    
-    def reminder_notification_process(self, action_id, user_info, user_text):
-        if action_id == DELAY_ACTION_ID:
-            reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
-            try:
-                from .shell.commands.utils import time_parser
-                due_time = time_parser(user_text)
-            except:
-                pass
-            else:
-                self.work_tree.set_reminder(reminder.reminder_id, due_time=due_time, active=True)
-                self.logger.info(f"Reminder Delayed to time: {due_time}(with format '{user_text}')")
-
-        elif action_id == COMPLETE_ACTION_ID:
-            reminder = self.work_tree.get_reminder_by_id(user_info["reminder_id"])
-            res = self.work_tree.complete_node(reminder.node_id)
-            if res != 0:
-                pass
-
-        else:
-            self.main_window.to_frontground()
+        self.users_manager.open_tree(filepath)
     
     def reminder_notify(self, reminder):
         if self.reminder_notifier is None:
@@ -308,3 +247,4 @@ class Application(AppBasic):
         self.users_manager.storage.history_sync.stop()
         self.logger.info("History synchronizations stopped.")
         self.logger.info("Application quited.\n\n\n\n\n\n\n\n\n\n")
+
