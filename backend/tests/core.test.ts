@@ -1,13 +1,12 @@
-import Tree from "@/core/tree.js";
-import Operation from "@/core/operation.js";
-import { OperationType } from "@/core/operation.js";
+import { Tree, Operation } from "@/core.js";
+import type { TreeOperationInterfaces } from "@/core.js";
 import crypto from "crypto";
 
 const WORKROOT_ID = crypto.createHash("sha256").update("WorkRoot", "utf8").digest("hex").slice(0,32)
 
-const operations: {op: Operation, expected: number,}[] = [
+const operations: {op: Operation<any>, expected: number}[] = [
     {op: new Operation({
-        opType: OperationType.ADD_NODE,
+        opType: "addNode",
         payload: {
             parentNodeId: WORKROOT_ID,
             newNodeName: "1",
@@ -17,7 +16,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: 0},
 
     {op: new Operation({
-        opType: OperationType.ADD_NODE,
+        opType: "addNode",
         payload: {
             parentNodeId: WORKROOT_ID,
             newNodeName: "2",
@@ -26,7 +25,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: 0},
 
     {op: new Operation({
-        opType: OperationType.ADD_NODE,
+        opType: "addNode",
         payload: {
             parentNodeId: WORKROOT_ID,
             newNodeName: "3",
@@ -36,7 +35,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: 0},
 
     {op: new Operation({
-        opType: OperationType.ADD_NODE,
+        opType: "addNode",
         payload: {
             parentNodeId: WORKROOT_ID,
             newNodeName: "3",
@@ -45,7 +44,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: -1},
 
     {op: new Operation({
-        opType: OperationType.REMOVE_NODE,
+        opType: "removeNode",
         payload: {
             nodeId: "4",
         },
@@ -53,7 +52,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: -1},
 
     {op: new Operation({
-        opType: OperationType.ADD_NODE,
+        opType: "addNode",
         payload: {
             parentNodeId: "3",
             newNodeName: "3.1",
@@ -62,7 +61,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: 0},
 
     {op: new Operation({
-        opType: OperationType.REMOVE_NODE,
+        opType: "removeNode",
         payload: {
             nodeId: "3",
         },
@@ -70,7 +69,7 @@ const operations: {op: Operation, expected: number,}[] = [
     }), expected: -1},
 
     {op: new Operation({
-        opType: OperationType.REMOVE_SUBTREE,
+        opType: "removeSubtree",
         payload: {
             nodeId: "3",
         },

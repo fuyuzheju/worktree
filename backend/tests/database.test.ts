@@ -1,16 +1,19 @@
 import HistoryManager from "@/database.js";
-import Operation from "@/core/operation.js";
-import { OperationType } from "@/core/operation.js";
+import { Operation } from "@/core.js";
 import { PrismaClient } from "../generated/prisma/index.js";
 
 const historyManager = new HistoryManager();
 const prisma = new PrismaClient();
 
 const op = new Operation({
-    opType: OperationType.ADD_NODE,
-    payload: {},
+    opType: "addNode",
+    payload: {
+        newNodeName: "1",
+        parentNodeId: "1",
+        newNodeId: "2",
+    },
     timestamp: 0,
-})
+});
 
 describe("history management", () => {
     beforeEach(async () => {
@@ -31,7 +34,7 @@ describe("history management", () => {
         expect(head.serialNum).toBe(0);
         expect(head.operation).toBe(op.stringify());
         console.log(`this is ${op.stringify()}`);
-        expect(head.historyHash).toBe('0c72fd5b08e5a98ee292aa208b8a95e12c25ab14dbeeacf0efa2d7f3d6ef33ff');
+        expect(head.historyHash).toBe('dd76856ab09a33209f2212284718d8b07ca78110fc12ce43fefac351742b0651'); // same as python part
         expect(head.userId).toBe(11);
         expect(head.nextId).toBe(null);
     });

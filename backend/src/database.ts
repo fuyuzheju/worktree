@@ -1,7 +1,6 @@
 import { PrismaClient } from "../generated/prisma/index.js";
 import crypto from "crypto";
-import type Operation from "./core/operation.js";
-import { number } from "zod";
+import type { Operation } from "./core.js";
 
 const prisma = new PrismaClient();
 
@@ -41,7 +40,7 @@ export default class HistoryManager {
         return node;
     }
 
-    async insertAtHead(operation: Operation, userId: number): Promise<number> {
+    async insertAtHead(operation: Operation<any>, userId: number): Promise<number> {
         const metadata = await prisma.historyMetadata.findUnique({
             where: {userId: userId},
             include: {head: true},
@@ -54,7 +53,7 @@ export default class HistoryManager {
         const head = metadata.head;
         const newSerial = head === null? 0 : head.serialNum + 1;
         const prevHash = head === null? "" : head.historyHash;
-        const newHash = calculateHash(prevHash, operation.stringify());
+        const newHash = calculateHash(prevHash, operation);
         const newNode = await prisma.confirmedHistory.create({
             data: {
                 serialNum: newSerial,
@@ -93,6 +92,6 @@ export default class HistoryManager {
     }
 }
 
-function calculateHash(prevHash: string, op_str: string): string {
-    return crypto.createHash("sha256").update(prevHash + op_str).digest("hex");
+function calculateHash(prevHash: string, operation: Operation<any>): string {
+    return crypto.createHash("sha256").update(prevHash + operation.stringify()).digest("hex");
 }

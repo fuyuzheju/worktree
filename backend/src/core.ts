@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { z } from "zod";
+import { stringify } from "canonical-json";
 
 enum Status {
     WAITING = "Waiting",
@@ -41,8 +43,52 @@ class Node {
     }
 }
 
+export const TreeOperationPayloadSchemas = {
+    addNode: z.object({
+        parentNodeId: z.string(),
+        newNodeName: z.string(),
+        newNodeId: z.string().optional(),
+    }),
 
-export default class Tree {
+    reopenNode: z.object({
+        nodeId: z.string(),
+    }),
+
+    completeNode: z.object({
+        nodeId: z.string(),
+    }),
+
+    removeNode: z.object({
+        nodeId: z.string(),
+    }),
+
+    removeSubtree: z.object({
+        nodeId: z.string(),
+    }),
+
+    moveNode: z.object({
+        nodeId: z.string(),
+        newParentId: z.string(),
+    }),
+}
+
+export type TreeOperationInterfaces = {
+    [P in keyof typeof TreeOperationPayloadSchemas]:
+        z.infer<typeof TreeOperationPayloadSchemas[P]>
+}
+
+type TreeInterface = {
+    [P in keyof TreeOperationInterfaces]:
+        (arg: TreeOperationInterfaces[P]) => number
+}
+
+interface OperationAttrs<T extends keyof TreeOperationInterfaces> {
+    opType: T,
+    payload: TreeOperationInterfaces[T],
+    timestamp: number,
+}
+
+export class Tree implements TreeInterface{
     root: Node;
 
     constructor() {
@@ -69,7 +115,7 @@ export default class Tree {
     addNode = ({parentNodeId,
                 newNodeName,
                 newNodeId = crypto.randomUUID().replaceAll("-", "")}: 
-                    {parentNodeId: string, newNodeName: string, newNodeId?: string,}
+                TreeOperationInterfaces["addNode"]
             ): number => {
         let parentNode = this.getNodeById(parentNodeId);
         if (parentNode === undefined) {
@@ -88,7 +134,7 @@ export default class Tree {
         return 0;
     }
 
-    reopenNode = ({nodeId}: {nodeId: string}): number => {
+    reopenNode = ({nodeId}: TreeOperationInterfaces["reopenNode"]): number => {
         let node = this.getNodeById(nodeId);
         if (node === undefined || node.status !== Status.COMPLETED) {
             return -1;
@@ -105,7 +151,7 @@ export default class Tree {
         return recursivelyReopen(node);
     }
 
-    completeNode = ({nodeId}: {nodeId: string}): number => {
+    completeNode = ({nodeId}: TreeOperationInterfaces["completeNode"]): number => {
         let node = this.getNodeById(nodeId);
         if (node === undefined || (!node.isReady())) {
             return -1;
@@ -117,7 +163,7 @@ export default class Tree {
         return 0;
     }
 
-    removeNode = ({nodeId}: {nodeId: string}): number => {
+    removeNode = ({nodeId}: TreeOperationInterfaces["removeNode"]): number => {
         let node = this.getNodeById(nodeId);
         if (node === undefined) {
             return -1;
@@ -129,7 +175,7 @@ export default class Tree {
         return 0;
     }
 
-    removeSubtree = ({nodeId}: {nodeId: string}): number => {
+    removeSubtree = ({nodeId}: TreeOperationInterfaces["removeSubtree"]): number => {
         let node = this.getNodeById(nodeId);
         if (node === undefined || node.parent === null) {
             return -1;
@@ -139,7 +185,7 @@ export default class Tree {
         return 0;
     }
 
-    moveNode = ({nodeId, newParentId}: {nodeId: string, newParentId: string}): number => {
+    moveNode = ({nodeId, newParentId}: TreeOperationInterfaces["moveNode"]): number => {
         let node = this.getNodeById(nodeId);
         if (node === undefined || node.parent === null) {
             return -1;
@@ -168,4 +214,46 @@ export default class Tree {
         node.parent = newParent;
         return 0;
     }
+}
+
+export class Operation<T extends keyof TreeOperationInterfaces> {
+    opType: T;
+    payload: TreeOperationInterfaces[T];
+    timestamp: number;
+
+    constructor({
+        opType,
+        payload,
+        timestamp,
+    }: OperationAttrs<T>) {
+        this.opType = opType;
+        this.payload = payload;
+        this.timestamp = timestamp;
+    }
+
+    stringify(): string {
+        return stringify({ // canonical-json automatically sorts keys and deletes spaces
+            op_type: camelToSnake(this.opType),
+            payload: 
+                Object.fromEntries(
+                    Object.entries(this.payload).map(([key, value]) => [camelToSnake(key), value])
+                ),
+            timestamp: this.timestamp,
+        });
+    }
+
+    apply(tree: TreeInterface): number {
+        const method = tree[this.opType];
+        return method.call(tree, this.payload);
+    }
+}
+
+function snakeToCamel(s: string): string {
+    return s.split('_').map((word, i) => 
+        (word.length === 0 || i === 0) ? word : word[0]?.toUpperCase() + word.slice(1)
+    ).reduce((prev, next) => prev+next);
+}
+
+function camelToSnake(s: string): string {
+    return s.split(/(?=[A-Z])/).map(word => word.toLowerCase()).join('_');
 }
