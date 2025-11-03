@@ -33,6 +33,10 @@ DEFAULT_SETTINGS = {
     "graph/activeReminderDotColor": QColor(Qt.red),
     "graph/inactiveReminderDotColor": QColor(Qt.blue),
     "graph/showReminderHint": True,
+
+    "internal/loginURL": "http://localhost:824/login/",
+    "internal/healthCheckURL": "http://localhost:824/health/",
+    "internal/websocketURI": "ws://localhost:824/"
 }
 
 class SettingsManager(QObject):

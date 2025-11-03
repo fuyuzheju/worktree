@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QMenuBar, QMessageBox, QFileDialog, QShortcut, QDialog
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 from .graph import TreeGraphWidget
@@ -6,6 +6,7 @@ from .console import CommandWidget
 from ...utils import set_app_state
 from ..settings_window import SettingsDialog
 from ..reminders_window import RemindersDialog
+from .login_window import LoginWindow
 
 from app.setup import AppContext
 
@@ -18,6 +19,7 @@ class MainWindow(QWidget):
     cleanup_history_signal = pyqtSignal()
     save_file_signal = pyqtSignal(str) # pass the path as an argument
     open_file_signal = pyqtSignal(str)
+    login_signal = pyqtSignal(tuple)
 
     """
     combines TreeGraphWidget and CommandWidget together
@@ -146,3 +148,14 @@ class MainWindow(QWidget):
         if not file_path:
             return
         self.open_file_signal.emit(file_path)
+    
+    def login(self):
+        login_window = LoginWindow(self.context, self)
+
+        code = login_window.exec_()
+        if code == QDialog.Accepted:
+            # success
+            pass
+        else:
+            # calcelled
+            pass
