@@ -1,6 +1,6 @@
 import { PrismaClient } from "../generated/prisma/index.js";
 import crypto from "crypto";
-import type { Operation } from "./core.js";
+import type { Operation } from "./data/core.js";
 
 const prisma = new PrismaClient();
 

@@ -77,12 +77,14 @@ export type TreeOperationInterfaces = {
         z.infer<typeof TreeOperationPayloadSchemas[P]>
 }
 
+export type OperationType = keyof TreeOperationInterfaces;
+
 type TreeInterface = {
-    [P in keyof TreeOperationInterfaces]:
+    [P in OperationType]:
         (arg: TreeOperationInterfaces[P]) => number
 }
 
-interface OperationAttrs<T extends keyof TreeOperationInterfaces> {
+interface OperationAttrs<T extends OperationType> {
     opType: T,
     payload: TreeOperationInterfaces[T],
     timestamp: number,
@@ -112,11 +114,11 @@ export class Tree implements TreeInterface{
         return recursivelyGetNode(identity, this.root);
     }
 
-    addNode = ({parentNodeId,
+    addNode({parentNodeId,
                 newNodeName,
                 newNodeId = crypto.randomUUID().replaceAll("-", "")}: 
                 TreeOperationInterfaces["addNode"]
-            ): number => {
+            ): number {
         let parentNode = this.getNodeById(parentNodeId);
         if (parentNode === undefined) {
             return -1;
@@ -134,7 +136,7 @@ export class Tree implements TreeInterface{
         return 0;
     }
 
-    reopenNode = ({nodeId}: TreeOperationInterfaces["reopenNode"]): number => {
+    reopenNode({nodeId}: TreeOperationInterfaces["reopenNode"]): number {
         let node = this.getNodeById(nodeId);
         if (node === undefined || node.status !== Status.COMPLETED) {
             return -1;
@@ -151,7 +153,7 @@ export class Tree implements TreeInterface{
         return recursivelyReopen(node);
     }
 
-    completeNode = ({nodeId}: TreeOperationInterfaces["completeNode"]): number => {
+    completeNode({nodeId}: TreeOperationInterfaces["completeNode"]): number {
         let node = this.getNodeById(nodeId);
         if (node === undefined || (!node.isReady())) {
             return -1;
@@ -163,7 +165,7 @@ export class Tree implements TreeInterface{
         return 0;
     }
 
-    removeNode = ({nodeId}: TreeOperationInterfaces["removeNode"]): number => {
+    removeNode({nodeId}: TreeOperationInterfaces["removeNode"]): number {
         let node = this.getNodeById(nodeId);
         if (node === undefined) {
             return -1;
@@ -175,7 +177,7 @@ export class Tree implements TreeInterface{
         return 0;
     }
 
-    removeSubtree = ({nodeId}: TreeOperationInterfaces["removeSubtree"]): number => {
+    removeSubtree({nodeId}: TreeOperationInterfaces["removeSubtree"]): number {
         let node = this.getNodeById(nodeId);
         if (node === undefined || node.parent === null) {
             return -1;
@@ -185,7 +187,7 @@ export class Tree implements TreeInterface{
         return 0;
     }
 
-    moveNode = ({nodeId, newParentId}: TreeOperationInterfaces["moveNode"]): number => {
+    moveNode({nodeId, newParentId}: TreeOperationInterfaces["moveNode"]): number {
         let node = this.getNodeById(nodeId);
         if (node === undefined || node.parent === null) {
             return -1;
@@ -216,7 +218,7 @@ export class Tree implements TreeInterface{
     }
 }
 
-export class Operation<T extends keyof TreeOperationInterfaces> {
+export class Operation<T extends OperationType> {
     opType: T;
     payload: TreeOperationInterfaces[T];
     timestamp: number;

@@ -1,5 +1,5 @@
-import HistoryManager from "@/database.js";
-import { Operation } from "@/core.js";
+import HistoryManager from "@/history.js";
+import { Operation } from "@/data/core.js";
 import { PrismaClient } from "../generated/prisma/index.js";
 
 const historyManager = new HistoryManager();
