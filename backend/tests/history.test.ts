@@ -1,6 +1,7 @@
 import HistoryManager from "@/history.js";
+import { createUser } from "@/APIs.js";
 import { Operation } from "@/data/core.js";
-import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaClient } from "@prisma/client";
 
 const historyManager = new HistoryManager();
 const prisma = new PrismaClient();
@@ -23,28 +24,28 @@ describe("history management", () => {
     })
 
     it("operation insertion", async () => {
-        const user = await historyManager.createUser(11, "abc");
+        const user = await createUser("abc", "pwdabc");
         expect(user.name).toBe("abc");
+        expect(user.passwordHash).toBe("pwdabc");
 
-        await expect(historyManager.insertAtHead(op, 11)).resolves.toBe(0);
+        await expect(historyManager.insertAtHead(op, user.id)).resolves.toBe(0);
 
-        const head = await historyManager.getHeadNode(11);
+        const head = await historyManager.getHeadNode(user.id);
         expect(head).not.toBe(null);
         if (head === null) return; // let TypeScript know it
         expect(head.serialNum).toBe(0);
         expect(head.operation).toBe(op.stringify());
         console.log(`this is ${op.stringify()}`);
         expect(head.historyHash).toBe('dd76856ab09a33209f2212284718d8b07ca78110fc12ce43fefac351742b0651'); // same as python part
-        expect(head.userId).toBe(11);
         expect(head.nextId).toBe(null);
     });
 
     it("operation deletion", async () => {
-        await expect(historyManager.getHeadNode(11)).resolves.toBe(null);
-        const user = await historyManager.createUser(11, "abc");
-        await expect(historyManager.insertAtHead(op, 11)).resolves.toBe(0);
-        await expect(historyManager.popHead(11)).resolves.toBe(0);
-        await expect(historyManager.getHeadNode(11)).resolves.toBe(null);
+        await expect(historyManager.getHeadNode("11")).resolves.toBe(null);
+        const user = await createUser("abc", "pwdabc");
+        await expect(historyManager.insertAtHead(op, user.id)).resolves.toBe(0);
+        await expect(historyManager.popHead(user.id)).resolves.toBe(0);
+        await expect(historyManager.getHeadNode(user.id)).resolves.toBe(null);
     })
 })
 

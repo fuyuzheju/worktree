@@ -1,32 +1,25 @@
-// const express = require("express");
-// const ws = require("ws");
-// const http = require("http");
+import express from 'express';
+import type { Request, Response, NextFunction} from 'express';
+import dotenv from "dotenv";
 
-// const app = express();
-// const server = http.createServer(app);
-// const wss = new ws.Server({server});
+import { healthCheck, login } from './APIs.js';
 
-// app.use(express.json());
+dotenv.config();
 
-// app.get("/health/", (req, res) => {
-//     res.json({status: 'ok', message: 'running'});
-// });
+const app = express();
+const port = 824;
 
-// let serial_num = 1;
+type AsyncRequestHandler = (req: Request, res: Response, next: NextFunction) => Promise<any>;
+const asyncHandler = (fn: AsyncRequestHandler) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        Promise.resolve(fn).catch(next);
+    }
+}
 
-// wss.on("connection", (websocket) => {
-//     websocket.on("message", (message) => {
-//         data = JSON.parse(message);
-//         console.log(data);
-//         websocket.send(JSON.stringify({
-//             operation: data,
-//             serial_num: serial_num,
-//         }));
-//         serial_num += 1;
-//     });
-// });
+app.use(express.json());
+app.get('/health/', healthCheck);
+app.post('/login/', asyncHandler(login));
 
-// const PORT = 1215;
-// server.listen(PORT, () => {
-//     console.log(`listening on ${PORT}`);
-// })
+app.listen(port, () => {
+    console.log(`Server running on port ${port}.`);
+});

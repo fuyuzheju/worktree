@@ -1,29 +1,19 @@
-import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
-import type { Operation } from "./data/core.js";
+import type { Operation, OperationType } from "./data/core.js";
 
-const prisma = new PrismaClient();
+const prisma = (new PrismaClient()).$extends({
+    model: {
+        user: {
+            $omit: {passwordHash: true}
+        }
+    }
+}); // restrict the client from accessing authorizing data by default
 
 export default class HistoryManager {
     constructor() {}
 
-    async createUser(userId: number, name: string) {
-        const user = await prisma.user.create({
-            data: {
-                id: userId,
-                name: name,
-            }
-        });
-        const metadata = await prisma.historyMetadata.create({
-            data: {
-                headId: null,
-                userId: user.id,
-            }
-        });
-        return user;
-    }
-
-    async getHeadNode(userId: number) {
+    async getHeadNode(userId: string) {
         const metadata = await prisma.historyMetadata.findUnique({
             where: {userId: userId},
             include: {head: true},
@@ -40,7 +30,7 @@ export default class HistoryManager {
         return node;
     }
 
-    async insertAtHead(operation: Operation<any>, userId: number): Promise<number> {
+    async insertAtHead(operation: Operation<OperationType>, userId: string): Promise<number> {
         const metadata = await prisma.historyMetadata.findUnique({
             where: {userId: userId},
             include: {head: true},
@@ -73,7 +63,7 @@ export default class HistoryManager {
         return 0;
     }
 
-    async popHead(userId: number): Promise<number> {
+    async popHead(userId: string): Promise<number> {
         const metadata = await prisma.historyMetadata.findUnique({
             where: {userId: userId},
             include: {head: true}
@@ -92,6 +82,6 @@ export default class HistoryManager {
     }
 }
 
-function calculateHash(prevHash: string, operation: Operation<any>): string {
+function calculateHash(prevHash: string, operation: Operation<OperationType>): string {
     return crypto.createHash("sha256").update(prevHash + operation.stringify()).digest("hex");
 }
