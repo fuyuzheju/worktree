@@ -2,19 +2,28 @@ import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import type { Operation, OperationType } from "./data/core.js";
 
-const prisma = (new PrismaClient()).$extends({
-    model: {
-        user: {
-            $omit: {passwordHash: true}
-        }
-    }
-}); // restrict the client from accessing authorizing data by default
+// const prisma = (new PrismaClient({
+//     datasources: {
+//         db: {
+//             url: process.env.DATABASE_URL as string
+//         }
+//     }
+// })).$extends({
+//     model: {
+//         user: {
+//             $omit: {passwordHash: true}
+//         }
+//     }
+// }); // restrict the client from accessing authorizing data by default
 
 export default class HistoryManager {
-    constructor() {}
+    prisma: PrismaClient
+    constructor() {
+        this.prisma = new PrismaClient();
+    }
 
     async getHeadNode(userId: string) {
-        const metadata = await prisma.historyMetadata.findUnique({
+        const metadata = await this.prisma.historyMetadata.findUnique({
             where: {user_id: userId},
             include: {head: true},
         });
@@ -24,14 +33,14 @@ export default class HistoryManager {
     }
 
     async getByIds(ids: number[]) {
-        const nodes = await prisma.confirmedHistory.findMany({
+        const nodes = await this.prisma.confirmedHistory.findMany({
             where: {id: {in: ids}},
         });
         return nodes;
     }
 
     async getBySerialNums(userId: string, serialNums: number[]) {
-        const nodes = await prisma.confirmedHistory.findMany({
+        const nodes = await this.prisma.confirmedHistory.findMany({
             where: {
                 user_id: userId,
                 serial_num: {in: serialNums},
@@ -41,7 +50,7 @@ export default class HistoryManager {
     }
 
     async insertAtHead(operation: Operation<OperationType>, userId: string): Promise<number> {
-        const metadata = await prisma.historyMetadata.findUnique({
+        const metadata = await this.prisma.historyMetadata.findUnique({
             where: {user_id: userId},
             include: {head: true},
         });
@@ -54,7 +63,7 @@ export default class HistoryManager {
         const newSerial = head === null? 0 : head.serial_num + 1;
         const prevHash = head === null? "" : head.history_hash;
         const newHash = calculateHash(prevHash, operation);
-        const newNode = await prisma.confirmedHistory.create({
+        const newNode = await this.prisma.confirmedHistory.create({
             data: {
                 serial_num: newSerial,
                 history_hash: newHash,
@@ -63,7 +72,7 @@ export default class HistoryManager {
                 user_id: userId,
             }
         });
-        await prisma.historyMetadata.update({
+        await this.prisma.historyMetadata.update({
             where: {id: metadata.id},
             data: {
                 head_id: newNode.id
@@ -74,7 +83,7 @@ export default class HistoryManager {
     }
 
     async popHead(userId: string): Promise<number> {
-        const metadata = await prisma.historyMetadata.findUnique({
+        const metadata = await this.prisma.historyMetadata.findUnique({
             where: {user_id: userId},
             include: {head: true}
         });
@@ -82,7 +91,7 @@ export default class HistoryManager {
         if (metadata === null) return -1;
         if (metadata.head === null) return -1;
         
-        await prisma.historyMetadata.update({
+        await this.prisma.historyMetadata.update({
             where: {id: metadata.id},
             data: {
                 head_id: metadata.head.next_id

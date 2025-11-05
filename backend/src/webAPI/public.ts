@@ -5,9 +5,43 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import type { JWTPayloadType } from "./_shared.js";
 
-const prisma = new PrismaClient();
+export function createDatabaseManager() {
+    const prisma = new PrismaClient();
+
+    async function getUserByName(name: string) {
+        const user = await prisma.user.findUnique({
+            where: {
+                name: name
+            }
+        });
+        return user;
+    }
+
+    async function createUser(name: string, passwordHash: string) {
+        const user = await prisma.user.create({
+            data: {
+                name: name,
+                password_hash: passwordHash,
+            }
+        });
+        const metadata = await prisma.historyMetadata.create({
+            data: {
+                head_id: null,
+                user_id: user.id,
+            }
+        });
+        return user;
+    }
+
+    return {
+        getUserByName: getUserByName,
+        createUser: createUser,
+    }
+}
 
 function createPublicRouter() {
+    const manager = createDatabaseManager();
+
     const healthCheck = (req: Request, res: Response) => {
         res.send("Server running");
     }
@@ -35,17 +69,13 @@ function createPublicRouter() {
             return;
         }
 
-        const user = await prisma.user.findUnique({
-            where: {
-                name: username
-            }
-        });
+        const user = await manager.getUserByName(username);
         if (user !== null) {
             res.status(400).json({"message": "The username already exists"});
             return;
         }
 
-        await createUser(username, crypto.createHash("sha256").update(password).digest("hex"));
+        await manager.createUser(username, crypto.createHash("sha256").update(password).digest("hex"));
         res.status(200).json({"message": "success"});
     }
 
@@ -61,7 +91,7 @@ function createPublicRouter() {
             return;
         }
 
-        const user = await getUserByName(username);
+        const user = await manager.getUserByName(username);
         if (user === null) {
             res.status(401).json({"message": "wrong username or password"});
             return;
@@ -82,8 +112,8 @@ function createPublicRouter() {
             expiresIn: "1h",
         });
         res.status(200).json({
-            "userId": user.id,
-            "accessToken": token,
+            "user_id": user.id,
+            "access_token": token,
         });
     }
 
@@ -92,31 +122,6 @@ function createPublicRouter() {
     publicRouter.post("/register/", register);
     publicRouter.post("/login/", login);
     return publicRouter;
-}
-
-async function getUserByName(name: string) {
-    const user = await prisma.user.findUnique({
-        where: {
-            name: name
-        }
-    });
-    return user;
-}
-
-export async function createUser(name: string, passwordHash: string) {
-    const user = await prisma.user.create({
-        data: {
-            name: name,
-            password_hash: passwordHash,
-        }
-    });
-    const metadata = await prisma.historyMetadata.create({
-        data: {
-            head_id: null,
-            user_id: user.id,
-        }
-    });
-    return user;
 }
 
 export default createPublicRouter;
