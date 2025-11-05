@@ -15,33 +15,33 @@ datasource db {
 }
 
 model User {
-  id           String             @id @default(cuid())
-  name         String             @unique
-  passwordHash String
-  history      ConfirmedHistory[] @relation("UserHistory")
-  metadata     HistoryMetadata?   @relation("UserMetadata")
+  id            String             @id @default(cuid())
+  name          String             @unique
+  password_hash String
+  history       ConfirmedHistory[] @relation("user_history")
+  metadata      HistoryMetadata?   @relation("user_metadata")
 }
 
 model ConfirmedHistory {
-  id          Int               @id @default(autoincrement())
-  serialNum   Int
-  operation   String
-  historyHash String
+  id           Int               @id @default(autoincrement())
+  serial_num   Int
+  operation    String
+  history_hash String
 
-  prev        ConfirmedHistory? @relation("HistoryLink")
-  next        ConfirmedHistory? @relation("HistoryLink", fields: [nextId], references: [id])
-  nextId      Int?             @unique // foreign key
+  prev        ConfirmedHistory? @relation("history_link")
+  next        ConfirmedHistory? @relation("history_link", fields: [next_id], references: [id])
+  next_id     Int?             @unique // foreign key
 
-  user        User             @relation("UserHistory", fields: [userId], references: [id])
-  userId      String // foreign key
+  user        User             @relation("user_history", fields: [user_id], references: [id])
+  user_id     String // foreign key
 
-  metadata    HistoryMetadata? @relation("Metadata")
+  metadata    HistoryMetadata? @relation("metadata")
 }
 
 model HistoryMetadata {
-  id     Int               @id @default(autoincrement())
-  head   ConfirmedHistory? @relation("Metadata", fields: [headId], references: [id])
-  headId Int?              @unique // foreign key
-  user   User              @relation("UserMetadata", fields: [userId], references: [id])
-  userId String            @unique // foreign key
+  id      Int               @id @default(autoincrement())
+  head    ConfirmedHistory? @relation("metadata", fields: [head_id], references: [id])
+  head_id Int?              @unique // foreign key
+  user    User              @relation("user_metadata", fields: [user_id], references: [id])
+  user_id String            @unique // foreign key
 }

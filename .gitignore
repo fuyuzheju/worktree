@@ -6,6 +6,7 @@ tmp/
 logs/
 *.log
 .vscode/
+*.swp
 
 test.*
 

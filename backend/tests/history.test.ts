@@ -1,5 +1,5 @@
 import HistoryManager from "@/history.js";
-import { createUser } from "@/APIs.js";
+import { createUser } from "@/webAPI/public.js";
 import { Operation } from "@/data/core.js";
 import { PrismaClient } from "@prisma/client";
 
@@ -23,24 +23,24 @@ describe("history management", () => {
         await prisma.user.deleteMany();
     })
 
-    it("operation insertion", async () => {
+    it("inserts operation", async () => {
         const user = await createUser("abc", "pwdabc");
         expect(user.name).toBe("abc");
-        expect(user.passwordHash).toBe("pwdabc");
+        expect(user.password_hash).toBe("pwdabc");
 
         await expect(historyManager.insertAtHead(op, user.id)).resolves.toBe(0);
 
         const head = await historyManager.getHeadNode(user.id);
         expect(head).not.toBe(null);
         if (head === null) return; // let TypeScript know it
-        expect(head.serialNum).toBe(0);
+        expect(head.serial_num).toBe(0);
         expect(head.operation).toBe(op.stringify());
         console.log(`this is ${op.stringify()}`);
-        expect(head.historyHash).toBe('dd76856ab09a33209f2212284718d8b07ca78110fc12ce43fefac351742b0651'); // same as python part
-        expect(head.nextId).toBe(null);
+        expect(head.history_hash).toBe('dd76856ab09a33209f2212284718d8b07ca78110fc12ce43fefac351742b0651'); // same as python part
+        expect(head.next_id).toBe(null);
     });
 
-    it("operation deletion", async () => {
+    it("deletes operation", async () => {
         await expect(historyManager.getHeadNode("11")).resolves.toBe(null);
         const user = await createUser("abc", "pwdabc");
         await expect(historyManager.insertAtHead(op, user.id)).resolves.toBe(0);

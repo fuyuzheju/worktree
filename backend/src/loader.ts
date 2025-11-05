@@ -17,14 +17,16 @@ export class TreeLoader {
     async reload(userId: string): Promise<number> {
         this.trees[userId] = new Tree();
         let operationStack: Operation<OperationType>[] = [];
-        let head = await this.historyManager.getHeadNode(userId);
-        while (head !== null) {
-            const operation = parseOperation(head.operation);
+        let curr = await this.historyManager.getHeadNode(userId);
+        while (curr !== null) {
+            const operation = parseOperation(curr.operation);
             if (operation === null) throw new Error("Data damage");
             operationStack.push(operation);
-            if (head.nextId === null) break;
-            head = await this.historyManager.getById(head.nextId);
+            if (curr.next_id === null) break;
+            const got = await this.historyManager.getByIds([curr.next_id]);
+            curr = got[0] || null;
         }
+        
         while (true) {
             const operation = operationStack.pop();
             if (operation === undefined) break;

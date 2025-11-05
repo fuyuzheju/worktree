@@ -80,13 +80,13 @@ const operations: {op: Operation<any>, expected: number}[] = [
 
 describe("core", () => {
     let tree = new Tree();
-    it("tree creation", () => {
+    it("creates tree", () => {
         expect(tree.root.name).toBe("WorkRoot");
         expect(tree.root.identity).
             toBe(WORKROOT_ID);
     });
 
-    it("tree operation", () => {
+    it("manages operations", () => {
         operations.reduce((prev_tree, e) => {
             const res = e.op.apply(prev_tree);
             expect(res).toBe(e.expected);
@@ -142,7 +142,7 @@ describe("utils", () => {
     const op3 = parseOperation(op3string);
     const iop1 = parseOperation(iop1string);
     const iop2 = parseOperation(iop2string);
-    it("operation parsing", () => {
+    it("parses operations", () => {
         expect(typeof op1).toBe("object");
         expect(op1?.opType).toBe("addNode");
         expect(typeof op2).toBe("object");
@@ -153,8 +153,9 @@ describe("utils", () => {
         expect(iop2).toBe(null);
     });
 
-    it("operation judging", () => {
+    it("judges operations", () => {
         expect(isOperation(JSON.parse(op1string), "addNode")).toBe(true);
+        expect(isOperation(JSON.parse(op1string), "removeNode")).toBe(false);
         expect(isOperation(JSON.parse(op2string), "removeNode")).toBe(true);
         expect(isOperation(JSON.parse(op3string), "addNode")).toBe(true);
         expect(isOperation(JSON.parse(iop1string), "addNode")).toBe(false);
