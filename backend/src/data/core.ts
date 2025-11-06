@@ -47,7 +47,7 @@ export const TreeOperationPayloadSchemas = {
     addNode: z.object({
         parentNodeId: z.string(),
         newNodeName: z.string(),
-        newNodeId: z.string().optional(),
+        newNodeId: z.string(),
     }),
 
     reopenNode: z.object({

@@ -7,15 +7,20 @@ import { parseOperation } from "./data/utils.js";
 
 export class TreeLoader {
     historyManager: HistoryManager;
-    trees: Record<string, Tree>;
+    trees: Map<string, Tree>;
 
     constructor(historyManager: HistoryManager) {
         this.historyManager = historyManager;
-        this.trees = {};
+        this.trees = new Map();
+    }
+
+    async cleanup(userId: string): Promise<number> {
+        this.trees.delete(userId);
+        return 0;
     }
 
     async reload(userId: string): Promise<number> {
-        this.trees[userId] = new Tree();
+        this.trees.set(userId, new Tree());
         let operationStack: Operation<OperationType>[] = [];
         let curr = await this.historyManager.getHeadNode(userId);
         while (curr !== null) {
@@ -30,14 +35,14 @@ export class TreeLoader {
         while (true) {
             const operation = operationStack.pop();
             if (operation === undefined) break;
-            const retcode = operation.apply(this.trees[userId]);
+            const retcode = operation.apply(this.trees.get(userId)!);
             if (retcode === 0) throw new Error("Data damage");
         }
         return 0;
     }
 
-    pushOperation(operation: Operation<OperationType>, userId: number): number {
-        const tree = this.trees[userId];
+    pushOperation(operation: Operation<OperationType>, userId: string): number {
+        const tree = this.trees.get(userId);
         if (tree === undefined) return -1;
         const retcode = operation.apply(tree);
         return retcode;

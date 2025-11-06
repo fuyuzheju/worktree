@@ -1,32 +1,8 @@
 import express from "express";
-import type { Response, Request, NextFunction } from "express";
-import jwt from "jsonwebtoken";
+import type { Response, Request } from "express";
 import z, { ZodError } from "zod";
-import { JWTPayloadSchema } from "./_shared.js";
-import type HistoryManager from "@/history.js";
-
-const protectedRouter = express.Router();
-
-const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith("Bearer ")) {
-            res.status(401).send("No access token found.");
-            return;
-        }
-
-        const token = authHeader.replace("Bearer ", " ");
-        const secretKey = process.env.JWT_SECRET_KEY;
-        if (secretKey === undefined) throw new Error("No env variable named 'secretKey'.");
-
-        const decoded = jwt.verify(token, secretKey);
-        const parsed = JWTPayloadSchema.parse(decoded); // verify format of payload
-        req.user = parsed;
-        next();
-    } catch (error) {
-        res.status(401).send("Invalid access token.");
-    }
-}
+import authMiddleware from "./auth.js";
+import type HistoryManager from "../history.js";
 
 function createProtectedRouter(historyManager: HistoryManager) {
     const operationGet = async (req: Request, res: Response) => {

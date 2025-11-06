@@ -49,14 +49,14 @@ export default class HistoryManager {
         return nodes;
     }
 
-    async insertAtHead(operation: Operation<OperationType>, userId: string): Promise<number> {
+    async insertAtHead(operation: Operation<OperationType>, userId: string) {
         const metadata = await this.prisma.historyMetadata.findUnique({
             where: {user_id: userId},
             include: {head: true},
         });
 
         if (metadata === null) {
-            return -1;
+            return null;
         }
 
         const head = metadata.head;
@@ -79,7 +79,7 @@ export default class HistoryManager {
             }
         });
 
-        return 0;
+        return newNode;
     }
 
     async popHead(userId: string): Promise<number> {

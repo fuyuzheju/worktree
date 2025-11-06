@@ -35,7 +35,7 @@ describe("history management", () => {
         expect(user.name).toBe("abc");
         expect(user.password_hash).toBe("pwdabc");
 
-        await expect(historyManager.insertAtHead(op, user.id)).resolves.toBe(0);
+        await expect(historyManager.insertAtHead(op, user.id)).resolves.not.toBeNull();
 
         const head = await historyManager.getHeadNode(user.id);
         expect(head).not.toBe(null);
@@ -51,7 +51,7 @@ describe("history management", () => {
         const historyManager = new HistoryManager();
         await expect(historyManager.getHeadNode("11")).resolves.toBe(null);
         const user = await manager.createUser("abd", "pwdabc");
-        await expect(historyManager.insertAtHead(op, user.id)).resolves.toBe(0);
+        await expect(historyManager.insertAtHead(op, user.id)).resolves.not.toBeNull();
         await expect(historyManager.popHead(user.id)).resolves.toBe(0);
         await expect(historyManager.getHeadNode(user.id)).resolves.toBe(null);
     })

@@ -21,6 +21,7 @@ const operations: {op: Operation<any>, expected: number}[] = [
         payload: {
             parentNodeId: WORKROOT_ID,
             newNodeName: "2",
+            newNodeId: "2",
         },
         timestamp: 0,
     }), expected: 0},
@@ -40,6 +41,7 @@ const operations: {op: Operation<any>, expected: number}[] = [
         payload: {
             parentNodeId: WORKROOT_ID,
             newNodeName: "3",
+            newNodeId: "4",
         },
         timestamp: 0,
     }), expected: -1},
@@ -57,6 +59,7 @@ const operations: {op: Operation<any>, expected: number}[] = [
         payload: {
             parentNodeId: "3",
             newNodeName: "3.1",
+            newNodeId: "31",
         },
         timestamp: 0,
     }), expected: 0},
@@ -111,14 +114,6 @@ const op2string: string = JSON.stringify({
     },
     timestamp: 0,
 });
-const op3string: string = JSON.stringify({
-    opType: "addNode",
-    payload: {
-        newNodeName: "1",
-        parentNodeId: "2",
-    },
-    timestamp: 0,
-});
 const iop1string: string = JSON.stringify({
     opType: "addNode",
     payload: {
@@ -136,30 +131,37 @@ const iop2string: string = JSON.stringify({
         newNodeId: "1",
     },
 });
+const iop3string: string = JSON.stringify({
+    opType: "addNode",
+    payload: {
+        newNodeName: "1",
+        parentNodeId: "2",
+    },
+    timestamp: 0,
+});
 describe("utils", () => {
     const op1 = parseOperation(op1string);
     const op2 = parseOperation(op2string);
-    const op3 = parseOperation(op3string);
     const iop1 = parseOperation(iop1string);
     const iop2 = parseOperation(iop2string);
+    const iop3 = parseOperation(iop3string);
     it("parses operations", () => {
         expect(typeof op1).toBe("object");
         expect(op1?.opType).toBe("addNode");
         expect(typeof op2).toBe("object");
         expect(op2?.opType).toBe("removeNode");
-        expect(typeof op3).toBe("object");
-        expect(op3?.opType).toBe("addNode");
-        expect(iop1).toBe(null);
-        expect(iop2).toBe(null);
+        expect(iop1).toBeNull();
+        expect(iop2).toBeNull();
+        expect(iop3).toBeNull();
     });
 
     it("judges operations", () => {
         expect(isOperation(JSON.parse(op1string), "addNode")).toBe(true);
         expect(isOperation(JSON.parse(op1string), "removeNode")).toBe(false);
         expect(isOperation(JSON.parse(op2string), "removeNode")).toBe(true);
-        expect(isOperation(JSON.parse(op3string), "addNode")).toBe(true);
         expect(isOperation(JSON.parse(iop1string), "addNode")).toBe(false);
         expect(isOperation(JSON.parse(iop2string), "addNode")).toBe(false);
+        expect(isOperation(JSON.parse(iop3string), "addNode")).toBe(false);
 
     })
 })
