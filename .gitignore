@@ -3,6 +3,7 @@
 .env
 TODO.md
 tmp/
+*_tmp
 logs/
 *.log
 .vscode/

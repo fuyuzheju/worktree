@@ -44,6 +44,7 @@ two cases: online and offline
 - a linked-list of all history operations confirmed by server, named 'confirmed_history'
 > here every operation has a serial number
 - a queue(maybe impletemented with linked-list) named 'pending_queue', in which all local updates unconfirmed are waiting to be sent to server
+pending queue stores the serial num of the node at which the head of queue points
 > here no serial number assigned
 
 ### running
@@ -161,9 +162,7 @@ when no user is logged in, it behaves like a local user is logged in, but not se
     > clients will try to re-connect, before which they automatically synchronize the history
 
 - client
-    1. get the last non-conflict serial num
-    > this should have been ensured when we get a conflict from tree loader
-
+    1. get the pointed serial num of pending queue
     1. send this serial num and all the pending queue to this API
     1. receive response, if error: stop overriding, report error to user
 
