@@ -50,6 +50,8 @@ class Database(QObject):
 
         self.pending_queue = PendingQueue(self.session)
         self.confirmed_history = ConfirmedHistory(self.session)
+        self.pending_queue.updated.connect(self.updated.emit)
+        self.confirmed_history.updated.connect(self.updated.emit)
 
     def reload_database(self):
         self.engine.dispose()
@@ -61,6 +63,8 @@ class Database(QObject):
         self.session = sessionmaker(bind=self.engine)()
         self.pending_queue = PendingQueue(self.session)
         self.confirmed_history = ConfirmedHistory(self.session)
+        self.pending_queue.updated.connect(self.updated.emit)
+        self.confirmed_history.updated.connect(self.updated.emit)
 
 if __name__ == '__main__':
     class UM:
