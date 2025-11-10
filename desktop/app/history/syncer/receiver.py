@@ -1,7 +1,7 @@
 from websockets import ClientConnection
 from PyQt5.QtCore import QObject, pyqtSignal
 from app.history.database import Database
-from app.requester import Requester
+import json, asyncio
 
 class WebsocketReceiver(QObject):
     received = pyqtSignal(dict)
@@ -13,8 +13,25 @@ class WebsocketReceiver(QObject):
     """
     def __init__(self,
                  database: Database,
-                 requester: Requester,
                  ws: ClientConnection):
+        super().__init__()
         self.database = database
-        self.requester = requester
         self.ws = ws
+    
+    async def receive(self):
+        async for message in self.ws:
+            data = json.loads(message)
+            # JSONDecodeError is unexpected
+            # if it occurs, let it be thrown to the top level and into error log
+            self.received.emit(data)
+    
+    async def start(self):
+        self.receiving_task = asyncio.create_task(self.receive())
+        await self.receiving_task
+    
+    async def stop(self):
+        self.receiving_task.cancel()
+        try:
+            await self.receiving_task
+        except asyncio.CancelledError:
+            pass

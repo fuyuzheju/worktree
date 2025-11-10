@@ -14,5 +14,4 @@ if __name__ == '__main__':
     exit_code = app.exec_()
 
     # cleanup
-    app.cleanup()
     sys.exit(exit_code)

@@ -1,11 +1,12 @@
 import { WebSocket } from "ws";
-import { Router, type Request } from "express";
-import authMiddleware from "./auth.js";
+import { Router, type NextFunction, type Request } from "express";
 import type expressWs from "express-ws";
 import type { TreeLoader } from "../loader.js";
 import { parseOperation } from "../data/utils.js";
 import type { Operation, OperationType } from "../data/core.js";
 import type HistoryManager from "../history.js";
+import { JWTPayloadSchema } from "./_shared.js";
+import jwt from "jsonwebtoken";
 
 export default function createWebsocketRouter(
         wssInstance: expressWs.Instance,
@@ -13,9 +14,31 @@ export default function createWebsocketRouter(
         historyManager: HistoryManager,
 ) {
     const getWss = wssInstance.getWss;
-
     // every room contains all connections from a single user
     const rooms = new Map<string, Set<WebSocket>>();
+
+    const wsAuthMiddleware = (ws: WebSocket, req: Request, next: NextFunction) => {
+        try {
+            let token: string|undefined = req.query.token?.toString();
+
+            if (!token) {
+                ws.close(4001, "Authentication failed");
+                return;
+            }
+
+            const secretKey = process.env.JWT_SECRET_KEY;
+            if (secretKey === undefined) throw new Error("No env variable named 'secretKey'.");
+
+            const decoded = jwt.verify(token, secretKey);
+            const parsed = JWTPayloadSchema.parse(decoded); // verify format of payload
+            req.user = parsed;
+            console.log("Auth: pass");
+            next();
+        } catch (error) {
+            console.log("Auth: failed");
+            ws.close(4001, "Authentication failed");
+        }
+    }
 
     function websocketHandle(ws: WebSocket, req: Request) {
         console.log("### On connection");
@@ -79,6 +102,7 @@ export default function createWebsocketRouter(
         }
 
         function onClose() {
+            console.log("onclose");
             const room = rooms.get(req.user?.user_id ?? "");
             if (!room) throw new Error();
             room.delete(ws);
@@ -96,7 +120,6 @@ export default function createWebsocketRouter(
 
     const websocketRouter = Router();
     wssInstance.applyTo(websocketRouter); // ensure this router to have `ws` method
-    websocketRouter.use(authMiddleware);
-    websocketRouter.ws("", websocketHandle);
+    websocketRouter.ws("", wsAuthMiddleware, websocketHandle);
     return websocketRouter;
 }

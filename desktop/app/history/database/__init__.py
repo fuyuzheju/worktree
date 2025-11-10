@@ -37,7 +37,7 @@ class Database(QObject):
 
         self.user_manager = user_manager
         self.storage_root_path = storage_root_path
-        # self.user_manager.user_change.connect(self.onUserChange)
+        self.user_manager.user_change.connect(self.reload_database)
         db_dir: Path = self.storage_root_path / self.user_manager.user_id()
         db_dir.mkdir(exist_ok=True)
         db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
@@ -57,12 +57,10 @@ class Database(QObject):
         db_path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
         db_url = f"sqlite:///" + str(db_path)
         self.engine = create_engine(db_url)
+        Base.metadata.create_all(self.engine)
         self.session = sessionmaker(bind=self.engine)()
         self.pending_queue = PendingQueue(self.session)
         self.confirmed_history = ConfirmedHistory(self.session)
-    
-    def onUserChange(self):
-        self.reload_database()
 
 if __name__ == '__main__':
     class UM:
@@ -72,7 +70,3 @@ if __name__ == '__main__':
         def stringify(self):
             return 'test operation'
     um = UM()
-    db = Database(um, Path('./tmp/'))
-    print(db.pending_queue.get_head())
-    db.pending_queue.push(OP())
-    db.pending_queue.push(OP())

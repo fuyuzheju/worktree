@@ -6,10 +6,24 @@
 # our algorithms are designed to ensure no conflict happens
 # in the whole application
 
-from PyQt5.QtCore import QObject, pyqtSlot
+from PyQt5.QtCore import QObject, pyqtSlot, QThread
 from app.history.database import Database
 from app.requester import Requester
 from .connector import NetworkConnector
+from typing import override
+import qasync, asyncio
+
+class ConnectionThread(QThread):
+    def __init__(self, worker, parent=None):
+        super().__init__(parent)
+        self.worker = worker
+
+    @override
+    def run(self):
+        loop = qasync.QEventLoop(self)
+        asyncio.set_event_loop(loop)
+        loop.call_soon(self.worker.start)
+        loop.run_forever()
 
 class Syncer(QObject):
     """
@@ -25,7 +39,12 @@ class Syncer(QObject):
         self.database = database
         self.requester = requester
         self.network_connector = NetworkConnector(database, requester)
+        self.network_thread = ConnectionThread(self.network_connector)
+
+        self.network_connector.moveToThread(self.network_thread)
+        self.network_connector.received.connect(self.on_receive)
+        self.network_thread.start()
     
     @pyqtSlot(dict)
-    def onReceive(data):
-        pass
+    def on_receive(data):
+        print("on receive:", data)

@@ -100,6 +100,7 @@ function createPublicRouter() {
         const hash = crypto.createHash("sha256").update(password).digest("hex");
         if (hash !== user.password_hash) {
             res.status(401).json({"message": "wrong username or password"});
+            return;
         }
 
         const payload: JWTPayloadType = {

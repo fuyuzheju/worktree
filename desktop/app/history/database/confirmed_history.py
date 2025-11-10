@@ -1,7 +1,7 @@
 from __future__ import annotations
 from sqlalchemy.orm import Session
 from app.history.core import Operation
-from models import ConfirmedHistoryMetadata, ConfirmedOperationNode
+from .models import ConfirmedHistoryMetadata, ConfirmedOperationNode
 import hashlib
 
 class ConfirmedHistory:

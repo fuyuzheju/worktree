@@ -1,13 +1,21 @@
 from PyQt5.QtCore import QObject, pyqtSignal
+from pathlib import Path
+import json
 
 LOCAL_USER = 'local'
 
 class UserManager(QObject):
     user_change = pyqtSignal()
 
-    def __init__(self):
-        self._user_id = LOCAL_USER
-        self._username = LOCAL_USER
+    def __init__(self, data_file: Path):
+        super().__init__()
+        self.data_file = data_file
+        with open(self.data_file, 'r') as f:
+            data = json.load(f) # we expect this loading to succeed
+        self._user_id = data["user_id"]
+        self._username = data["username"]
+
+        self.user_change.connect(self.refresh_data_file)
     
     def user_id(self):
         return self._user_id
@@ -20,7 +28,12 @@ class UserManager(QObject):
         self._username = username
         self.user_change.emit()
     
-    def logout(self, user_id: str, username:str):
+    def logout(self):
         self._user_id = LOCAL_USER
         self._username = LOCAL_USER
         self.user_change.emit()
+    
+    def refresh_data_file(self):
+        with open(self.data_file, 'w') as f:
+            json.dump({"user_id": self._user_id,
+                       "username": self._username,}, f)

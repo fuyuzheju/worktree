@@ -1,7 +1,7 @@
 from websockets import ClientConnection
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject
 from app.history.database import Database
-from app.requester import Requester
+import asyncio
 
 class WebsocketSender(QObject):
     """
@@ -13,8 +13,26 @@ class WebsocketSender(QObject):
     """
     def __init__(self,
                  database: Database,
-                 requester: Requester,
                  ws: ClientConnection):
+        super().__init__()
         self.database = database
-        self.requester = requester
         self.ws = ws
+    
+    async def send(self):
+        while True:
+            head = self.database.pending_queue.get_head()
+            if head is not None:
+                await self.ws.send(head.operation)
+            await asyncio.sleep(1)
+    
+    async def start(self):
+        self.sending_task = asyncio.create_task(self.send())
+        await self.sending_task
+
+    async def stop(self):
+        self.sending_task.cancel() 
+        try:
+            await self.sending_task
+        except asyncio.CancelledError:
+            pass
+

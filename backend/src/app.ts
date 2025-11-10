@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import expressWs from "express-ws";
 
 import createPublicRouter from './webAPI/public.js';
@@ -11,6 +11,13 @@ function createApp() {
     const instance = expressWs(express());
     const {app, getWss} = instance;
 
+    const testMW = (req: Request, res: Response, next: NextFunction) => {
+        console.log("### Request ###");
+        console.log(req.url);
+        console.log(req.body);
+        next();
+    }
+
     const historyManager = new HistoryManager();
     const treeLoader = new TreeLoader(historyManager);
     const publicRouter = createPublicRouter();
@@ -18,6 +25,7 @@ function createApp() {
     const websocketRouter = createWebsocketRouter(instance, treeLoader, historyManager);
 
     const jsonMiddleware = express.json();
+    app.use(testMW);
     app.use("/public/", jsonMiddleware, publicRouter);
     app.use("/history/", jsonMiddleware, protectedRouter);
     app.use("/", websocketRouter);
