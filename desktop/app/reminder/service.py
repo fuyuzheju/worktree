@@ -26,6 +26,7 @@ class ReminderService(QObject):
         self.reminder_timer.setInterval(1000)
         self.start()
         self.load_reminders()
+        self.edited.connect(self.store_reminders)
     
     def load_reminders(self):
         with open(self.data_file, 'r') as f:
@@ -55,7 +56,6 @@ class ReminderService(QObject):
                      reminder_id : Optional[str] = None, active: bool = True) -> int:
         reminder = Reminder(node_id, due_time, message, reminder_id, active)
         self.reminders.append(reminder)
-        self.store_reminders()
         self.edited.emit()
         logger.debug(f"Reminder added: {reminder}")
         return 0
@@ -65,7 +65,6 @@ class ReminderService(QObject):
         if reminder is None:
             return -1
         self.reminders.remove(reminder)
-        self.store_reminders()
         self.edited.emit()
         logger.debug(f"Reminder removed: {reminder}")
         return 0
@@ -79,7 +78,6 @@ class ReminderService(QObject):
         if reminder is None:
             return -1
         reminder.set(due_time, message, active)
-        self.store_reminders()
         self.edited.emit()
         return 0
     
