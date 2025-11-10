@@ -6,8 +6,9 @@ from PyQt5.QtWidgets import (QMessageBox, QLabel, QVBoxLayout,
                              QDialog, QLineEdit, QDialogButtonBox, QFormLayout)
 from pathlib import Path
 from typing import Optional
-from .user import UserManager
-from .globals import context
+from app.user import UserManager
+from app.globals import context
+from app.history.core import Operation
 import websockets, requests, aiohttp
 
 class Requester(QObject):
@@ -39,6 +40,9 @@ class Requester(QObject):
                     return response.status == 200
         except Exception as e:
             return False
+    
+    def overwrite(self, starting_serial_num: int, operations: list[Operation]):
+        raise NotImplementedError()
     
     def build_websocket_connection(self):
         """

@@ -1,10 +1,13 @@
 from __future__ import annotations
+from PyQt5.QtCore import pyqtSignal, QObject
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from app.history.core import Operation
 from .models import ConfirmedHistoryMetadata, ConfirmedOperationNode
 import hashlib
 
-class ConfirmedHistory:
+class ConfirmedHistory(QObject):
+    updated = pyqtSignal()
     """
     Confirmed history stores the operations confirmed by server.
     Every confirmed operation has a serial num, which marks its order
@@ -14,6 +17,7 @@ class ConfirmedHistory:
     with server in time.
     """
     def __init__(self, session: Session):
+        super().__init__()
         self.session = session
         self.metadata = self.session.query(ConfirmedHistoryMetadata).first()
         if self.metadata is None:
@@ -22,12 +26,22 @@ class ConfirmedHistory:
             self.session.commit()
     
     def get_by_id(self, node_id: int):
-        node = self.session.query(ConfirmedOperationNode).filter_by(id=node_id).first()
+        query = select(ConfirmedOperationNode).\
+                where(ConfirmedOperationNode.id==node_id)
+        node = self.session.scalars(query).first()
+        return node
+    
+    def get_by_serial_num(self, serial_num: int):
+        query = select(ConfirmedOperationNode).\
+                where(ConfirmedOperationNode.serial_num==serial_num)
+        node = self.session.scalars(query).first()
         return node
 
     def get_head(self):
         assert self.metadata is not None
-        head = self.session.query(ConfirmedOperationNode).filter_by(id=self.metadata.head_id).first()
+        query = select(ConfirmedOperationNode).\
+                where(ConfirmedOperationNode.id==self.metadata.head_id)
+        head = self.session.scalars(query).first()
         return head
 
     def insert_at_head(self, operation: Operation, serial_num: int):
@@ -40,8 +54,10 @@ class ConfirmedHistory:
         node = ConfirmedOperationNode(serial_num=serial_num,
                                       operation=operation.stringify(),
                                       history_hash=hashcode,
-                                      next_id=1 if prev is None else prev.id)
-        
+                                      next_id=0 if prev is None else prev.id)
+        self.session.add(node)
+        self.session.commit()
+        self.updated.emit()
         return node
     
     def overwrite(self, starting_serial_num: int, operations: list[Operation]):
