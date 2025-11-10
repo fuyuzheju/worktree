@@ -2,4 +2,4 @@
 # also this submodule implements Tree
 
 from .operation import Operation, parse_operation
-from .tree import Tree
+from .tree import Tree, Node, Status

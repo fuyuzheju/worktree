@@ -25,11 +25,11 @@ class TreeLoader(QObject):
         
         self.database = database
         self.requester = requester
-        self.tree = None
         self.reload()
         self.database.updated.connect(self.reload)
     
     def reload(self):
+        self.tree = Tree()
         operation_stack: list[Operation] = []
 
         # get all the operations
@@ -48,7 +48,6 @@ class TreeLoader(QObject):
             curr = self.database.confirmed_history.\
                 get_by_id(curr.next_id)
         
-        self.tree = Tree()
         while len(operation_stack) > 0:
             op = operation_stack.pop()
             code = op.apply(self.tree)
