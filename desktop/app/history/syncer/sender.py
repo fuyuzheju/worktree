@@ -1,7 +1,7 @@
 from websockets import ClientConnection
 from PyQt5.QtCore import QObject
 from app.history.database import Database
-import asyncio
+import asyncio, websockets
 
 class WebsocketSender(QObject):
     """
@@ -33,6 +33,6 @@ class WebsocketSender(QObject):
         self.sending_task.cancel() 
         try:
             await self.sending_task
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, websockets.exceptions.ConnectionClosed):
             pass
 

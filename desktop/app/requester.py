@@ -6,10 +6,10 @@ from PyQt5.QtWidgets import (QMessageBox, QLabel, QVBoxLayout,
                              QDialog, QLineEdit, QDialogButtonBox, QFormLayout)
 from pathlib import Path
 from typing import Optional
-from app.user import UserManager
+from app.user import UserManager, LOCAL_USER
 from app.globals import context
 from app.history.core import Operation
-import websockets, requests, aiohttp
+import websockets, requests, aiohttp, asyncio
 
 class Requester(QObject):
     """
@@ -24,10 +24,18 @@ class Requester(QObject):
         super().__init__()
         self.user_manager = user_manager
         self.data_file = data_file
+        self.user_manager.user_change.connect(self.on_user_change)
         with open(self.data_file, 'r') as f:
             self.access_token = f.read()
         if self.access_token == "":
             self.user_manager.logout()
+    
+    def on_user_change(self):
+        if self.user_manager.username() == LOCAL_USER:
+            # delete the JWT
+            self.access_token = ""
+            with open(self.data_file, 'w') as f:
+                f.write(self.access_token)
 
     async def health_check(self):
         # mock the offline status when logged out
@@ -52,8 +60,8 @@ class Requester(QObject):
         so we can use `async with` to interact with the return value
         """
         uri = context.settings_manager.get("internal/websocketURI", type=str)
-        websocket_connector = WebsocketConnector(uri, self)
-        return WebsocketConnector(uri, self)
+        websocket_connector = WebsocketConnector(uri, self, self.user_manager)
+        return websocket_connector
     
     @pyqtSlot(QSemaphore)
     def request_login(self, semaphore: Optional[QSemaphore] = None):
@@ -69,12 +77,17 @@ class Requester(QObject):
                 f.write(self.access_token)
         
         else:
-            response = requests.post(
-                context.settings_manager.get("internal/loginURL"),
-                json={
-                    "username": username,
-                    "password": password,
-            })
+            try:
+                response = requests.post(
+                    context.settings_manager.get("internal/loginURL"),
+                    json={
+                        "username": username,
+                        "password": password,
+                })
+            except requests.exceptions.ConnectionError as e:
+                QMessageBox.warning(None, "Fail", "Network Error",
+                                    QMessageBox.Ok, QMessageBox.Ok)
+                return
             if response.status_code == 200:
                 data = response.json()
                 self.user_manager.login(data["user_id"], username)
@@ -99,15 +112,23 @@ class WebsocketConnector(QObject):
 
     def __init__(self,
                  uri: str,
-                 requester: Requester):
+                 requester: Requester,
+                 user_manager: UserManager):
         super().__init__()
         self.uri = uri
         self.requester = requester
+        self.user_manager = user_manager
+        self.user_manager.user_change.connect(self.on_user_change)
+        
         uri = self.uri + f"?token={self.requester.access_token}"
         self.connection = websockets.connect(uri)
         self.socket = None
 
         self.request_login.connect(self.requester.request_login)
+    
+    def on_user_change(self):
+        if self.socket is not None:
+            asyncio.create_task(self.socket.close(1000))
     
     async def __aenter__(self):
         try:
