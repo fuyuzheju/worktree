@@ -12,6 +12,9 @@ from app.user import UserManager
 from .models import Base
 from .confirmed_history import ConfirmedHistory
 from .pending_queue import PendingQueue
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Database(QObject):
     updated = pyqtSignal()
@@ -44,6 +47,7 @@ class Database(QObject):
         db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
         db_path.touch(exist_ok=True)
         db_url = f"sqlite:///" + str(db_path)
+        logger.debug(f"Loading database at {db_url}")
         
         self.engine = create_engine(db_url)
         Base.metadata.create_all(self.engine)
@@ -62,6 +66,7 @@ class Database(QObject):
         db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
         db_path.touch(exist_ok=True)
         db_url = f"sqlite:///" + str(db_path)
+        logger.debug(f"Reloading database at {db_url}")
         self.engine = create_engine(db_url)
         Base.metadata.create_all(self.engine)
         self.session = sessionmaker(bind=self.engine)()

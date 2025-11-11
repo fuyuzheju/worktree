@@ -35,13 +35,14 @@ class ReminderService(QObject):
         self.reminders = [Reminder.from_dict(reminder) for reminder in data]
     
     def store_reminders(self):
+        logger.debug(f"Storing reminders.")
         with open(self.data_file, 'w') as f:
             data = [reminder.to_dict() for reminder in self.reminders]
             json.dump(data, f)
     
     def start(self):
         self.reminder_timer.start()
-        logger.info("ReminderService started")
+        logger.info("Reminder service started")
     
     def check_reminders(self):
         now = datetime.now()
@@ -58,7 +59,7 @@ class ReminderService(QObject):
         reminder = Reminder(node_id, due_time, message, reminder_id, active)
         self.reminders.append(reminder)
         self.edited.emit()
-        logger.debug(f"Reminder added: {reminder}")
+        logger.info(f"Reminder added: {reminder}")
         return 0
     
     def remove_reminder(self, reminder_id: str) -> int:
@@ -67,7 +68,7 @@ class ReminderService(QObject):
             return -1
         self.reminders.remove(reminder)
         self.edited.emit()
-        logger.debug(f"Reminder removed: {reminder}")
+        logger.info(f"Reminder removed: {reminder}")
         return 0
         
     def set_reminder(self, 
@@ -80,6 +81,7 @@ class ReminderService(QObject):
             return -1
         reminder.set(due_time, message, active)
         self.edited.emit()
+        logger.info(f"Reminder set: {reminder}")
         return 0
     
     def get_reminder_by_id(self, reminder_id: str) -> Optional[Reminder]:

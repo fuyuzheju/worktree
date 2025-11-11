@@ -12,7 +12,9 @@ from app.history.core import parse_operation, Operation
 from app.requester import Requester
 from .connector import NetworkConnector
 from typing import override
-import qasync, asyncio
+import qasync, asyncio, logging
+
+logger = logging.getLogger(__name__)
 
 class ConnectionThread(QThread):
     def __init__(self, worker, parent=None):
@@ -48,7 +50,7 @@ class Syncer(QObject):
     
     @pyqtSlot(dict)
     def on_receive(self, data):
-        print("on receive:", data)
+        logger.info(f"Received from server: {data}")
         if data["action"] == "update":
             operation = parse_operation(data["operation"])
             assert operation is not None
@@ -57,6 +59,5 @@ class Syncer(QObject):
             head = self.database.pending_queue.get_head()
             # print("###", operation.stringify(), {} if head is None else head.operation)
             if head is not None and operation.stringify() == head.operation:
-                print("POP")
                 self.database.pending_queue.pop()
             self.database.confirmed_history.insert_at_head(operation, serial_num)

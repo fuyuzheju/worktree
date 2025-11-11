@@ -58,6 +58,7 @@ class SettingsManager(QObject):
         return value
 
     def set(self, keys: list, values: list):
+        logger.debug(f"Setting {keys} to {values}.")
         assert len(keys) == len(values), "keys and values must have the same length"
         for key, value in zip(keys, values):
             self.settings.setValue(key, value)

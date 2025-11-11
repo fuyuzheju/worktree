@@ -9,7 +9,9 @@ from typing import Optional
 from app.user import UserManager, LOCAL_USER
 from app.globals import context
 from app.history.core import Operation, parse_operation
-import websockets, requests, aiohttp, asyncio
+import websockets, requests, aiohttp, asyncio, logging
+
+logger = logging.getLogger(__name__)
 
 class Requester(QObject):
     login_requested = pyqtSignal()
@@ -52,6 +54,7 @@ class Requester(QObject):
             return False
     
     def overwrite(self, starting_serial_num: int, operations: list[Operation]):
+        logger.info("Overwriting remote history")
         if self.access_token == "":
             return -1
         url = context.settings_manager.get("internal/overwriteURL")
@@ -72,11 +75,15 @@ class Requester(QObject):
         if response.status_code == 200:
             return 0
         elif response.status_code == 401:
+            self.access_token = ""
+            self.user_manager.logout()
+            self.login_requested.emit() # thread-safely call a login
             return -1
         else:
             raise RuntimeError("Unknown Error")
     
     def get_length(self) -> int:
+        logger.debug("Getting length")
         if self.access_token == "":
             raise RuntimeError("Not logged in")
         
@@ -99,6 +106,7 @@ class Requester(QObject):
             raise RuntimeError(f"Unknown Error {response.status_code}")
     
     def get_operations(self, serial_nums: list[int]):
+        logger.debug(f"Getting operations by {serial_nums}")
         """
         The result is always ordered by serial_num ascending
         """
@@ -127,11 +135,15 @@ class Requester(QObject):
                 retval.append(operation)
             return retval
         elif response.status_code == 401:
+            self.access_token = ""
+            self.user_manager.logout()
+            self.login_requested.emit() # thread-safely call a login
             return None
         else:
             raise RuntimeError("Unknown Error")
 
     def get_hashcodes(self, serial_nums: list[int]):
+        logger.debug(f"Getting hashcodes by {serial_nums}")
         """
         The result is always ordered by serial_num ascending
         """
@@ -155,6 +167,9 @@ class Requester(QObject):
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 401:
+            self.access_token = ""
+            self.user_manager.logout()
+            self.login_requested.emit() # thread-safely call a login
             return None
         else:
             raise RuntimeError("Unknown Error")
@@ -166,6 +181,7 @@ class Requester(QObject):
         This is not async function because it directly returns a coroutine,
         so we can use `async with` to interact with the return value
         """
+        logger.debug("Building websocket connection")
         uri = context.settings_manager.get("internal/websocketURI", type=str)
         websocket_connector = WebsocketConnector(uri, self, self.user_manager)
         return websocket_connector
@@ -175,7 +191,6 @@ class Requester(QObject):
         this method must be run on the main thread.
         you can provide a semaphore to know what time this method returns
         """
-        print(f"on: {QThread.currentThread()}")
         username, password, status = LoginRequestDialog.get_data()
         if status == False:
             self.user_manager.logout()
@@ -199,6 +214,7 @@ class Requester(QObject):
             semaphore.release()
 
     def login(self, username, password):
+        logger.debug(f"logging in {username}")
         try:
             response = requests.post(
                 context.settings_manager.get("internal/loginURL"),

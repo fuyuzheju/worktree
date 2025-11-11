@@ -30,7 +30,7 @@ class WebsocketSender(QObject):
                     "operation": head.operation,
                     "expected_serial_num": expected_serial,
                 }))
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
     
     async def start(self):
         self.sending_task = asyncio.create_task(self.send())

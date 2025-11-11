@@ -36,15 +36,14 @@ class NetworkConnector(QObject):
         """ 
         while True:
             while not await self.requester.health_check():
-                print("checking connection...")
+                logger.debug("Checking connection")
                 await asyncio.sleep(5)
             try:
-                print("connecting...")
+                logger.debug("Connecting to server")
                 await self.connect()
             except (ConnectionRefusedError, OSError,
                     websockets.exceptions.ConnectionClosed):
                 logger.info("Websocket connection lost.")
-                print("websocket connection lost")
                 if self.ws_receiver is not None:
                     await self.ws_receiver.stop()
                 if self.ws_sender is not None:
@@ -55,6 +54,7 @@ class NetworkConnector(QObject):
         if code != 0:
             return
         async with self.requester.build_websocket_connection() as ws:
+            logger.info("Websocket connection build.")
             self.ws = ws
             self.ws_sender = WebsocketSender(self.database, ws)
             self.ws_receiver = WebsocketReceiver(self.database, ws)
@@ -65,39 +65,33 @@ class NetworkConnector(QObject):
             await asyncio.gather(sending, receiving, checking)
     
     async def reconnect_init(self):
-        print("reconnect_init")
+        logger.debug("Reconnect init")
         length = self.requester.get_length()
         if length == -1:
             return -1 
         
-        print(length)
-        
         flag = True # marking if the local history is identical with the remote one
         head = self.database.confirmed_history.get_head()
         if length != (0 if head is None else head.serial_num):
-            print(0, head)
             flag = False
         else:
             if length == 0:
                 if head is not None:
-                    print(1)
                     flag = False
             else:
                 if head is None:
-                    print(2)
                     flag = False
                 else:
                     remote_head = self.requester.get_hashcodes([length])
                     if remote_head is None:
                         return -1
                     if remote_head[0] != head.history_hash:
-                        print(3)
                         flag = False
         
         if flag:
             return 0
         
-        print("NOT IDENTICAL, SYNCING")
+        logger.info("Difference detected, syncing with server")
         
         # find the latest shared operation
         M = 10 # the number of operations in a single query
@@ -156,5 +150,6 @@ class NetworkConnector(QObject):
             
             if length != (0 if head is None else head.serial_num):
                 # close connection to reconnect-init
+                logger.info("Check failed during websocket connection.")
                 await self.ws.close()
                 break

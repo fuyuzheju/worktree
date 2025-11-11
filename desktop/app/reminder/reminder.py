@@ -1,8 +1,6 @@
 from datetime import datetime
 from typing import Optional
-import uuid, logging
-
-logger = logging.getLogger(__name__)
+import uuid
 
 class Reminder:
     def __init__(self, 

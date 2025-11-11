@@ -5,6 +5,9 @@ from app.history.database import Database
 from app.history.core import Operation, parse_operation, Tree, OperationType, Status, Node
 from app.globals import context
 from typing import cast, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 class TreeLoader(QObject):
     """
@@ -52,6 +55,7 @@ class TreeLoader(QObject):
             code = op.apply(self.tree)
             if code != 0:
                 # conflict
+                logger.info("Conflict occured.")
                 self.process_conflict(op)
                 break
         
@@ -144,6 +148,7 @@ Which solution do you prefer?
             # discard
             if not self.database.pending_queue.is_empty():
                 self.database.pending_queue.clear()
+            logger.info("Conflict resolve: discard.")
             return False
         if ans == 1:
             # overwrite
@@ -153,4 +158,5 @@ Which solution do you prefer?
                 starting_serial_num=self.database.pending_queue.metadata.starting_serial_num,
                 operations=cast(list[Operation], pending),
             )
+            logger.info("Conflict resolve: overwrite.")
             return True
