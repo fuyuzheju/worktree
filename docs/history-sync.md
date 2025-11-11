@@ -109,12 +109,12 @@ when no user is logged in, it behaves like a local user is logged in, but not se
     - *get a specific operation content with its serial number(batch supported)*
     @REQ   POST :824/history/operation
         > payload: {"serial_nums": int[]}
-    @RES   operation[]
+    @RES   operation[] always ordered in serial_num ascending
 
     - *get a specific hash code with its serial number(batch supported)*
     @REQ   POST :824/history/hashcode
         > payload: {"serial_nums": int[]}
-    @RES   string[]
+    @RES   string[] always ordered in serial_num ascending
 
     - *force overwrite some operations*
     @REQ   POST :824/history/overwrite/

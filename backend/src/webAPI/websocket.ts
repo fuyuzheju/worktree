@@ -88,7 +88,7 @@ export default function createWebsocketRouter(
 
             // store operation
             const res = await historyManager.insertAtHead(operation, req.user!.user_id);
-            if (res !== null) throw new Error("Failed to store operation.");
+            if (res === null) throw new Error("Failed to store operation.");
             // broadcast
             const room = rooms.get(req.user?.user_id ?? "");
             if (!room) throw new Error();

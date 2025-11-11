@@ -44,7 +44,8 @@ export default class HistoryManager {
             where: {
                 user_id: userId,
                 serial_num: {in: serialNums},
-            }
+            },
+            orderBy: {serial_num: 'asc'}
         });
         return nodes;
     }
@@ -60,7 +61,7 @@ export default class HistoryManager {
         }
 
         const head = metadata.head;
-        const newSerial = head === null? 0 : head.serial_num + 1;
+        const newSerial = head === null? 1 : head.serial_num + 1;
         const prevHash = head === null? "" : head.history_hash;
         const newHash = calculateHash(prevHash, operation);
         const newNode = await this.prisma.confirmedHistory.create({

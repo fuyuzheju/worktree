@@ -1,8 +1,9 @@
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from PyQt5.QtWidgets import QMessageBox
 from app.requester import Requester
 from app.history.database import Database
 from app.history.core import Operation, parse_operation, Tree, OperationType, Status, Node
+from app.globals import context
 from typing import cast, Optional
 
 class TreeLoader(QObject):
@@ -34,13 +35,11 @@ class TreeLoader(QObject):
 
         # get all the operations
         assert self.database.pending_queue.metadata is not None
-        pending_queue_pointed = self.database.pending_queue.metadata.starting_serial_num
         pending = [parse_operation(node.operation) for node in self.database.pending_queue.get_all()]
-        assert all(pending)
+        pending.reverse()
         operation_stack += cast(list[Operation], pending)
 
-        curr = self.database.confirmed_history.\
-            get_by_serial_num(pending_queue_pointed)
+        curr = self.database.confirmed_history.get_head()
         while curr is not None:
             op = parse_operation(curr.operation)
             assert op is not None
@@ -53,14 +52,14 @@ class TreeLoader(QObject):
             code = op.apply(self.tree)
             if code != 0:
                 # conflict
-                code = self.process_conflict(op)
-                if code:
-                    # overwrited
-                    break
-                
-                # if discarded, continue to the next operation
+                self.process_conflict(op)
+                break
         
+        # conflicts solved
         self.reloaded.emit()
+        semaphore = context.current_app.syncer.network_connector.reconnect_waiting_for_solving_conflicts # type: ignore
+        if semaphore is not None:
+            semaphore.release()
     
     def check(self, operation: Operation):
         """
@@ -125,7 +124,6 @@ class TreeLoader(QObject):
 
         return True
 
-
     
     def process_conflict(self, operation: Operation):
         msg_box = QMessageBox()
@@ -133,7 +131,7 @@ class TreeLoader(QObject):
         msg_box.setText(
 f"""A conflict occured.
 Which solution do you prefer?
-1. Discard local operation {operation.stringify()}
+1. Discard rest of local operations starting from: {operation.stringify()}
 2. Force overwrite the remote history(DANGER!!)
 """)
 
@@ -144,7 +142,8 @@ Which solution do you prefer?
         ans = msg_box.exec()
         if ans == 0:
             # discard
-            self.database.pending_queue.pop()
+            if not self.database.pending_queue.is_empty():
+                self.database.pending_queue.clear()
             return False
         if ans == 1:
             # overwrite

@@ -23,7 +23,7 @@ export function isOperation<T extends OperationType>
 export function parseOperation(s: string): Operation<OperationType> | null {
     let data;
     try {
-        data = JSON.parse(s);
+        data = snakeToCamelObject(JSON.parse(s));
     } catch (error) {
         return null;
     }
@@ -44,7 +44,24 @@ export function parseOperation(s: string): Operation<OperationType> | null {
             payload: parsedPayload,
             timestamp: data.timestamp,
         });
-    } catch {
+    } catch (error) {
         return null;
     }
+}
+
+function snakeToCamel(s: string): string {
+    return s.split('_').map((word, i) => 
+        (word.length === 0 || i === 0) ? word : word[0]?.toUpperCase() + word.slice(1)
+    ).reduce((prev, next) => prev+next);
+}
+function snakeToCamelObject(o: any): any{
+    if (typeof o === 'object')
+        return Object.keys(o).reduce((acc, key) => {
+            const keyCamel = snakeToCamel(key);
+            // @ts-expect-error
+            acc[keyCamel] = snakeToCamelObject(o[key]);
+            return acc;
+        }, {});
+    else if (typeof o === 'string') return snakeToCamel(o);
+    else return o;
 }

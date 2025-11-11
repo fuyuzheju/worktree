@@ -5,7 +5,17 @@ import authMiddleware from "./auth.js";
 import type HistoryManager from "../history.js";
 
 function createProtectedRouter(historyManager: HistoryManager) {
-    const operationGet = async (req: Request, res: Response) => {
+    const lengthGet = async (req: Request, res: Response) => {
+        if (!req.user) throw new Error("Auth passed, but no field 'user' found.");
+
+        const head = await historyManager.getHeadNode(req.user.user_id);
+        let length: number;
+        if (head === null) length = 0;
+        else length = head.serial_num;
+        res.status(200).json({"length": length});
+    }
+
+    const operationsGet = async (req: Request, res: Response) => {
         if (!req.body?.serial_nums) {
             res.status(400).json({"message": "Missing fields."});
             return;
@@ -24,10 +34,10 @@ function createProtectedRouter(historyManager: HistoryManager) {
         if (!req.user) throw new Error("Auth passed, but no field 'user' found.");
 
         const nodes = await historyManager.getBySerialNums(req.user.user_id, serialNums);
-        res.status(200).json(nodes.map(node => JSON.parse(node.operation)));
+        res.status(200).json(nodes.map(node => node.operation));
     }
 
-    const hashcodeGet = async (req: Request, res: Response) => {
+    const hashcodesGet = async (req: Request, res: Response) => {
         if (!req.body?.serial_nums) {
             res.status(400).json({"message": "Missing fields."});
             return;
@@ -52,8 +62,9 @@ function createProtectedRouter(historyManager: HistoryManager) {
     // register auth middleware to parse JWT before accessing protected APIs
     const protectedRouter = express.Router();
     protectedRouter.use(authMiddleware);
-    protectedRouter.get("operation/", operationGet);
-    protectedRouter.get("hashcode/", hashcodeGet);
+    protectedRouter.get("/length", lengthGet);
+    protectedRouter.get("/operations", operationsGet);
+    protectedRouter.get("/hashcodes", hashcodesGet);
     return protectedRouter;
 }
 

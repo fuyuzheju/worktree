@@ -250,12 +250,6 @@ export class Operation<T extends OperationType> {
     }
 }
 
-function snakeToCamel(s: string): string {
-    return s.split('_').map((word, i) => 
-        (word.length === 0 || i === 0) ? word : word[0]?.toUpperCase() + word.slice(1)
-    ).reduce((prev, next) => prev+next);
-}
-
 function camelToSnake(s: string): string {
     return s.split(/(?=[A-Z])/).map(word => word.toLowerCase()).join('_');
 }

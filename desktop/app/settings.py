@@ -36,6 +36,10 @@ DEFAULT_SETTINGS = {
 
     "internal/loginURL": "http://localhost:824/public/login/",
     "internal/healthCheckURL": "http://localhost:824/public/health/",
+    "internal/overwriteURL": "http://localhost:824/history/overwrite/",
+    "internal/getLengthURL": "http://localhost:824/history/length/",
+    "internal/getOperationsURL": "http://localhost:824/history/operations/",
+    "internal/getHashcodesURL": "http://localhost:824/history/hashcodes/",
     "internal/websocketURI": "ws://localhost:824/"
 }
 

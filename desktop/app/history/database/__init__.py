@@ -38,6 +38,7 @@ class Database(QObject):
         self.user_manager = user_manager
         self.storage_root_path = storage_root_path
         self.user_manager.user_change.connect(self.reload_database)
+
         db_dir: Path = self.storage_root_path / self.user_manager.user_id()
         db_dir.mkdir(exist_ok=True)
         db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
@@ -56,7 +57,10 @@ class Database(QObject):
     def reload_database(self):
         self.engine.dispose()
         
-        db_path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
+        db_dir: Path = self.storage_root_path / self.user_manager.user_id()
+        db_dir.mkdir(exist_ok=True)
+        db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
+        db_path.touch(exist_ok=True)
         db_url = f"sqlite:///" + str(db_path)
         self.engine = create_engine(db_url)
         Base.metadata.create_all(self.engine)
@@ -65,6 +69,7 @@ class Database(QObject):
         self.confirmed_history = ConfirmedHistory(self.session)
         self.pending_queue.updated.connect(self.updated.emit)
         self.confirmed_history.updated.connect(self.updated.emit)
+        self.updated.emit()
 
 if __name__ == '__main__':
     class UM:

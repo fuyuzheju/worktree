@@ -29,7 +29,25 @@ class UndoCommand(Command):
 
     @override
     def execute(self, shell):
-        context.users_manager.storage.history_storage.undo()
+        """
+        Note: due the the sync algorithm, a conflict may occur in the case below:
+        if the things happen in the order below:
+        1. user does an operation (pushed to pending queue)
+        2. sender sends the operation to server
+        3. user does undo (now the operation in pending queue is popped)
+        4. server confirms the operation
+        5. receiver push it to confirmed history
+        Now the operation is still in the history!
+        The `undo` has lost effect in this case.
+        But no graceful way is found to solve this.
+        """
+        raise NotImplementedError()
+        if shell.current_app.database.pending_queue.is_empty():
+            # undo confirmed history
+            pass
+        else:
+            # undo pending queue
+            shell.current_app.database.pending_queue.pop_tail()
         return 0
     
     @override

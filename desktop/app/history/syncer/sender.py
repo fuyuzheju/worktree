@@ -1,7 +1,7 @@
 from websockets import ClientConnection
 from PyQt5.QtCore import QObject
 from app.history.database import Database
-import asyncio, websockets
+import json, asyncio, websockets
 
 class WebsocketSender(QObject):
     """
@@ -21,9 +21,16 @@ class WebsocketSender(QObject):
     async def send(self):
         while True:
             head = self.database.pending_queue.get_head()
+            assert self.database.pending_queue.metadata is not None
+            chead = self.database.confirmed_history.get_head()
+            expected_serial = (0 if chead is None else chead.serial_num) + 1
             if head is not None:
-                await self.ws.send(head.operation)
-            await asyncio.sleep(1)
+                await self.ws.send(json.dumps({
+                    "action": "update",
+                    "operation": head.operation,
+                    "expected_serial_num": expected_serial,
+                }))
+            await asyncio.sleep(2)
     
     async def start(self):
         self.sending_task = asyncio.create_task(self.send())

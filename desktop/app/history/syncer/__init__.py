@@ -8,6 +8,7 @@
 
 from PyQt5.QtCore import QObject, pyqtSlot, QThread
 from app.history.database import Database
+from app.history.core import parse_operation, Operation
 from app.requester import Requester
 from .connector import NetworkConnector
 from typing import override
@@ -46,5 +47,16 @@ class Syncer(QObject):
         self.network_thread.start()
     
     @pyqtSlot(dict)
-    def on_receive(data):
+    def on_receive(self, data):
         print("on receive:", data)
+        if data["action"] == "update":
+            operation = parse_operation(data["operation"])
+            assert operation is not None
+            serial_num = data["serial_num"]
+        
+            head = self.database.pending_queue.get_head()
+            # print("###", operation.stringify(), {} if head is None else head.operation)
+            if head is not None and operation.stringify() == head.operation:
+                print("POP")
+                self.database.pending_queue.pop()
+            self.database.confirmed_history.insert_at_head(operation, serial_num)

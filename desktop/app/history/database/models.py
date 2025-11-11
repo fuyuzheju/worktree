@@ -19,7 +19,7 @@ class ConfirmedOperationNode(Base):
     operation: Mapped[str] = mapped_column(String(512), nullable=False)
     history_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
-    next_id: Mapped[int] = mapped_column(Integer, ForeignKey(f"{CONFIRMED_OPERATION_TABLE}.id"), nullable=True)
+    next_id: Mapped[int] = mapped_column(Integer, ForeignKey(f"{CONFIRMED_OPERATION_TABLE}.id"), nullable=False)
     next_node = relationship("ConfirmedOperationNode", remote_side=[id], uselist=False)
 
 
@@ -28,7 +28,7 @@ class ConfirmedHistoryMetadata(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-    head_id: Mapped[int] = mapped_column(Integer, ForeignKey(f"{CONFIRMED_OPERATION_TABLE}.id"), nullable=True)
+    head_id: Mapped[int] = mapped_column(Integer, ForeignKey(f"{CONFIRMED_OPERATION_TABLE}.id"), nullable=False)
     head_node = relationship("ConfirmedOperationNode")
 
 

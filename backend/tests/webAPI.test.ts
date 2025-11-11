@@ -40,8 +40,6 @@ describe("webAPI", () => {
         const response5 = await request(app).post("/public/register/").send(badrequest3);
         const response6 = await request(app).post("/public/register/").send(badrequest4);
 
-        console.log(response1.body);
-        console.log(response1.text);
         expect(response1.statusCode).toBe(200);
         expect(response1.body).toEqual({"message": "success"});
         expect(response2.statusCode).toBe(200);

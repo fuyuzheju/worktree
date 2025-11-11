@@ -1,17 +1,18 @@
 # this is a middleware which processes all requests
 # this middleware also saves the JWT, and processes login and logout
 
-from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QSemaphore
+from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot, QSemaphore, QThread, Qt
 from PyQt5.QtWidgets import (QMessageBox, QLabel, QVBoxLayout,
                              QDialog, QLineEdit, QDialogButtonBox, QFormLayout)
 from pathlib import Path
 from typing import Optional
 from app.user import UserManager, LOCAL_USER
 from app.globals import context
-from app.history.core import Operation
+from app.history.core import Operation, parse_operation
 import websockets, requests, aiohttp, asyncio
 
 class Requester(QObject):
+    login_requested = pyqtSignal()
     """
     Requester proxys all the requests to server, processing
     authorization and other complexities.
@@ -25,6 +26,7 @@ class Requester(QObject):
         self.user_manager = user_manager
         self.data_file = data_file
         self.user_manager.user_change.connect(self.on_user_change)
+        self.login_requested.connect(self.request_login, Qt.QueuedConnection) # type: ignore
         with open(self.data_file, 'r') as f:
             self.access_token = f.read()
         if self.access_token == "":
@@ -50,8 +52,113 @@ class Requester(QObject):
             return False
     
     def overwrite(self, starting_serial_num: int, operations: list[Operation]):
-        raise NotImplementedError()
+        if self.access_token == "":
+            return -1
+        url = context.settings_manager.get("internal/overwriteURL")
+        try:
+            response = requests.post(
+                url,
+                json={
+                    "starting_serial_num": starting_serial_num,
+                    "operations": [operation.stringify() for operation in operations],
+                },
+                headers={
+                    "Authorization": f"Bearer {self.access_token}"
+                }
+            )
+        except requests.exceptions.ConnectionError as e:
+            return -1
+        
+        if response.status_code == 200:
+            return 0
+        elif response.status_code == 401:
+            return -1
+        else:
+            raise RuntimeError("Unknown Error")
     
+    def get_length(self) -> int:
+        if self.access_token == "":
+            raise RuntimeError("Not logged in")
+        
+        url = context.settings_manager.get("internal/getLengthURL")
+        try:
+            response = requests.get(url, headers={
+                "Authorization": f"Bearer {self.access_token}"
+            })
+        except requests.exceptions.ConnectionError as e:
+            return -1
+        
+        if response.status_code == 200:
+            return response.json()["length"]
+        elif response.status_code == 401:
+            self.access_token = ""
+            self.user_manager.logout()
+            self.login_requested.emit() # thread-safely call a login
+            return -1
+        else:
+            raise RuntimeError(f"Unknown Error {response.status_code}")
+    
+    def get_operations(self, serial_nums: list[int]):
+        """
+        The result is always ordered by serial_num ascending
+        """
+        if self.access_token == "":
+            raise RuntimeError("Not logged in")
+        
+        url = context.settings_manager.get("internal/getOperationsURL")
+        try:
+            response = requests.get(
+                url,
+                json={
+                    "serial_nums": serial_nums,
+                },
+                headers={
+                    "Authorization": f"Bearer {self.access_token}"
+                }
+            )
+        except requests.exceptions.ConnectionError as e:
+            return None
+        
+        if response.status_code == 200:
+            retval: list[Operation] = []
+            for op in response.json():
+                operation = parse_operation(op)
+                assert operation is not None
+                retval.append(operation)
+            return retval
+        elif response.status_code == 401:
+            return None
+        else:
+            raise RuntimeError("Unknown Error")
+
+    def get_hashcodes(self, serial_nums: list[int]):
+        """
+        The result is always ordered by serial_num ascending
+        """
+        if self.access_token == "":
+            raise RuntimeError("Not logged in")
+        
+        url = context.settings_manager.get("internal/getHashcodesURL")
+        try:
+            response = requests.get(
+                url,
+                json={
+                    "serial_nums": serial_nums,
+                },
+                headers={
+                    "Authorization": f"Bearer {self.access_token}"
+                }
+            )
+        except requests.exceptions.ConnectionError as e:
+            return None
+        
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 401:
+            return None
+        else:
+            raise RuntimeError("Unknown Error")
+
     def build_websocket_connection(self):
         """
         This method must be called in the subthread(in a subthread worker),
@@ -63,12 +170,12 @@ class Requester(QObject):
         websocket_connector = WebsocketConnector(uri, self, self.user_manager)
         return websocket_connector
     
-    @pyqtSlot(QSemaphore)
     def request_login(self, semaphore: Optional[QSemaphore] = None):
         """
         this method must be run on the main thread.
         you can provide a semaphore to know what time this method returns
         """
+        print(f"on: {QThread.currentThread()}")
         username, password, status = LoginRequestDialog.get_data()
         if status == False:
             self.user_manager.logout()
@@ -145,8 +252,7 @@ class WebsocketConnector(QObject):
             if self.requester.access_token == "":
                 raise websockets.exceptions.ConnectionClosed(None, None)
             self.socket = await self.connection
-            await self.socket.recv()
-            print("here")
+            return self.socket
         except websockets.exceptions.ConnectionClosed as e:
             if self.socket is None:
                 raise e

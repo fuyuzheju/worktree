@@ -7,8 +7,9 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
         let token: string|undefined = undefined;
 
         const authHeader = req.headers.authorization;
+
         if (authHeader?.startsWith("Bearer ")) {
-            token = authHeader.replace("Bearer ", " ");
+            token = authHeader.replace("Bearer ", "");
         }
         if (!token) {
             res.status(401).json({"message": "No access token found."});
@@ -24,7 +25,7 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
         console.log("Auth: pass");
         next();
     } catch (error) {
-        console.log("Auth: failed");
+        console.log(`Auth: failed`);
         res.status(401).send("Invalid access token.");
     }
 }

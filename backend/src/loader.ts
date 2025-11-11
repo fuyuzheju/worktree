@@ -25,7 +25,10 @@ export class TreeLoader {
         let curr = await this.historyManager.getHeadNode(userId);
         while (curr !== null) {
             const operation = parseOperation(curr.operation);
-            if (operation === null) throw new Error("Data damage");
+            if (operation === null){
+                console.log(operation);
+                throw new Error("Data damage");
+            }
             operationStack.push(operation);
             if (curr.next_id === null) break;
             const got = await this.historyManager.getByIds([curr.next_id]);
@@ -36,7 +39,7 @@ export class TreeLoader {
             const operation = operationStack.pop();
             if (operation === undefined) break;
             const retcode = operation.apply(this.trees.get(userId)!);
-            if (retcode === 0) throw new Error("Data damage");
+            if (retcode !== 0) throw new Error("Data damage");
         }
         return 0;
     }

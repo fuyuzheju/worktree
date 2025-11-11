@@ -27,6 +27,10 @@ class PendingQueue(QObject):
             )
             self.session.add(self.metadata)
             self.session.commit()
+        
+    def is_empty(self):
+        assert self.metadata is not None
+        return self.metadata.head_id == self.metadata.tail_id
     
     def get_by_id(self, node_id: int):
         query = select(PendingOperationNode).\
@@ -43,13 +47,28 @@ class PendingQueue(QObject):
         node = self.session.scalars(query).first()
         return node
     
+    def get_tail(self):
+        assert self.metadata is not None
+        if self.metadata.head_id == self.metadata.tail_id:
+            return None
+        query = select(PendingOperationNode).\
+                where(PendingOperationNode.id == self.metadata.tail_id)
+        node = self.session.scalars(query).first()
+        return node
+    
     def get_all(self):
         assert self.metadata is not None
         query = select(PendingOperationNode).\
                 where(PendingOperationNode.id.between(self.metadata.head_id, self.metadata.tail_id)).\
-                order_by(PendingOperationNode.id.desc())
+                order_by(PendingOperationNode.id.asc())
         nodes = self.session.scalars(query).all()
         return nodes
+    
+    def set_starting_serial(self, starting_serial_num: int):
+        assert self.metadata is not None
+        self.metadata.starting_serial_num = starting_serial_num
+        self.session.commit()
+        return 0
     
     def push(self, operation: Operation):
         assert self.metadata is not None
@@ -68,3 +87,19 @@ class PendingQueue(QObject):
         self.session.commit()
         self.updated.emit()
         return head
+    
+    def pop_tail(self):
+        assert self.metadata is not None
+        if self.metadata.head_id == self.metadata.tail_id:
+            return None
+        tail = self.get_tail()
+        self.metadata.tail_id -= 1
+        self.session.commit()
+        self.updated.emit()
+    
+    def clear(self):
+        assert self.metadata is not None
+        self.metadata.head_id = self.metadata.tail_id
+        self.session.commit()
+        self.updated.emit()
+        return 0

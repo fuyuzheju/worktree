@@ -119,9 +119,9 @@ function createPublicRouter() {
     }
 
     const publicRouter = express.Router();
-    publicRouter.get("/health/", healthCheck);
-    publicRouter.post("/register/", register);
-    publicRouter.post("/login/", login);
+    publicRouter.get("/health", healthCheck);
+    publicRouter.post("/register", register);
+    publicRouter.post("/login", login);
     return publicRouter;
 }
 

@@ -14,7 +14,6 @@ function createApp() {
     const testMW = (req: Request, res: Response, next: NextFunction) => {
         console.log("### Request ###");
         console.log(req.url);
-        console.log(req.body);
         next();
     }
 
@@ -26,8 +25,8 @@ function createApp() {
 
     const jsonMiddleware = express.json();
     app.use(testMW);
-    app.use("/public/", jsonMiddleware, publicRouter);
-    app.use("/history/", jsonMiddleware, protectedRouter);
+    app.use("/public", jsonMiddleware, publicRouter);
+    app.use("/history", jsonMiddleware, protectedRouter);
     app.use("/", websocketRouter);
     return app;
 }
