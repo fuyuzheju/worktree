@@ -1,5 +1,6 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers
 from typing import override
+import sys
 
 class ExitCommand(Command):
     @classmethod
@@ -14,7 +15,7 @@ class ExitCommand(Command):
             "Usage: exit"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 0,
@@ -27,10 +28,10 @@ class ExitCommand(Command):
         }
     
     @override
-    def execute(self, context, shell):
-        from ...controls import quit_signal
-        quit_signal.emit()
+    def execute(self, shell):
+        sys.exit(0)
+        return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         return None, []

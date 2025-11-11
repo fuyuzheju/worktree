@@ -1,5 +1,7 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers
+from app.history.core import Operation, OperationType
 from typing import override
+import time
 
 class RemoveCommand(Command):
     @classmethod
@@ -14,7 +16,7 @@ class RemoveCommand(Command):
             "Usage: rm <path> [-r]"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 1, # node_path
@@ -29,7 +31,7 @@ class RemoveCommand(Command):
         }
     
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         path = self.args["arguments"]["required"][0]
         target = shell.path_parser(path)
         if target is None:
@@ -37,10 +39,17 @@ class RemoveCommand(Command):
             return -1
 
         if self.args["options"]["short"]["-r"] is None:
-            st = context.work_tree.remove_node(target.identity)
+            op = Operation(OperationType.REMOVE_NODE, {
+                "node_id": target.identity
+            }, timestamp=int(time.time()))
         else:
-            st = context.work_tree.remove_subtree(target.identity)
-        if st != 0:
+            op = Operation(OperationType.REMOVE_SUBTREE, {
+                "node_id": target.identity,
+            }, timestamp=int(time.time()))
+
+        if shell.current_app.loader.check(op):
+            shell.current_app.database.pending_queue.push(op)
+        else:
             self.error_signal.emit("Error: Failed to remove node.\n")
             return -1
 
@@ -48,7 +57,7 @@ class RemoveCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return shell.path_completor(incomplete_path)

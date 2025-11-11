@@ -1,5 +1,7 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers
+from app.history.core import Operation, OperationType
 from typing import override
+import time
 
 class ReopenCommand(Command):
     @classmethod
@@ -14,7 +16,7 @@ class ReopenCommand(Command):
             "Usage: reopen <path>"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 1, # node_path
@@ -27,21 +29,26 @@ class ReopenCommand(Command):
         }
 
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         path = self.args["arguments"]["required"][0]
         node = shell.path_parser(path)
         if node is None:
             self.error_signal.emit(f"Error: No such node {path}.\n")
             return -1
-        res = context.work_tree.reopen_node(node.identity)
-        if res == -1:
+        
+        op = Operation(OperationType.REOPEN_NODE, {
+            "node_id": node.identity
+        }, timestamp=int(time.time()))
+        if shell.current_app.loader.check(op):
+            shell.current_app.database.pending_queue.push(op)
+        else:
             self.error_signal.emit("Error: Node is not completed.\n")
             return -1        
         self.output_signal.emit("Node reopened successfully.\n")
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         if self.last_arg[0] == ['arguments', 'required'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["required"][0]
             return shell.path_completor(incomplete_path)

@@ -1,5 +1,4 @@
-from .command_bases import Command
-from app.data.core import ExtOperation
+from ..command_bases import Command, CommandArgsNumbers
 from typing import override
 import time
 
@@ -16,7 +15,7 @@ class UndoCommand(Command):
             "Usage: undo"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 0,
@@ -29,10 +28,10 @@ class UndoCommand(Command):
         }
 
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         context.users_manager.storage.history_storage.undo()
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         return None, []

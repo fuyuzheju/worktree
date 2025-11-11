@@ -1,7 +1,6 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-
-from typing import Optional
+from typing import Optional, cast, Mapping
 
 def max_common_prefix(strings: list[str]) -> Optional[str]:
     """
@@ -36,7 +35,7 @@ def time_parser(s):
         "m": "minute",
         "s": "second"
     }
-    time_parts = {
+    time_parts: dict[str, Optional[str]] = {
         "a": None,
         "M": None,
         "d": None,
@@ -72,39 +71,42 @@ def time_parser(s):
     for key in time_parts:
         if time_parts[key] is None:
             time_parts[key] = '.0'
-        if time_parts[key] == '' or (not time_parts[key][-1] in numbers):
+    
+    time_parts_filled = cast(dict[str, str], time_parts)
+    for key in time_parts_filled:
+        if time_parts_filled[key] == '' or (not time_parts_filled[key][-1] in numbers):
             raise ValueError(f"Identifier \'{key}\' can't be with an empty value.")
 
     # not recording relative times first
     # set relative parts to current time by default
     # parse them later
     absolute_dict = {}
-    for key in time_parts:
+    for key in time_parts_filled:
         now = datetime.now()
-        if time_parts[key][0] == '.':
+        if time_parts_filled[key][0] == '.':
             # relative time
             absolute_dict[key] = getattr(now, attribute_map[key])
         else:
             # absolute time
-            absolute_dict[key] = int(time_parts[key])
+            absolute_dict[key] = int(time_parts_filled[key])
 
     try:
-        absolute = datetime(**{attribute_map[key]: absolute_dict[key] for key in time_parts})
+        absolute = datetime(**{attribute_map[key]: absolute_dict[key] for key in time_parts_filled})
     except ValueError:
         raise ValueError(f"Invalid absolute value.")
 
     relative_dict = {}
-    for key in time_parts:
-        if time_parts[key][0] == '.':
-            relative_dict[key] = int(time_parts[key][1:])
+    for key in time_parts_filled:
+        if time_parts_filled[key][0] == '.':
+            relative_dict[key] = int(time_parts_filled[key][1:])
         else:
             relative_dict[key] = 0
 
-    relative = relativedelta(**{attribute_map[key] + 's': relative_dict[key] for key in time_parts})
+    relative = relativedelta(**{attribute_map[key] + 's': relative_dict[key] for key in time_parts_filled})
 
     retval = absolute + relative
-    for key in time_parts:
-        if time_parts[key][0] == '.':
+    for key in time_parts_filled:
+        if time_parts_filled[key][0] == '.':
             # relative part, skip check
             continue
 

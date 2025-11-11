@@ -2,8 +2,8 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QMessageBox
 from app.requester import Requester
 from app.history.database import Database
-from app.history.core import Operation, parse_operation, Tree
-from typing import cast
+from app.history.core import Operation, parse_operation, Tree, OperationType, Status, Node
+from typing import cast, Optional
 
 class TreeLoader(QObject):
     """
@@ -61,6 +61,71 @@ class TreeLoader(QObject):
                 # if discarded, continue to the next operation
         
         self.reloaded.emit()
+    
+    def check(self, operation: Operation):
+        """
+        check if an operation is allowed
+        """
+        if operation.op_type == OperationType.ADD_NODE:
+            parent_node_id = operation.payload["parent_node_id"] # type: ignore
+            new_node_name = operation.payload["new_node_name"] # type: ignore
+            parent_node = self.tree.get_node_by_id(parent_node_id)
+            if parent_node is None:
+                return False
+            if new_node_name in [child.name for child in parent_node.children]:
+                return False
+        elif operation.op_type == OperationType.REOPEN_NODE:
+            node_id = operation.payload["node_id"] # type: ignore
+            node = self.tree.get_node_by_id(node_id)
+            if node is None or node.status != Status.COMPLETED:
+                return False
+        elif operation.op_type == OperationType.COMPLETE_NODE:
+            node_id = operation.payload["node_id"] # type: ignore
+            node = self.tree.get_node_by_id(node_id)
+            if node is None or not node.is_ready():
+                return False
+            if node.status == Status.COMPLETED:
+                return False
+        elif operation.op_type == OperationType.REMOVE_NODE:
+            node_id = operation.payload["node_id"] # type: ignore
+            node = self.tree.get_node_by_id(node_id)
+            if node is None:
+                return False
+            if node.children or (node.parent is None):
+                return False
+        elif operation.op_type == OperationType.REMOVE_SUBTREE:
+            node_id = operation.payload["node_id"] # type: ignore
+            node = self.tree.get_node_by_id(node_id)
+            if node is None:
+                return False
+            if node.parent is None:
+                return False
+        elif operation.op_type == OperationType.MOVE_NODE:
+            node_id = operation.payload["node_id"] # type: ignore
+            new_parent_id = operation.payload["new_parent_id"] # type: ignore
+            node = self.tree.get_node_by_id(node_id)
+            if node is None or node.parent is None:
+                return False
+
+            new_parent = self.tree.get_node_by_id(new_parent_id)
+            if new_parent is None:
+                return False
+
+            # you can't move a node to its child
+            curr: Optional[Node] = new_parent
+            while curr is not None and curr.identity != self.tree.root.identity:
+                if curr == node:
+                    return False
+                curr = curr.parent
+            
+            if any([child.name == node.name for child in new_parent.children]):
+                return False
+        else:
+            return False
+
+        return True
+
+
     
     def process_conflict(self, operation: Operation):
         msg_box = QMessageBox()

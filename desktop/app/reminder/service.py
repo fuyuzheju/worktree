@@ -48,9 +48,10 @@ class ReminderService(QObject):
         for reminder in self.reminders:
             if reminder.due_time <= now and reminder.active:
                 reminder.active = False
-                raise NotImplementedError() # send notification
                 self.reminder_due.emit(reminder)
+                self.edited.emit() # connected to rerendering
                 logger.info(f"Reminder due: {reminder}")
+                raise NotImplementedError() # send notification
     
     def add_reminder(self, node_id: str, due_time: datetime, message: str,
                      reminder_id : Optional[str] = None, active: bool = True) -> int:

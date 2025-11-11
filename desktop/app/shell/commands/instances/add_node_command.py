@@ -1,6 +1,7 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers
+from app.history.core import Operation, OperationType
 from typing import override
-import uuid
+import uuid, time
 
 class AddNodeCommand(Command):
     @classmethod
@@ -15,7 +16,7 @@ class AddNodeCommand(Command):
             "Usage: add <node_name> [parent_path]"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 1, # node_name
@@ -28,7 +29,7 @@ class AddNodeCommand(Command):
         }
 
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         name = self.args["arguments"]["required"][0]
         if '.' in name or '/' in name or ':' in name or name == '':
             self.error_signal.emit("Error: Invalid node name.\n")
@@ -44,8 +45,16 @@ class AddNodeCommand(Command):
             self.error_signal.emit(f"Error: No such node {parent_path}.\n")
             return -1
 
-        res = context.work_tree.add_node(parent_node.identity, name, str(uuid.uuid4().hex))
-        if res == -1:
+        op = Operation(OperationType.ADD_NODE, {
+            "new_node_name": name,
+            "parent_node_id": parent_node.identity,
+            "new_node_id": str(uuid.uuid4().hex)
+        }, timestamp=int(time.time()))
+
+        if shell.current_app.loader.check(op):
+            shell.current_app.database.pending_queue.push(op)
+
+        else:
             self.error_signal.emit("Error: Node already exists.\n")
             return -1
 
@@ -53,5 +62,5 @@ class AddNodeCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         return None, []

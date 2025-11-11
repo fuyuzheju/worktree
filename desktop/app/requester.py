@@ -75,34 +75,44 @@ class Requester(QObject):
             self.access_token = ""
             with open(self.data_file, 'w') as f:
                 f.write(self.access_token)
-        
         else:
-            try:
-                response = requests.post(
-                    context.settings_manager.get("internal/loginURL"),
-                    json={
-                        "username": username,
-                        "password": password,
-                })
-            except requests.exceptions.ConnectionError as e:
-                QMessageBox.warning(None, "Fail", "Network Error",
+            code, message = self.login(username, password)
+            if code == -1:
+                QMessageBox.warning(None, "Fail", message,
                                     QMessageBox.Ok, QMessageBox.Ok)
                 return
-            if response.status_code == 200:
-                data = response.json()
-                self.user_manager.login(data["user_id"], username)
-                self.access_token = data["access_token"]
-                with open(self.data_file, 'w') as f:
-                    f.write(self.access_token)
-            else:
-                data = response.json()
-                QMessageBox.warning(None, "Fail", data["message"],
+            elif code == 1:
+                QMessageBox.warning(None, "Fail", message,
                                     QMessageBox.Ok, QMessageBox.Ok)
-                self.request_login()
-
+                self.request_login() # let the user try again
+            elif code == 0:
+                pass
+        
         if semaphore is not None:
             semaphore.release()
-    
+
+    def login(self, username, password):
+        try:
+            response = requests.post(
+                context.settings_manager.get("internal/loginURL"),
+                json={
+                    "username": username,
+                    "password": password,
+            })
+        except requests.exceptions.ConnectionError as e:
+            return -1, "Network Error"
+
+        if response.status_code == 200:
+            data = response.json()
+            self.user_manager.login(data["user_id"], username)
+            self.access_token = data["access_token"]
+            with open(self.data_file, 'w') as f:
+                f.write(self.access_token)
+            return 0, "Success"
+        else:
+            data = response.json()
+            return 1, data["message"]
+
 
 class WebsocketConnector(QObject):
     """

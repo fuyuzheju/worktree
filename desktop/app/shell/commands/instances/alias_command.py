@@ -1,4 +1,4 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers, COMMAND_REGISTRY
 from typing import override
 import copy
 
@@ -15,7 +15,7 @@ class AliasCommand(Command):
             "Usage: alias <name> <command>"
 
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 2, # name, command
@@ -28,8 +28,7 @@ class AliasCommand(Command):
         }
 
     @override
-    def execute(self, context, shell):
-        from .command_bases import COMMAND_REGISTRY
+    def execute(self, shell):
         alias_name = self.args["arguments"]["required"][0]
         alias_content = self.args["arguments"]["required"][1:] + self.args["arguments"]["optional"]
         if alias_name in COMMAND_REGISTRY:
@@ -37,17 +36,16 @@ class AliasCommand(Command):
             return -1
         proxy = proxy_factory(alias_name=alias_name, alias_content=alias_content) # automatically registered to COMMAND_REGISTRY
         self.output_signal.emit("success\n")
+        return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         return None, []
 
 
 def proxy_factory(alias_name: str,
                   alias_content: list[str],
                   alias_help: str = "") -> type: # argument "alias_help" is usually for built-in aliases
-
-    from .command_bases import COMMAND_REGISTRY
 
     class AliasProxy(Command):
 
@@ -72,7 +70,7 @@ def proxy_factory(alias_name: str,
             return alias_help
 
         @override
-        def command_arguments_numbers(self):
+        def command_arguments_numbers(self) -> CommandArgsNumbers:
             original_class = COMMAND_REGISTRY.get(self._alias_content[0])
             if original_class is None:
                 return {
@@ -107,7 +105,7 @@ def proxy_factory(alias_name: str,
                         return len(obj)
 
                     original_ca_num = original_instance.command_arguments_numbers()
-                    retval =  {
+                    retval: CommandArgsNumbers =  {
                         "arguments": {
                             "required": original_ca_num["arguments"]["required"] - ext_len(original_instance.args["arguments"]["required"]),
                             "optional": original_ca_num["arguments"]["optional"] - ext_len(original_instance.args["arguments"]["optional"]),
@@ -137,21 +135,22 @@ def proxy_factory(alias_name: str,
             return original_instance.status
         
         @override
-        def execute(self, context, shell):
+        def execute(self, shell):
             original_class = COMMAND_REGISTRY.get(self._alias_content[0])
+            assert original_class is not None
             original_instance = original_class(*(self._alias_content[1:] + self.parts))
             original_instance.output_signal.connect(self.output_signal)
             original_instance.error_signal.connect(self.error_signal)
             original_instance.finish_signal.connect(self.finish_signal)
-            return original_instance.execute(context, shell)
+            return original_instance.execute(shell)
 
         @override
-        def auto_complete(self, context, shell):
+        def auto_complete(self, shell):
             original_class = COMMAND_REGISTRY.get(self._alias_content[0])
             if original_class is None:
                 return None, []
             original_instance = original_class(*(self._alias_content[1:] + self.parts))
-            return original_instance.auto_complete(context, shell)
+            return original_instance.auto_complete(shell)
     
     return AliasProxy
             

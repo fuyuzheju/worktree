@@ -3,10 +3,9 @@ from abc import ABC, abstractmethod, ABCMeta
 from PyQt5.QtCore import pyqtSignal, QObject
 from .utils import max_common_prefix
 import time, copy
+from .. import Shell
 
 from typing import TypedDict, Optional, Any, Mapping
-from .. import Shell
-from app.setup import AppContext
 
 COMMAND_REGISTRY: dict[str, type["Command"]] = {} # registry table of all commands, structure: {command_str: command_class}
 
@@ -215,7 +214,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         pass
 
     @abstractmethod
-    def execute(self, context: AppContext, shell: Shell) -> int:
+    def execute(self, shell: Shell) -> int:
         """
         execute the command to operate the tree
         no need to call finish signal here
@@ -224,7 +223,7 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         pass
     
     @abstractmethod
-    def auto_complete(self, context: AppContext, shell: Shell) -> tuple[Optional[str], list[str]]:
+    def auto_complete(self, shell: Shell) -> tuple[Optional[str], list[str]]:
         """
         auto complete the command
         :param incomplete_command: the incomplete command
@@ -232,10 +231,10 @@ class Command(ABC, QObject, metaclass=CustomMeta):
         """
         pass
 
-    def __call__(self, context: AppContext, shell: Shell) -> int:
+    def __call__(self, shell: Shell) -> int:
         code = None
         if self.status == 0:
-            code = self.execute(context, shell)
+            code = self.execute(shell)
         elif self.status == 1:
             self.error_signal.emit("Error: Unknown command or unknown option.\n")
             code = 101
@@ -331,18 +330,18 @@ class CommandGroup(Command):
             return 3
     
     @override
-    def execute(self, context: AppContext, shell: Shell) -> int:
+    def execute(self, shell: Shell) -> int:
         if self.subcommand is None:
             return 100
         self.subcommand.output_signal.connect(self.output_signal.emit)
         self.subcommand.error_signal.connect(self.error_signal.emit)
         self.subcommand.finish_signal.connect(self.finish_signal.emit)
-        return self.subcommand.execute(context, shell)
+        return self.subcommand.execute(shell)
     
     @override
-    def auto_complete(self, context: AppContext, shell: Shell) -> tuple[Optional[str], list[str]]:
+    def auto_complete(self, shell: Shell) -> tuple[Optional[str], list[str]]:
         if self.subcommand:
-            return self.subcommand.auto_complete(context, shell)
+            return self.subcommand.auto_complete(shell)
         else:
             possible_completion_list = []
             for subcommand_str in self._subcommands.keys():

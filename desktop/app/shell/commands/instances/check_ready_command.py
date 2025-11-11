@@ -1,4 +1,4 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers
 from typing import override
 
 class CheckReadyCommand(Command):
@@ -14,7 +14,7 @@ class CheckReadyCommand(Command):
             "Usage: ck [path]"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 0,
@@ -27,7 +27,7 @@ class CheckReadyCommand(Command):
         }
 
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         if self.args['arguments']['optional']:
             path = self.args['arguments']['optional'][0]
         else:
@@ -41,7 +41,7 @@ class CheckReadyCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         if self.last_arg[0] == ['arguments', 'optional'] and self.last_arg[1] == 0:
             incomplete_path = self.args["arguments"]["optional"][0]
             return shell.path_completor(incomplete_path)

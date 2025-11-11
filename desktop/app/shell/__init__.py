@@ -1,8 +1,11 @@
+from __future__ import annotations
 from PyQt5.QtCore import QObject, pyqtSignal
 import logging
-from typing import Optional
-from app.globals import context
+from typing import Optional, TYPE_CHECKING
 from app.history.core.tree import Node
+
+if TYPE_CHECKING:
+    from app import Application
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +18,7 @@ class Shell(QObject):
     finish_signal = pyqtSignal()
     post_command_signal = pyqtSignal(object) # to tell TreeGraphWidget to repaint, parameter: new pwd_node
 
-    def __init__(self, current_app) -> None:
+    def __init__(self, current_app: Application) -> None:
         super().__init__()
         self.is_running_command = False
         self.pwd = '/'
@@ -126,7 +129,7 @@ class Shell(QObject):
         command.output_signal.connect(self.output_signal.emit)
         command.error_signal.connect(self.error_signal.emit)
         command.finish_signal.connect(self.finish_signal.emit)
-        res = command(self.context, self)
+        res = command(self)
         self.pwd_node = self.path_parser(self.pwd) # reload pwd node
         self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
         return res
@@ -158,6 +161,6 @@ class Shell(QObject):
             command_class = COMMAND_REGISTRY.get(parts[0])
             if command_class is not None:
                 command = command_class(*parts[1:])
-                return command.auto_complete(self.context, self)
+                return command.auto_complete(self)
         
         return None, []

@@ -1,5 +1,5 @@
-from .command_bases import Command
-from ...data.core.tree import Node
+from ..command_bases import Command, CommandArgsNumbers
+from app.history.core import Node
 from typing import override
 
 class TreeCommand(Command):
@@ -15,7 +15,7 @@ class TreeCommand(Command):
             "Usage: tree [path]"
     
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 0,
@@ -28,7 +28,7 @@ class TreeCommand(Command):
         }
     
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         if self.args["arguments"]["optional"]:
             path = self.args["arguments"]["optional"][0]
         else:
@@ -49,7 +49,7 @@ class TreeCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         if len(self.args["arguments"]["optional"]) != 1:
             return None, []
         incomplete_path = self.args["arguments"]["optional"][0]

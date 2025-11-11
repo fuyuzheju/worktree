@@ -1,5 +1,5 @@
-from .command_bases import Command, COMMAND_REGISTRY
-from .utils import max_common_prefix
+from ..command_bases import Command, COMMAND_REGISTRY, CommandArgsNumbers
+from ..utils import max_common_prefix
 from typing import override
 
 class HelpCommand(Command):
@@ -15,7 +15,7 @@ class HelpCommand(Command):
             "Usage: help [command...]"
 
     @override
-    def command_arguments_numbers(self):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 0,
@@ -28,7 +28,7 @@ class HelpCommand(Command):
         }
     
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         if not self.args["arguments"]["optional"]:
             command_list = COMMAND_REGISTRY.keys()
         else:
@@ -43,7 +43,7 @@ class HelpCommand(Command):
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         if self.last_arg[0] == ['arguments', 'optional']:
             incomplete_command = self.args["arguments"]["optional"][-1]
             possible_completion_list = [command for command in COMMAND_REGISTRY.keys()

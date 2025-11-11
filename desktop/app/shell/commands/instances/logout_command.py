@@ -1,21 +1,20 @@
-from .command_bases import Command
+from ..command_bases import Command, CommandArgsNumbers
 from typing import override
 
-class LoginCommand(Command):
+class LogoutCommand(Command):
     @classmethod
     @override
     def command_str(cls):
-        return "login"
+        return "logout"
     
     @classmethod
     @override
     def command_help(cls):
-        return "Login a user.\n" \
-            "Usage: login <user_id>"
+        return "logout a user.\n" \
+            "Usage: logout"
     
-    @classmethod
     @override
-    def command_arguments_numbers(cls):
+    def command_arguments_numbers(self) -> CommandArgsNumbers:
         return {
             "arguments": {
                 "required": 1,
@@ -28,12 +27,12 @@ class LoginCommand(Command):
         }
 
     @override
-    def execute(self, context, shell):
+    def execute(self, shell):
         user_id = self.args["arguments"]["required"][0]
-        context.users_manager.login(user_id)
-        self.output_signal.emit(f"Logged in as {user_id}.\n")
+        shell.current_app.user_manager.logout()
+        self.output_signal.emit(f"Logged out.\n")
         return 0
     
     @override
-    def auto_complete(self, context, shell):
+    def auto_complete(self, shell):
         return None, []
