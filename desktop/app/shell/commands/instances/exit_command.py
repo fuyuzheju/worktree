@@ -29,7 +29,7 @@ class ExitCommand(Command):
     
     @override
     def execute(self, shell):
-        sys.exit(0)
+        shell.current_app.quit()
         return 0
     
     @override

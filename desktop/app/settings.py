@@ -1,8 +1,7 @@
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QColor, QKeySequence
+from pathlib import Path
 import logging
-
-logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
     "createTrayIcon": True, 
@@ -48,7 +47,8 @@ class SettingsManager(QObject):
     def __init__(self):
         super().__init__()
         self.settings = QSettings()
-        logger.debug(f"SettingsManager initialized. File: {self.settings.fileName()}")
+        self.logger = logging.getLogger(__name__)
+        self.logger.debug(f"SettingsManager initialized. File: {self.settings.fileName()}")
 
     def get(self, key, type=None):
         if type is None:
@@ -58,7 +58,7 @@ class SettingsManager(QObject):
         return value
 
     def set(self, keys: list, values: list):
-        logger.debug(f"Setting {keys} to {values}.")
+        self.logger.debug(f"Setting {keys} to {values}.")
         assert len(keys) == len(values), "keys and values must have the same length"
         for key, value in zip(keys, values):
             self.settings.setValue(key, value)

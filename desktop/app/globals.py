@@ -10,10 +10,11 @@ if TYPE_CHECKING:
 
 class AppContext:
     def __init__(self):
-        self.settings_manager = SettingsManager()
-        self.current_app = None
+        self.settings_manager: SettingsManager = None # type: ignore
+        self.current_app: Application = None # type: ignore
     
-    def register_app(self, app: Application):
+    def setup(self, app: Application):
+        self.settings_manager = SettingsManager()
         self.current_app = app
 
 context = AppContext()

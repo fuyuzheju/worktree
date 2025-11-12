@@ -12,10 +12,7 @@ from app.shell import Shell
 from app.requester import Requester
 from app.user import UserManager
 from app.globals import context
-
 import logging
-
-logger = logging.getLogger(__name__)
 
 class MainWindow(QWidget):
 
@@ -79,6 +76,8 @@ class MainWindow(QWidget):
         self.setGeometry(300, 300, 500, 300)
 
         self.installEventFilter(self)
+
+        self.logger = logging.getLogger(__name__)
     
     def update_settings(self, keys):
         if "hotkey/saveFileHotkey" in keys:
@@ -101,10 +100,10 @@ class MainWindow(QWidget):
 
     def toggle_state(self):
         if self.isVisible():
-            logger.info("Hide window.")
+            self.logger.debug("Hide window.")
             self.to_background()
         else:
-            logger.info("Show window.")
+            self.logger.debug("Show window.")
             self.to_frontground()
 
     def closeEvent(self, a0):

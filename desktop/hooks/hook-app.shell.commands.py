@@ -2,7 +2,7 @@
 
 from PyInstaller.utils.hooks import collect_submodules
 
-hiddenimports = collect_submodules('app.shell.commands')
+hiddenimports = collect_submodules('app.shell.commands.instances')
 # print("##### HOOK #####")
 # print(hiddenimports)
 # print(collect_submodules('app.main_window.console.commands'))

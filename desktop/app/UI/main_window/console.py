@@ -4,10 +4,8 @@ from PyQt5.QtCore import Qt, QEvent
 from app.shell import Shell
 import logging
 
-logger = logging.getLogger(__name__)
 
 COMMAND_HISTORY_LENGTH = 300
-
 
 class CommandLineEdit(QLineEdit):
     """
@@ -28,6 +26,8 @@ class CommandLineEdit(QLineEdit):
         self.shell: Shell = shell
         self.textChanged.connect(self.on_changed)
         self.cursorPositionChanged.connect(self.on_changed)
+
+        self.logger = logging.getLogger(__name__)
     
     def event(self, a0): # the name `a0` is from baseclass
         event = a0

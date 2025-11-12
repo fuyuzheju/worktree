@@ -6,8 +6,6 @@ from .receiver import WebsocketReceiver
 from .sender import WebsocketSender
 import asyncio, websockets, logging
 
-logger = logging.getLogger(__name__)
-
 class NetworkConnector(QObject):
     received = pyqtSignal(dict) # forward the signal from receiver
     """
@@ -26,6 +24,8 @@ class NetworkConnector(QObject):
         self.ws_sender = None
         self.ws = None
         self.reconnect_waiting_for_solving_conflicts = None
+
+        self.logger = logging.getLogger(__name__)
     
     def start(self):
         asyncio.create_task(self.main())
@@ -36,14 +36,14 @@ class NetworkConnector(QObject):
         """ 
         while True:
             while not await self.requester.health_check():
-                logger.debug("Checking connection")
+                self.logger.debug("Checking connection")
                 await asyncio.sleep(5)
             try:
-                logger.debug("Connecting to server")
+                self.logger.debug("Connecting to server")
                 await self.connect()
             except (ConnectionRefusedError, OSError,
                     websockets.exceptions.ConnectionClosed):
-                logger.info("Websocket connection lost.")
+                self.logger.info("Websocket connection lost.")
                 if self.ws_receiver is not None:
                     await self.ws_receiver.stop()
                 if self.ws_sender is not None:
@@ -54,7 +54,7 @@ class NetworkConnector(QObject):
         if code != 0:
             return
         async with self.requester.build_websocket_connection() as ws:
-            logger.info("Websocket connection build.")
+            self.logger.info("Websocket connection build.")
             self.ws = ws
             self.ws_sender = WebsocketSender(self.database, ws)
             self.ws_receiver = WebsocketReceiver(self.database, ws)
@@ -65,7 +65,7 @@ class NetworkConnector(QObject):
             await asyncio.gather(sending, receiving, checking)
     
     async def reconnect_init(self):
-        logger.debug("Reconnect init")
+        self.logger.debug("Reconnect init")
         length = self.requester.get_length()
         if length == -1:
             return -1 
@@ -91,7 +91,7 @@ class NetworkConnector(QObject):
         if flag:
             return 0
         
-        logger.info("Difference detected, syncing with server")
+        self.logger.info("Difference detected, syncing with server")
         
         # find the latest shared operation
         M = 10 # the number of operations in a single query
@@ -150,6 +150,6 @@ class NetworkConnector(QObject):
             
             if length != (0 if head is None else head.serial_num):
                 # close connection to reconnect-init
-                logger.info("Check failed during websocket connection.")
+                self.logger.info("Check failed during websocket connection.")
                 await self.ws.close()
                 break

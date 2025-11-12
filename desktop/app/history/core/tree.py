@@ -1,6 +1,5 @@
 from enum import Enum
 import uuid
-
 from typing import Optional
 
 class Status(Enum):

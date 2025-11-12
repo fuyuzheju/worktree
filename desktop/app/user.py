@@ -2,8 +2,6 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from pathlib import Path
 import json, logging
 
-logger = logging.getLogger(__name__)
-
 LOCAL_USER = 'local'
 
 class UserManager(QObject):
@@ -18,6 +16,8 @@ class UserManager(QObject):
         self._username = data["username"]
 
         self.user_change.connect(self.refresh_data_file)
+
+        self.logger = logging.getLogger(__name__)
     
     def user_id(self):
         return self._user_id
@@ -26,13 +26,13 @@ class UserManager(QObject):
         return self._username
 
     def login(self, user_id: str, username: str):
-        logger.info(f"Login to user {username} ({user_id})")
+        self.logger.info(f"Login to user {username} ({user_id})")
         self._user_id = user_id
         self._username = username
         self.user_change.emit()
     
     def logout(self):
-        logger.info("Log out")
+        self.logger.info("Log out")
         self._user_id = LOCAL_USER
         self._username = LOCAL_USER
         self.user_change.emit()

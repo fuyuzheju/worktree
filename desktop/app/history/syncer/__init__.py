@@ -14,7 +14,6 @@ from .connector import NetworkConnector
 from typing import override
 import qasync, asyncio, logging
 
-logger = logging.getLogger(__name__)
 
 class ConnectionThread(QThread):
     def __init__(self, worker, parent=None):
@@ -47,10 +46,12 @@ class Syncer(QObject):
         self.network_connector.moveToThread(self.network_thread)
         self.network_connector.received.connect(self.on_receive)
         self.network_thread.start()
+
+        self.logger = logging.getLogger(__name__)
     
     @pyqtSlot(dict)
     def on_receive(self, data):
-        logger.info(f"Received from server: {data}")
+        self.logger.info(f"Received from server: {data}")
         if data["action"] == "update":
             operation = parse_operation(data["operation"])
             assert operation is not None

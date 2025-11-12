@@ -1,11 +1,13 @@
+from __future__ import annotations
 from typing import override
 from abc import ABC, abstractmethod, ABCMeta
 from PyQt5.QtCore import pyqtSignal, QObject
 from .utils import max_common_prefix
 import time, copy
-from .. import Shell
+from typing import TypedDict, Optional, Any, Mapping, TYPE_CHECKING
 
-from typing import TypedDict, Optional, Any, Mapping
+if TYPE_CHECKING:
+    from .. import Shell
 
 COMMAND_REGISTRY: dict[str, type["Command"]] = {} # registry table of all commands, structure: {command_str: command_class}
 

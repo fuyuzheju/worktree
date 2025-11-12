@@ -11,8 +11,6 @@ from app.globals import context
 from app.history.core import Operation, parse_operation
 import websockets, requests, aiohttp, asyncio, logging
 
-logger = logging.getLogger(__name__)
-
 class Requester(QObject):
     login_requested = pyqtSignal()
     """
@@ -33,6 +31,7 @@ class Requester(QObject):
             self.access_token = f.read()
         if self.access_token == "":
             self.user_manager.logout()
+        self.logger = logging.getLogger(__name__)
     
     def on_user_change(self):
         if self.user_manager.username() == LOCAL_USER:
@@ -54,7 +53,7 @@ class Requester(QObject):
             return False
     
     def overwrite(self, starting_serial_num: int, operations: list[Operation]):
-        logger.info("Overwriting remote history")
+        self.logger.info("Overwriting remote history")
         if self.access_token == "":
             return -1
         url = context.settings_manager.get("internal/overwriteURL")
@@ -83,7 +82,7 @@ class Requester(QObject):
             raise RuntimeError("Unknown Error")
     
     def get_length(self) -> int:
-        logger.debug("Getting length")
+        self.logger.debug("Getting length")
         if self.access_token == "":
             raise RuntimeError("Not logged in")
         
@@ -106,7 +105,7 @@ class Requester(QObject):
             raise RuntimeError(f"Unknown Error {response.status_code}")
     
     def get_operations(self, serial_nums: list[int]):
-        logger.debug(f"Getting operations by {serial_nums}")
+        self.logger.debug(f"Getting operations by {serial_nums}")
         """
         The result is always ordered by serial_num ascending
         """
@@ -143,7 +142,7 @@ class Requester(QObject):
             raise RuntimeError("Unknown Error")
 
     def get_hashcodes(self, serial_nums: list[int]):
-        logger.debug(f"Getting hashcodes by {serial_nums}")
+        self.logger.debug(f"Getting hashcodes by {serial_nums}")
         """
         The result is always ordered by serial_num ascending
         """
@@ -181,7 +180,7 @@ class Requester(QObject):
         This is not async function because it directly returns a coroutine,
         so we can use `async with` to interact with the return value
         """
-        logger.debug("Building websocket connection")
+        self.logger.debug("Building websocket connection")
         uri = context.settings_manager.get("internal/websocketURI", type=str)
         websocket_connector = WebsocketConnector(uri, self, self.user_manager)
         return websocket_connector
@@ -214,7 +213,7 @@ class Requester(QObject):
             semaphore.release()
 
     def login(self, username, password):
-        logger.debug(f"logging in {username}")
+        self.logger.debug(f"logging in {username}")
         try:
             response = requests.post(
                 context.settings_manager.get("internal/loginURL"),

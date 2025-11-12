@@ -1,13 +1,13 @@
 from __future__ import annotations
 from PyQt5.QtCore import QObject, pyqtSignal
-import logging
 from typing import Optional, TYPE_CHECKING
 from app.history.core.tree import Node
+from .commands import COMMAND_REGISTRY
+from .commands.utils import max_common_prefix
+import logging
 
 if TYPE_CHECKING:
     from app import Application
-
-logger = logging.getLogger(__name__)
 
 class Shell(QObject):
     """
@@ -25,6 +25,8 @@ class Shell(QObject):
         self.current_app = current_app
         self.pwd_node = current_app.loader.tree.root
         self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
+
+        self.logger = logging.getLogger(__name__)
     
     def to_path(self, node: Node) -> str:
         if node.parent is None:
@@ -91,8 +93,6 @@ class Shell(QObject):
         return current
 
     def path_completor(self, incomplete_path: str) -> tuple[Optional[str], list[str]]:
-        from .commands.utils import max_common_prefix
-
         idx = incomplete_path.rfind('/')
         prefix = incomplete_path[:idx+1]
         suffix = incomplete_path[idx+1:]
@@ -109,14 +109,13 @@ class Shell(QObject):
         run the command and return the output as a parameter to the callback function.
         :return: 0 for success, -1 for command error, 1 for invalid command
         """
-        from .commands import COMMAND_REGISTRY
 
         parts = command_text.split()
         if len(parts) == 0:
             self.finish_signal.emit()
             return 0
         
-        logger.debug(f"Running command: {command_text}")
+        self.logger.debug(f"Running command: {command_text}")
 
         command_str = parts[0]
         command_class = COMMAND_REGISTRY.get(command_str)
@@ -135,9 +134,6 @@ class Shell(QObject):
         return res
 
     def auto_complete(self, incomplete_command: str) -> tuple[Optional[str], list[str]]:
-        from .commands.utils import max_common_prefix
-        from .commands import COMMAND_REGISTRY
-
         if incomplete_command == '':
             return None, []
         parts = incomplete_command.split()
