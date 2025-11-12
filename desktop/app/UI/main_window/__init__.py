@@ -155,8 +155,10 @@ class MainWindow(QWidget):
         self.save_file_signal.emit(file_path)
 
     def open_file(self):
-        result = QMessageBox.information(self, 'Hint',
-                                'If you open a new file, the current save will be lost.\n Please save it.',
+        result = QMessageBox.warning(self, 'Warning',
+'If you open a new file, the current save will be lost!\n' \
+'If the opened file is damaged, the application may crash!\n' \
+'This operation is irreversible!',
                                 buttons= QMessageBox.Ok | QMessageBox.Cancel)
         if result == QMessageBox.Cancel:
             return

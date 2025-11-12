@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
+from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QMessageBox
 from PyQt5.QtGui import QIcon
 from .globals import context
 from .requester import Requester
@@ -13,7 +13,7 @@ from .reminder import ReminderService
 from .UI.main_window import MainWindow
 from .keyboard_listener import HotkeyManager
 from logging.config import dictConfig
-import logging
+import logging, shutil, zipfile, os
 
 ICON_PATH = "/Users/fubin-computer/development/worktree/desktop/assets/worktree-icon.png"
 
@@ -38,7 +38,10 @@ class Application(QApplication):
         self.shell = Shell(self)
         self.main_window = MainWindow(self.shell, self.loader, self.reminder_service, self.requester, self.user_manager)
         self.hotkey_manager = HotkeyManager(self.main_window)
+
         self.main_window.show()
+        self.main_window.save_file_signal.connect(self.save_file)
+        self.main_window.open_file_signal.connect(self.open_file)
 
         self.setup_tray_icon(self.main_window)
         if context.settings_manager.get("createTrayIcon", type=bool):
@@ -113,4 +116,28 @@ class Application(QApplication):
         import qasync # to initialize it and its loggings
         qasync_logger = logging.getLogger("qasync")
         qasync_logger.setLevel(logging.WARNING)
+    
+    def save_file(self, output_path: str):
+        if output_path.endswith('.zip'):
+            output_path = output_path[:-4]
+        shutil.make_archive(output_path, 'zip',
+                            root_dir=self.APP_ROOT / self.user_manager.user_id(),
+                            base_dir='.')
+        self.logger.debug(f"Save Tree to {output_path}")
+    
+    def open_file(self, filepath: str):
+        try:
+            with zipfile.ZipFile(filepath, 'r') as f:
+                contents = f.namelist()
 
+        except Exception as e:
+            QMessageBox.critical(None, 'Invalid File', f'Input file {filepath} is invalid\nError message: {str(e)}', QMessageBox.Ok)
+
+        storage_dir = self.APP_ROOT / self.user_manager.user_id()
+        if os.path.exists(storage_dir):
+            shutil.rmtree(storage_dir)
+        if not os.path.exists(storage_dir):
+            os.mkdir(storage_dir)
+
+        shutil.unpack_archive(filepath, extract_dir=storage_dir)
+        self.database.reload_database()
