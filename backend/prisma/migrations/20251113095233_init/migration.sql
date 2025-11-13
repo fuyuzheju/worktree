@@ -30,9 +30,6 @@ CREATE TABLE "HistoryMetadata" (
 CREATE UNIQUE INDEX "User_name_key" ON "User"("name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ConfirmedHistory_next_id_key" ON "ConfirmedHistory"("next_id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "HistoryMetadata_head_id_key" ON "HistoryMetadata"("head_id");
 
 -- CreateIndex

@@ -6,7 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
-//  output   = "../generated/prisma"
+  //  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -23,19 +23,19 @@ model User {
 }
 
 model ConfirmedHistory {
-  id           Int               @id @default(autoincrement())
+  id           Int    @id @default(autoincrement())
   serial_num   Int
   operation    String
   history_hash String
 
-  prev        ConfirmedHistory? @relation("history_link")
-  next        ConfirmedHistory? @relation("history_link", fields: [next_id], references: [id])
-  next_id     Int?             @unique // foreign key
+  prev    ConfirmedHistory[] @relation("history_link")
+  next    ConfirmedHistory?  @relation("history_link", fields: [next_id], references: [id])
+  next_id Int? // foreign key
 
-  user        User             @relation("user_history", fields: [user_id], references: [id])
-  user_id     String // foreign key
+  user    User   @relation("user_history", fields: [user_id], references: [id])
+  user_id String // foreign key
 
-  metadata    HistoryMetadata? @relation("metadata")
+  metadata HistoryMetadata? @relation("metadata")
 }
 
 model HistoryMetadata {

@@ -3,9 +3,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 from .reminder import Reminder
+from app.user import UserManager
 from app.history.core import Operation, OperationType
 from app.utils import Notification
-from app.globals import context
+from app.globals import context, ENV
 from app.shell.commands.utils import time_parser
 import logging, json, time
 
@@ -21,9 +22,18 @@ class ReminderService(QObject):
     edited = pyqtSignal()
 
     def __init__(self,
-                 data_file: Path,):
+                 user_manager: UserManager,
+                 storage_root_path: Path,
+                 filename: str,):
         super().__init__()
-        self.data_file = data_file
+        self.user_manager = user_manager
+        self.storage_root_path = storage_root_path
+        self.filename = filename
+
+        dir_path = self.storage_root_path / self.user_manager.user_id()
+        dir_path.mkdir(exist_ok=True)
+        self.data_file = self.storage_root_path / self.user_manager.user_id() / self.filename
+        self.data_file.touch(exist_ok=True)
 
         self.logger = logging.getLogger(__name__)
 
@@ -34,21 +44,34 @@ class ReminderService(QObject):
         self.start()
         self.load_reminders()
         self.edited.connect(self.store_reminders)
+        self.user_manager.user_change.connect(self.reload)
 
-        self.notifier = Notification(self.notification_callback)
-        self.notifier.request_authorization_if_needed()
-        self.notifier.add_category("reminder", [
-            {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
-            {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
-        ])
-        self.logger.info("Notification initialized")
-
+        if ENV and context.settings_manager.get("reminderNotifications"):
+            self.notifier = Notification(self.notification_callback)
+            self.notifier.request_authorization_if_needed()
+            self.notifier.add_category("reminder", [
+                {"id": DELAY_ACTION_ID, "title": "delay", "type": "text"},
+                {"id": COMPLETE_ACTION_ID, "title": "complete", "type": ""},
+            ])
+            self.logger.info("Notification initialized")
+        else:
+            self.notifier = None
+    
+    def reload(self):
+        dir_path = self.storage_root_path / self.user_manager.user_id()
+        dir_path.mkdir(exist_ok=True)
+        self.data_file = self.storage_root_path / self.user_manager.user_id() / self.filename
+        self.data_file.touch(exist_ok=True)
+        self.load_reminders()
     
     def load_reminders(self):
-        with open(self.data_file, 'r') as f:
-            data = json.load(f)
-
-        self.reminders = [Reminder.from_dict(reminder) for reminder in data]
+        try:
+            with open(self.data_file, 'r') as f:
+                data = json.load(f)
+            self.reminders = [Reminder.from_dict(reminder) for reminder in data]
+        except (json.JSONDecodeError, TypeError):
+            self.reminders = []
+            self.store_reminders()
     
     def store_reminders(self):
         self.logger.debug(f"Storing reminders.")

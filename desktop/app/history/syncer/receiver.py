@@ -24,6 +24,8 @@ class WebsocketReceiver(QObject):
             # JSONDecodeError is unexpected
             # if it occurs, let it be thrown to the top level and into error log
             self.received.emit(data)
+        
+        print("out of receiving")
     
     async def start(self):
         self.receiving_task = asyncio.create_task(self.receive())

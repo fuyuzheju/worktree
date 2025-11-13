@@ -2,7 +2,7 @@ from PyQt5.QtCore import QStandardPaths
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction, QMessageBox
 from PyQt5.QtGui import QIcon
-from .globals import context
+from .globals import context, ENV
 from .requester import Requester
 from .user import UserManager
 from .history.database import Database
@@ -24,17 +24,26 @@ class Application(QApplication):
         self.setApplicationName("worktree")
         self.setOrganizationName("fuyuzheju")
         self.setOrganizationDomain("fuyuzheju.com")
-        self.APP_ROOT = Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation))
+        if ENV:
+            self.APP_ROOT = Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation))
+        else:
+            self.APP_ROOT = Path("./tmp/")
+        self.APP_ROOT.mkdir(exist_ok=True)
+        (self.APP_ROOT / "log").mkdir(exist_ok=True)
+        (self.APP_ROOT / "requester_datafile.txt").touch(exist_ok=True)
+        (self.APP_ROOT / "user_datafile.txt").touch(exist_ok=True)
+        (self.APP_ROOT / "reminder.txt").touch(exist_ok=True)
+
         self.setup_logging(self.APP_ROOT / "log")
         context.setup(self)
         self.logger = logging.getLogger(__name__)
 
         self.user_manager = UserManager(self.APP_ROOT / "user_datafile.txt")
         self.requester = Requester(self.user_manager, self.APP_ROOT / "requester_datafile.txt")
-        self.database = Database(self.user_manager, self.APP_ROOT)
+        self.database = Database(self.user_manager, self.APP_ROOT, "storage.db")
         self.syncer = Syncer(self.database, self.requester)
         self.loader = TreeLoader(self.database, self.requester)
-        self.reminder_service = ReminderService(self.APP_ROOT / "reminder.txt")
+        self.reminder_service = ReminderService(self.user_manager, self.APP_ROOT, "reminder.txt")
         self.shell = Shell(self)
         self.main_window = MainWindow(self.shell, self.loader, self.reminder_service, self.requester, self.user_manager)
         self.hotkey_manager = HotkeyManager(self.main_window)

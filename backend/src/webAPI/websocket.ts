@@ -5,17 +5,19 @@ import type { TreeLoader } from "../loader.js";
 import { parseOperation } from "../data/utils.js";
 import type { Operation, OperationType } from "../data/core.js";
 import type HistoryManager from "../history.js";
-import { JWTPayloadSchema } from "./_shared.js";
+import { AsyncLock, JWTPayloadSchema } from "./_shared.js";
 import jwt from "jsonwebtoken";
+
+// every room contains all connections from a single user
+export const rooms = new Map<string, Set<WebSocket>>();
 
 export default function createWebsocketRouter(
         wssInstance: expressWs.Instance,
         treeLoader: TreeLoader,
         historyManager: HistoryManager,
+        historyLock: AsyncLock,
 ) {
     const getWss = wssInstance.getWss;
-    // every room contains all connections from a single user
-    const rooms = new Map<string, Set<WebSocket>>();
 
     const wsAuthMiddleware = (ws: WebSocket, req: Request, next: NextFunction) => {
         try {
@@ -40,20 +42,23 @@ export default function createWebsocketRouter(
         }
     }
 
-    function websocketHandle(ws: WebSocket, req: Request) {
-        console.log("### On connection");
+    async function websocketHandler(ws: WebSocket, req: Request) {
+        console.log("on connection");
         if (!req.user) {
-            throw new Error("Auth passed, but no field 'user' found.");
+            console.log(req);
             ws.close();
+            throw new Error("Auth passed, but no field 'user' found.");
         }
         if (!rooms.get(req.user.user_id)) {
             // setup user
             rooms.set(req.user.user_id, new Set<WebSocket>());
-            treeLoader.reload(req.user.user_id);
+            await treeLoader.reload(req.user.user_id);
         }
         rooms.get(req.user.user_id)!.add(ws);
 
         async function onMessage(msg: string) {
+            // console.log(`on message: ${msg}`);
+            await historyLock.acquire(req.user!.user_id);
             let operation: Operation<OperationType> | null;
             let headSerialNum: number;
             try {
@@ -64,8 +69,10 @@ export default function createWebsocketRouter(
                 if (data.action === "update") {
                     if (!data.operation) throw new Error("Missing fields.");
                     headSerialNum = (await historyManager.getHeadNode(req.user!.user_id))?.serial_num ?? 0;
-                    if (headSerialNum+1 !== data.expected_serial_num)
+                    if (headSerialNum+1 !== data.expected_serial_num) {
+                        historyLock.release(req.user!.user_id);
                         return; // maybe repetitive reception of the same operation
+                    }
 
                     operation = parseOperation(data.operation);
                 }
@@ -74,15 +81,22 @@ export default function createWebsocketRouter(
                 if (!(error instanceof Error)) throw error;
                 // directly drop the request
                 ws.send(JSON.stringify({"action": "error", "message": error.message}))
+                console.log(error.message);
+                historyLock.release(req.user!.user_id);
                 return;
             }
 
-            if (operation === null) throw new Error("Invalid operation");
+            if (operation === null) {
+                console.error("Invalid operation");
+                historyLock.release(req.user!.user_id);
+                return;
+            }
 
             // now we get a valid operation
             const code = treeLoader.pushOperation(operation, req.user!.user_id);
             if (code !== 0) {
                 ws.send(JSON.stringify({"action": "error", "message": "Operation failed."}));
+                historyLock.release(req.user!.user_id);
                 return;
             }
 
@@ -91,7 +105,11 @@ export default function createWebsocketRouter(
             if (res === null) throw new Error("Failed to store operation.");
             // broadcast
             const room = rooms.get(req.user?.user_id ?? "");
-            if (!room) throw new Error();
+            if (!room) {
+                console.log(rooms);
+                console.log(req.user?.user_id);
+                throw new Error();
+            }
             room.forEach(client => {
                 client.send(JSON.stringify({
                     "action": "update",
@@ -99,10 +117,11 @@ export default function createWebsocketRouter(
                     "serial_num": headSerialNum + 1,
                 }));
             });
+            historyLock.release(req.user!.user_id);
         }
 
         function onClose() {
-            console.log("onclose");
+            console.log("on close");
             const room = rooms.get(req.user?.user_id ?? "");
             if (!room) throw new Error();
             room.delete(ws);
@@ -120,6 +139,6 @@ export default function createWebsocketRouter(
 
     const websocketRouter = Router();
     wssInstance.applyTo(websocketRouter); // ensure this router to have `ws` method
-    websocketRouter.ws("", wsAuthMiddleware, websocketHandle);
+    websocketRouter.ws("", wsAuthMiddleware, websocketHandler);
     return websocketRouter;
 }

@@ -43,11 +43,13 @@ class NetworkConnector(QObject):
                 await self.connect()
             except (ConnectionRefusedError, OSError,
                     websockets.exceptions.ConnectionClosed):
-                self.logger.info("Websocket connection lost.")
-                if self.ws_receiver is not None:
-                    await self.ws_receiver.stop()
-                if self.ws_sender is not None:
-                    await self.ws_sender.stop()
+                pass
+            self.logger.info("Websocket connection lost.")
+            if self.ws_receiver is not None:
+                await self.ws_receiver.stop()
+            if self.ws_sender is not None:
+                await self.ws_sender.stop()
+            self.checking.cancel()
 
     async def connect(self):
         code = await self.reconnect_init()
@@ -59,10 +61,11 @@ class NetworkConnector(QObject):
             self.ws_sender = WebsocketSender(self.database, ws)
             self.ws_receiver = WebsocketReceiver(self.database, ws)
             self.ws_receiver.received.connect(self.received.emit)
-            sending = asyncio.create_task(self.ws_sender.start())
-            receiving = asyncio.create_task(self.ws_receiver.start())
-            checking = asyncio.create_task(self.check())
-            await asyncio.gather(sending, receiving, checking)
+            self.sending = asyncio.create_task(self.ws_sender.start())
+            self.receiving = asyncio.create_task(self.ws_receiver.start())
+            self.checking = asyncio.create_task(self.check())
+            await asyncio.wait([self.sending, self.receiving, self.checking],
+                               return_when=asyncio.FIRST_COMPLETED)
     
     async def reconnect_init(self):
         self.logger.debug("Reconnect init")
@@ -144,7 +147,7 @@ class NetworkConnector(QObject):
         we need to check synchronization continuously
         """
         while self.ws is not None:
-            await asyncio.sleep(60)
+            print("checking")
             head = self.database.confirmed_history.get_head()
             length = self.requester.get_length()
             
@@ -152,4 +155,9 @@ class NetworkConnector(QObject):
                 # close connection to reconnect-init
                 self.logger.info("Check failed during websocket connection.")
                 await self.ws.close()
+                assert self.ws_sender is not None and self.ws_receiver is not None
+                await self.ws_sender.stop()
+                await self.ws_receiver.stop()
+                self.logger.debug("Connection closed")
                 break
+            await asyncio.sleep(60)

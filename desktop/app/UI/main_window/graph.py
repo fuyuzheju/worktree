@@ -6,6 +6,7 @@ from app.history.loader import TreeLoader
 from app.reminder import ReminderService
 from app.UI.reminders_window import SetReminderDialog
 from app.history.core import Node, Status
+from app.shell import Shell
 from app.globals import context
 
 class GraphicsNodeItem(QGraphicsObject):
@@ -149,11 +150,13 @@ class TreeGraphWidget(QWidget):
     def __init__(self,
                  loader: TreeLoader,
                  reminder_service: ReminderService,
+                 shell: Shell,
                  parent=None):
         super().__init__(parent)
 
         self.loader = loader
         self.reminder_service = reminder_service
+        self.shell = shell
 
         self.setWindowTitle("Tree Graph View")
         self.setGeometry(100, 100, 800, 700)
@@ -194,6 +197,7 @@ class TreeGraphWidget(QWidget):
         H_SPACING = context.settings_manager.get("graph/nodeHSpacing", type=float)
         V_SPACING = context.settings_manager.get("graph/nodeVSpacing", type=float)
 
+        self.hightlight_node = self.shell.pwd_node
         # NODE_HEIGHT = context.settings_manager.get("graph/nodeHeight", type=float)
         self.scene.clear()
 
@@ -247,10 +251,6 @@ class TreeGraphWidget(QWidget):
         node = graghnode.data_node
         dialog = SetReminderDialog(node, self.reminder_service, None)
         dialog.exec_()
-        self.relayout_tree()
-    
-    def set_highlight_node(self, node):
-        self.hightlight_node = node
         self.relayout_tree()
 
 def calculate_node_boundary(text: str) -> tuple[float,float] :

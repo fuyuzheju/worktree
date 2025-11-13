@@ -27,10 +27,11 @@ class TreeLoader(QObject):
         
         self.database = database
         self.requester = requester
-        self.reload()
-        self.database.updated.connect(self.reload)
 
         self.logger = logging.getLogger(__name__)
+
+        self.reload()
+        self.database.updated.connect(self.reload)
     
     def reload(self):
         self.tree = Tree()
@@ -57,13 +58,15 @@ class TreeLoader(QObject):
                 # conflict
                 self.logger.info("Conflict occured.")
                 self.process_conflict(op)
-                break
+                return
         
-        # conflicts solved
-        self.reloaded.emit()
+        # no conflict
         semaphore = context.current_app.syncer.network_connector.reconnect_waiting_for_solving_conflicts # type: ignore
         if semaphore is not None:
             semaphore.release()
+        self.reloaded.emit()
+        head = self.database.confirmed_history.get_head() 
+        self.database.pending_queue.set_starting_serial(1 if head is None else head.serial_num + 1)
     
     def check(self, operation: Operation):
         """
@@ -154,8 +157,14 @@ Which solution do you prefer?
             # overwrite
             assert self.database.pending_queue.metadata is not None
             pending = [parse_operation(node.operation) for node in self.database.pending_queue.get_all()]
+            starting_serial = self.database.pending_queue.metadata.starting_serial_num
             self.requester.overwrite(
-                starting_serial_num=self.database.pending_queue.metadata.starting_serial_num,
+                starting_serial_num=starting_serial,
+                operations=cast(list[Operation], pending),
+            )
+            self.database.pending_queue.clear()
+            self.database.confirmed_history.overwrite(
+                starting_serial_num=starting_serial,
                 operations=cast(list[Operation], pending),
             )
             self.logger.info("Conflict resolve: overwrite.")

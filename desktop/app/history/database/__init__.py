@@ -29,7 +29,8 @@ class Database(QObject):
     """
     def __init__(self,
                  user_manager: UserManager,
-                 storage_root_path: Path,):
+                 storage_root_path: Path,
+                 filename: str):
         '''
         @param storage_root_path: the root directory of data storage,
             in which a separated directory is created for each user,
@@ -39,13 +40,14 @@ class Database(QObject):
 
         self.user_manager = user_manager
         self.storage_root_path = storage_root_path
+        self.filename = filename
         self.user_manager.user_change.connect(self.reload_database)
 
         self.logger = logging.getLogger(__name__)
 
         db_dir: Path = self.storage_root_path / self.user_manager.user_id()
         db_dir.mkdir(exist_ok=True)
-        db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
+        db_path: Path = self.storage_root_path / self.user_manager.user_id() / self.filename
         db_path.touch(exist_ok=True)
         db_url = f"sqlite:///" + str(db_path)
         self.logger.debug(f"Loading database at {db_url}")
@@ -64,7 +66,7 @@ class Database(QObject):
         
         db_dir: Path = self.storage_root_path / self.user_manager.user_id()
         db_dir.mkdir(exist_ok=True)
-        db_path: Path = self.storage_root_path / self.user_manager.user_id() / "storage.db"
+        db_path: Path = self.storage_root_path / self.user_manager.user_id() / self.filename
         db_path.touch(exist_ok=True)
         db_url = f"sqlite:///" + str(db_path)
         self.logger.debug(f"Reloading database at {db_url}")

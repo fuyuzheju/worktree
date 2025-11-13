@@ -1,4 +1,3 @@
-import { time } from "console";
 import type { OperationType } from "./core.js";
 import { Operation, TreeOperationPayloadSchemas } from "./core.js";
 

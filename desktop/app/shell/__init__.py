@@ -25,8 +25,16 @@ class Shell(QObject):
         self.current_app = current_app
         self.pwd_node = current_app.loader.tree.root
         self.post_command_signal.emit(self.pwd_node) # to tell TreeGraphWidget to repaint
+        def f():
+            self.pwd = '/'
+        self.current_app.user_manager.user_change.connect(f)
+        self.current_app.loader.reloaded.connect(self.reload_pwd)
 
         self.logger = logging.getLogger(__name__)
+    
+    def reload_pwd(self):
+        self.pwd_node = self.path_parser(self.pwd)
+        self.current_app.main_window.tree_graph_widget.relayout_tree()
     
     def to_path(self, node: Node) -> str:
         if node.parent is None:

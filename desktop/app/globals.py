@@ -19,3 +19,5 @@ class AppContext:
 
 context = AppContext()
 
+ENV = 0
+# 0 for development, 1 for production

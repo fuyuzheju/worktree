@@ -287,8 +287,6 @@ class CommandGroup(Command):
 
     """
 
-    _subcommands: dict[str, type[Subcommand]] = {}
-
     def __init__(self, *args: str):
         self.subcommand: Optional[Subcommand] = None
         self.ca_num: CommandArgsNumbers = {
@@ -305,6 +303,11 @@ class CommandGroup(Command):
         if self.subcommand is not None:
             self.ca_num = self.subcommand.command_arguments_numbers()
             self.ca_num['arguments']['required'] += 1
+    
+    @override
+    def __init_subclass__(cls) -> None:
+        cls._subcommands: dict[str, type[Subcommand]] = {}
+        return super().__init_subclass__()
 
     @override
     def command_arguments_numbers(self) -> CommandArgsNumbers:

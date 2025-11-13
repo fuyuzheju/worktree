@@ -46,7 +46,11 @@ class SettingsManager(QObject):
     settings_changed = pyqtSignal(list)
     def __init__(self):
         super().__init__()
-        self.settings = QSettings()
+        from app.globals import ENV
+        if ENV:
+            self.settings = QSettings()
+        else:
+            self.settings = QSettings("./config.ini", QSettings.Format.IniFormat)
         self.logger = logging.getLogger(__name__)
         self.logger.debug(f"SettingsManager initialized. File: {self.settings.fileName()}")
 

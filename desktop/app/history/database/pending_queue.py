@@ -23,7 +23,7 @@ class PendingQueue(QObject):
         self.metadata = self.session.query(PendingQueueMetadata).first()
         if self.metadata is None:
             self.metadata = PendingQueueMetadata(
-                head_id=1, tail_id=1, starting_serial_num=0
+                head_id=1, tail_id=1, starting_serial_num=1
             )
             self.session.add(self.metadata)
             self.session.commit()

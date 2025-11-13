@@ -20,6 +20,7 @@ class WebsocketSender(QObject):
     
     async def send(self):
         while True:
+            print("sending")
             head = self.database.pending_queue.get_head()
             assert self.database.pending_queue.metadata is not None
             chead = self.database.confirmed_history.get_head()

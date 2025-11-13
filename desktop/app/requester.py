@@ -79,11 +79,13 @@ class Requester(QObject):
             self.login_requested.emit() # thread-safely call a login
             return -1
         else:
+            self.logger.error(f"status_code: {response.status_code}")
             raise RuntimeError("Unknown Error")
     
     def get_length(self) -> int:
         self.logger.debug("Getting length")
         if self.access_token == "":
+            self.logger.error(f"user_id: {self.user_manager.user_id()}")
             raise RuntimeError("Not logged in")
         
         url = context.settings_manager.get("internal/getLengthURL")
@@ -102,7 +104,8 @@ class Requester(QObject):
             self.login_requested.emit() # thread-safely call a login
             return -1
         else:
-            raise RuntimeError(f"Unknown Error {response.status_code}")
+            self.logger.error(f"status_code: {response.status_code}")
+            raise RuntimeError(f"Unknown Error")
     
     def get_operations(self, serial_nums: list[int]):
         self.logger.debug(f"Getting operations by {serial_nums}")
@@ -110,6 +113,7 @@ class Requester(QObject):
         The result is always ordered by serial_num ascending
         """
         if self.access_token == "":
+            self.logger.error(f"user_id: {self.user_manager.user_id()}")
             raise RuntimeError("Not logged in")
         
         url = context.settings_manager.get("internal/getOperationsURL")
@@ -139,6 +143,7 @@ class Requester(QObject):
             self.login_requested.emit() # thread-safely call a login
             return None
         else:
+            self.logger.error(f"status_code: {response.status_code}")
             raise RuntimeError("Unknown Error")
 
     def get_hashcodes(self, serial_nums: list[int]):
@@ -147,6 +152,7 @@ class Requester(QObject):
         The result is always ordered by serial_num ascending
         """
         if self.access_token == "":
+            self.logger.error(f"user_id: {self.user_manager.user_id()}")
             raise RuntimeError("Not logged in")
         
         url = context.settings_manager.get("internal/getHashcodesURL")
@@ -171,6 +177,7 @@ class Requester(QObject):
             self.login_requested.emit() # thread-safely call a login
             return None
         else:
+            self.logger.error(f"status_code: {response.status_code}")
             raise RuntimeError("Unknown Error")
 
     def build_websocket_connection(self):

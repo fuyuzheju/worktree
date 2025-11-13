@@ -35,10 +35,13 @@ class ConfirmedHistory(QObject):
         return node
     
     def get_by_serial_num(self, serial_num: int):
-        query = select(ConfirmedOperationNode).\
-                where(ConfirmedOperationNode.serial_num==serial_num)
-        node = self.session.scalars(query).first()
-        return node
+        head = self.get_head()
+        while head is not None:
+            if head.serial_num == serial_num:
+                return head
+            head = self.get_by_id(head.next_id)
+        
+        return None
 
     def get_head(self):
         assert self.metadata is not None

@@ -6,22 +6,23 @@ import createProtectedRouter from './webAPI/protected.js';
 import createWebsocketRouter from './webAPI/websocket.js';
 import HistoryManager from './history.js';
 import { TreeLoader } from './loader.js';
+import { AsyncLock } from './webAPI/_shared.js';
 
 function createApp() {
     const instance = expressWs(express());
     const {app, getWss} = instance;
 
     const testMW = (req: Request, res: Response, next: NextFunction) => {
-        console.log("### Request ###");
-        console.log(req.url);
+        console.log(`### Request ###: ${req.url}`);
         next();
     }
 
+    const treeLock = new AsyncLock();
     const historyManager = new HistoryManager();
-    const treeLoader = new TreeLoader(historyManager);
+    const treeLoader = new TreeLoader(historyManager, treeLock);
     const publicRouter = createPublicRouter();
-    const protectedRouter = createProtectedRouter(historyManager);
-    const websocketRouter = createWebsocketRouter(instance, treeLoader, historyManager);
+    const protectedRouter = createProtectedRouter(historyManager, treeLoader, treeLock);
+    const websocketRouter = createWebsocketRouter(instance, treeLoader, historyManager, treeLock);
 
     const jsonMiddleware = express.json();
     app.use(testMW);
