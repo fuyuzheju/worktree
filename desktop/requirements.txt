@@ -1,3 +1,10 @@
-AppKit==0.2.8 ; sys_platform == 'darwin'
-pynput==1.8.1
+pyobjc ; sys_platform == 'darwin'
+git+https://github.com/fuyuzheju/pynput.git@ca3dcb1#egg=pynput
 PyQt5==5.15.11
+websockets
+pydantic
+sqlalchemy
+requests
+aiohttp
+qasync
+python-dateutil

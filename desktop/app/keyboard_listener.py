@@ -62,7 +62,7 @@ class HotkeyManager(QObject):
         else:
             self.global_hotkey_listener = None
             self.logger.warning('Global hotkey listener was not created due to empty hotkey settings.')
-    
+
     def check_and_restart(self):
         if self.global_hotkey_listener:
             if not self.global_hotkey_listener.running:

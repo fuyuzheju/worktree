@@ -28,7 +28,7 @@ class Application(QApplication):
             self.APP_ROOT = Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation))
         else:
             self.APP_ROOT = Path("./tmp/")
-        self.APP_ROOT.mkdir(exist_ok=True)
+        self.APP_ROOT.mkdir(exist_ok=True, parents=True)
         (self.APP_ROOT / "log").mkdir(exist_ok=True)
         (self.APP_ROOT / "requester_datafile.txt").touch(exist_ok=True)
         (self.APP_ROOT / "user_datafile.txt").touch(exist_ok=True)
