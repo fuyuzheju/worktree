@@ -1,8 +1,6 @@
 from typing import Optional, Callable
 import logging, sys, asyncio
 
-self.logger = logging.getself.logger(__name__)
-
 def set_app_state(active):
     return
 
@@ -83,6 +81,8 @@ class Notification:
         self.xml_text = ''
         self.input_xml = ''
         self.action_xml = ''
+
+        self.logger = logging.getLogger(__name__)
 
     def request_authorization_if_needed(self):
         return
