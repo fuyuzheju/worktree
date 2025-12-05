@@ -1,5 +1,5 @@
 pyobjc ; sys_platform == 'darwin'
-git+https://github.com/fuyuzheju/pynput.git@ca3dcb1#egg=pynput
+git+https://github.com/fuyuzheju/pynput.git@9df8f3b#egg=pynput
 PyQt5==5.15.11
 websockets
 pydantic

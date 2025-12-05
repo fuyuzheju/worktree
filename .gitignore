@@ -37,3 +37,7 @@ yarn-error.log
 yarn-debug.log
 generated/
 *.db
+
+# --- cli ---
+target/
+

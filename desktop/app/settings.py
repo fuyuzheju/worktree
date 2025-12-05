@@ -1,6 +1,5 @@
 from PyQt5.QtCore import QSettings, Qt, pyqtSignal, QObject
 from PyQt5.QtGui import QColor, QKeySequence
-from pathlib import Path
 import logging
 
 DEFAULT_SETTINGS = {
