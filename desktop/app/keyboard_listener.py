@@ -25,10 +25,10 @@ class HotkeyManager(QObject):
         context.settings_manager.settings_changed.connect(self.update_settings)
         self.global_listen()
 
-        self.check_timer = QTimer(self)
-        self.check_timer.setInterval(5000)
-        self.check_timer.timeout.connect(self.check_and_restart)
-        self.check_timer.start()
+        # self.check_timer = QTimer(self)
+        # self.check_timer.setInterval(5000)
+        # self.check_timer.timeout.connect(self.check_and_restart)
+        # self.check_timer.start()
     
     def update_settings(self, keys):
         if not "hotkey/mainWindowHotkey" in keys:
@@ -63,14 +63,14 @@ class HotkeyManager(QObject):
             self.global_hotkey_listener = None
             self.logger.warning('Global hotkey listener was not created due to empty hotkey settings.')
 
-    def check_and_restart(self):
-        if self.global_hotkey_listener:
-            if not self.global_hotkey_listener.running:
-                self.logger.warning("Global hotkey listener is not running, trying to restart.")
-                self.global_hotkey_listener.start()
-            if not self.global_hotkey_listener.is_alive():
-                self.logger.warning("Global hotkey listener thread is not alive, trying to recreate.")
-                self.global_listen()
+    # def check_and_restart(self):
+    #     if self.global_hotkey_listener:
+    #         if not self.global_hotkey_listener.running:
+    #             self.logger.warning("Global hotkey listener is not running, trying to restart.")
+    #             self.global_hotkey_listener.start()
+    #         if not self.global_hotkey_listener.is_alive():
+    #             self.logger.warning("Global hotkey listener thread is not alive, trying to recreate.")
+    #             self.global_listen()
     
     def cleanup(self):
         if not self.global_hotkey_listener:

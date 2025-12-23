@@ -36,7 +36,7 @@ class NetworkConnector(QObject):
         """ 
         while True:
             while not await self.requester.health_check():
-                self.logger.debug("Checking connection")
+                # self.logger.debug("Checking connection")
                 await asyncio.sleep(5)
             try:
                 self.logger.debug("Connecting to server")
