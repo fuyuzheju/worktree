@@ -1,0 +1,54 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 2rem;
+}
+
+header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.node-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.completed .name {
+  text-decoration: line-through;
+  color: #888;
+}
+
+ul.tree,
+ul.reminders {
+  list-style: none;
+}
+
+ul.tree {
+  padding-left: 1.25rem;
+}
+
+.weight {
+  color: #888;
+  font-size: 0.8rem;
+}
+
+.state.online {
+  color: green;
+}
+
+.state.offline {
+  color: red;
+}
+
+.conflict {
+  border: 1px solid red;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.conflict-branches {
+  display: flex;
+  gap: 2rem;
+}

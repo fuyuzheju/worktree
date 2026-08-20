@@ -1,0 +1,17 @@
+{
+  "name": "worktree",
+  "private": true,
+  "workspaces": [
+    "core",
+    "server",
+    "client",
+    "frontend"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "dev:server": "npm run dev --workspace @worktree/server",
+    "dev:frontend": "npm run dev --workspace @worktree/frontend"
+  }
+}

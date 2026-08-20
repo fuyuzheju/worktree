@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// One row per confirmed history operation. `id` is the server insertion
+// order (the cursor target); `opId` is the client-generated UUID.
+model HistoryNode {
+  id         Int      @id @default(autoincrement())
+  opId       String   @unique
+  parentOpId String?
+  op         Json
+  createdAt  DateTime @default(now())
+}
+
+// Small key-value store for server bookkeeping (e.g. current head opId).
+model Meta {
+  key   String @id
+  value String
+}
