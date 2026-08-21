@@ -88,7 +88,7 @@ export function resolveRef(root: Node, ref: string, cwd?: Node): Node {
   throw new Error(`unknown node reference: ${ref}`);
 }
 
-function resolvePath(root: Node, base: Node, path: string): Node {
+export function resolvePath(root: Node, base: Node, path: string): Node {
   const parents = buildParentMap(root);
   const segments = path.split('/').filter((s) => s !== '' && s !== '.');
   let cur = path.startsWith('/') ? root : base;
