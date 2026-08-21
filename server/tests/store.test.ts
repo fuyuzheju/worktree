@@ -116,7 +116,7 @@ const { prismaMock, resetDb } = vi.hoisted(() => {
 
 vi.mock('../src/db', () => ({ prisma: prismaMock }));
 
-import { BaseMismatchError, DuplicateOpError, HeadUndoError, HistoryStore } from '../src/store';
+import { BaseMismatchError, DuplicateOpError, HeadUndoError, HistoryStore, ValidationError } from '../src/store';
 
 const op = (id: string): TreeOperation => ({ kind: 'add', parentId: ROOT_ID, id, name: id, weight: 1 });
 const node = (id: string): { id: string; op: TreeOperation } => ({ id, op: op(id) });
@@ -155,6 +155,20 @@ describe('HistoryStore', () => {
       ]),
     ).rejects.toBeInstanceOf(DuplicateOpError);
     // the batch rolled back: h2 must not have been appended
+    expect((await store.all()).map((n) => n.id)).toEqual(['h1']);
+    expect(store.getTree().getNode('b')).toBeUndefined();
+  });
+
+  it('rejects a sibling name collision atomically with ValidationError', async () => {
+    const store = new HistoryStore();
+    await store.appendBatch([{ kind: 'add', id: 'h1', op: op('a') }]);
+    await expect(
+      store.appendBatch([
+        { kind: 'add', id: 'h2', op: op('b') },
+        { kind: 'add', id: 'h3', op: { kind: 'add', parentId: ROOT_ID, id: 'b2', name: 'b', weight: 2 } },
+      ]),
+    ).rejects.toBeInstanceOf(ValidationError);
+    // nothing of the batch was appended
     expect((await store.all()).map((n) => n.id)).toEqual(['h1']);
     expect(store.getTree().getNode('b')).toBeUndefined();
   });

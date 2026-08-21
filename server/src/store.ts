@@ -2,6 +2,7 @@ import { Tree } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, TreeOperation } from '@worktree/core';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
+import { validateOps } from './validation';
 
 const HEAD_KEY = 'head';
 
@@ -28,6 +29,15 @@ export class HeadUndoError extends Error {
     public headId: string | null,
   ) {
     super(`can only undo the head ${headId}, got ${id}`);
+  }
+}
+
+export class ValidationError extends Error {
+  constructor(
+    public opId: string,
+    public reason: string,
+  ) {
+    super(`op ${opId} is invalid: ${reason}`);
   }
 }
 
@@ -67,9 +77,26 @@ export class HistoryStore {
    * Append a batch atomically. Duplicate ids with the same op are skipped
    * (idempotent retry); a duplicate id with a different op is rejected.
    * `remove` undoes the current head.
+   * Validation runs inside the exclusive section so validate → append is
+   * atomic even under concurrent requests.
    */
   async appendBatch(ops: HistoryOperation[]): Promise<AppendResult> {
     return this.exclusive(async () => {
+      // Idempotent retry: ops whose ids are already in the history are skipped
+      // (same op) or rejected (different op) before anything is validated.
+      const existingIds = new Set<string>();
+      for (const op of ops) {
+        if (op.kind === 'remove') continue;
+        const existing = await prisma.historyNode.findUnique({ where: { opId: op.id } });
+        if (!existing) continue;
+        if (JSON.stringify(existing.op) !== JSON.stringify(op.op)) throw new DuplicateOpError(op.id);
+        existingIds.add(op.id);
+      }
+      const validation = validateOps(
+        ops.filter((op) => op.kind === 'remove' || !existingIds.has(op.id)),
+        this.tree,
+      );
+      if (!validation.ok) throw new ValidationError(validation.opId, validation.reason);
       const added: HistoryNode[] = [];
       const removed: string[] = [];
       await prisma.$transaction(async (tx) => {

@@ -5,13 +5,13 @@
     "core",
     "server",
     "client",
-    "frontend"
+    "frontend/cli"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "dev:server": "npm run dev --workspace @worktree/server",
-    "dev:frontend": "npm run dev --workspace @worktree/frontend"
+    "cli": "npm run cli --workspace @worktree/cli"
   }
 }

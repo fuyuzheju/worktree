@@ -14,6 +14,7 @@ export class ServerSocket {
   private ws: WebSocket | null = null;
   private closedByUser = false;
   private reconnectDelay = 1000;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private url: string,
@@ -27,6 +28,10 @@ export class ServerSocket {
 
   close(): void {
     this.closedByUser = true;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.ws?.close();
     this.ws = null;
   }
@@ -58,7 +63,7 @@ export class ServerSocket {
       this.ws = null;
       this.handlers.onClose();
       if (!this.closedByUser) {
-        setTimeout(() => this.open(), this.reconnectDelay);
+        this.reconnectTimer = setTimeout(() => this.open(), this.reconnectDelay);
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30_000);
       }
     };

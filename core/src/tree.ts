@@ -45,6 +45,8 @@ export class Tree {
       case 'add': {
         const parent = this.mustGet(op.parentId);
         if (this.index.has(op.id)) throw new Error(`duplicate node id: ${op.id}`);
+        this.validateName(op.name);
+        this.ensureUniqueSiblingName(parent, op.name);
         const node: Node = { id: op.id, name: op.name, weight: op.weight, children: [], reminders: [], status: false };
         parent.children.push(node);
         this.sortChildren(parent);
@@ -55,13 +57,19 @@ export class Tree {
       case 'remove':
         this.removeSubtree(op.id);
         break;
-      case 'rename':
-        this.mustGet(op.id).name = op.name;
+      case 'rename': {
+        const node = this.mustGet(op.id);
+        this.validateName(op.name);
+        const parentId = this.parents.get(op.id);
+        if (parentId !== undefined) this.ensureUniqueSiblingName(this.mustGet(parentId), op.name, op.id);
+        node.name = op.name;
         break;
+      }
       case 'move': {
         const parent = this.mustGet(op.parentId);
         const node = this.mustGet(op.id);
         if (this.isAncestor(node.id, op.parentId)) throw new Error('cannot move a node into its own subtree');
+        this.ensureUniqueSiblingName(parent, node.name, node.id);
         const oldParent = this.mustGet(this.parents.get(op.id)!);
         oldParent.children = oldParent.children.filter((c) => c.id !== op.id);
         node.weight = op.weight;
@@ -74,9 +82,12 @@ export class Tree {
         const parent = this.mustGet(op.parentId);
         const src = this.mustGet(op.id);
         if (this.index.has(op.newId)) throw new Error(`duplicate node id: ${op.newId}`);
+        const name = op.name ?? src.name;
+        this.validateName(name);
+        this.ensureUniqueSiblingName(parent, name);
         const clone: Node = {
           id: op.newId,
-          name: src.name,
+          name,
           weight: op.weight,
           children: [],
           // Derived reminder ids keep replay deterministic and avoid
@@ -151,6 +162,18 @@ export class Tree {
   /** Sibling order: ascending (weight, id) — deterministic across replays. */
   private sortChildren(parent: Node): void {
     parent.children.sort((a, b) => a.weight - b.weight || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  }
+
+  private validateName(name: string): void {
+    if (name === '') throw new Error('node name must not be empty');
+    if (name.includes('/')) throw new Error(`node name must not contain "/": ${name}`);
+  }
+
+  /** Sibling names are unique within a parent; `excludeId` exempts the node itself (rename/move). */
+  private ensureUniqueSiblingName(parent: Node, name: string, excludeId?: string): void {
+    if (parent.children.some((c) => c.id !== excludeId && c.name === name)) {
+      throw new Error(`duplicate sibling name: ${name}`);
+    }
   }
 
   /** Whether `ancestorId` is an ancestor of `id`. */

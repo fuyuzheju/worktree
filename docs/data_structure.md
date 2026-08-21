@@ -7,20 +7,21 @@ active: boolean,
 
 Node:
 id: string,
-name: string,
+name: string, (non-empty, must not contain '/')
 weight: number,
 children: Set[Node],
 reminders: Reminder[],
 status: boolean, (true for completed, false for uncompleted)
 
 sibling order: ascending (weight, id). weight may collide; id breaks ties, so replay is deterministic.
+sibling names: unique within a parent — names are the path segments clients address nodes by.
 
 TreeOperation:
 add(id, new_name, new_id, weight) | 
 remove(id) | 
 rename(id, new_name) | 
 move(id, new_parent_id, new_weight) | 
-copy(id, new_parent_id, new_id, new_weight) | 
+copy(id, new_parent_id, new_id, new_weight[, new_name]) | 
 complete(id) | 
 uncomplete(id) | 
 add_reminder(id, rmd_id, rmd_name, deadline, repeat) | 
@@ -32,7 +33,7 @@ edit_reminder(rmd_id, patch: {
   active?: boolean,
 })
 
-copy is shallow: copies name, status and reminders, not children.
+copy is shallow: copies name, status and reminders, not children. new_name defaults to the source's name.
 
 HistoryNode: {id: string, op: TreeOperation}   // id = op UUID, unique
 

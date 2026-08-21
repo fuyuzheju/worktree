@@ -1,11 +1,22 @@
 import { HistoryChain, PendingQueue, Tree, newId } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, Node, TreeOperation } from '@worktree/core';
+import type { SavedState } from './storage';
 
 /** Client-side state: confirmed history + pending queue, rendered as a tree. */
 export class ClientStore {
   private confirmed = new HistoryChain();
   private pending = new PendingQueue();
   private tree = new Tree();
+
+  constructor(private persist?: (state: SavedState) => void) {}
+
+  /** Restore persisted state: replace the confirmed chain, refill the pending queue. */
+  restore(confirmed: HistoryNode[], pending: HistoryOperation[]): void {
+    this.confirmed.replace(confirmed);
+    this.pending.clear();
+    for (const p of pending) this.pending.enqueue(p);
+    this.rebuild();
+  }
 
   getTree(): Node {
     return this.tree.getRoot();
@@ -75,5 +86,13 @@ export class ClientStore {
       }
     }
     this.tree = tree;
+    if (this.persist) {
+      try {
+        this.persist({ confirmed: this.confirmed.toArray(), pending: this.pending.getAll() });
+      } catch (e) {
+        // Storage failures must never break the app.
+        console.error('persist failed:', e);
+      }
+    }
   }
 }

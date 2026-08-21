@@ -68,10 +68,10 @@ describe('Tree', () => {
       add('a', 'b'),
       { kind: 'complete', id: 'a' },
       { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R', deadline: 100 },
-      { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5 },
+      { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' },
     ]);
     const copyNode = tree.getNode('a2');
-    expect(copyNode?.name).toBe('a');
+    expect(copyNode?.name).toBe('a-copy');
     expect(copyNode?.status).toBe(true);
     expect(copyNode?.children).toHaveLength(0);
     expect(copyNode?.reminders).toHaveLength(1);
@@ -82,12 +82,60 @@ describe('Tree', () => {
     const tree = Tree.fromOps([
       add(ROOT_ID, 'a'),
       { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R', deadline: 100 },
-      { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5 },
+      { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' },
     ]);
     expect(tree.getNode('a2')?.reminders[0]?.id).toBe('a2#r1');
     tree.apply({ kind: 'remove_reminder', rmdId: 'r1' });
     expect(tree.getNode('a')?.reminders).toHaveLength(0);
     expect(tree.getNode('a2')?.reminders).toHaveLength(1);
+  });
+
+  it('copy without a name defaults to the source name', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'a'),
+      add(ROOT_ID, 'b'),
+    ]);
+    tree.apply({ kind: 'copy', id: 'a', parentId: 'b', newId: 'a2', weight: 0 });
+    expect(tree.getNode('a2')?.name).toBe('a');
+  });
+
+  it('rejects duplicate sibling names on add', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a')]);
+    expect(() => tree.apply(add(ROOT_ID, 'b', 1, 'a'))).toThrow(/duplicate sibling name/);
+  });
+
+  it('rejects renaming to a sibling name', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a'), add(ROOT_ID, 'b')]);
+    expect(() => tree.apply({ kind: 'rename', id: 'b', name: 'a' })).toThrow(/duplicate sibling name/);
+  });
+
+  it('renaming to its own name is allowed', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a'), add(ROOT_ID, 'b')]);
+    expect(() => tree.apply({ kind: 'rename', id: 'b', name: 'b' })).not.toThrow();
+  });
+
+  it('rejects moving into a parent with a same-named child', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'a'),
+      add(ROOT_ID, 'b'),
+      add('b', 'b-child', 1, 'a'),
+    ]);
+    expect(() => tree.apply({ kind: 'move', id: 'a', parentId: 'b', weight: 0 })).toThrow(/duplicate sibling name/);
+  });
+
+  it('rejects a copy whose effective name collides with a sibling', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a')]);
+    expect(() => tree.apply({ kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5 })).toThrow(
+      /duplicate sibling name/,
+    );
+  });
+
+  it('rejects empty names and names containing "/"', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a')]);
+    expect(() => tree.apply(add(ROOT_ID, 'b', 1, ''))).toThrow(/must not be empty/);
+    expect(() => tree.apply(add(ROOT_ID, 'b', 1, 'x/y'))).toThrow(/must not contain/);
+    expect(() => tree.apply({ kind: 'rename', id: 'a', name: '' })).toThrow(/must not be empty/);
+    expect(() => tree.apply({ kind: 'rename', id: 'a', name: 'x/y' })).toThrow(/must not contain/);
   });
 
   it('edit_reminder applies partial patches', () => {

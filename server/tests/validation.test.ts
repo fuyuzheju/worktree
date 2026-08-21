@@ -52,6 +52,52 @@ describe('validateOps', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('rejects a sibling name collision on add', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
+    const result = validateOps(
+      [histAdd('h1', { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'a', weight: 2 })],
+      tree,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('duplicate sibling name');
+  });
+
+  it('rejects invalid names on add', () => {
+    const tree = new Tree();
+    expect(validateOps([histAdd('h1', { kind: 'add', parentId: ROOT_ID, id: 'a', name: '', weight: 1 })], tree).ok).toBe(false);
+    expect(validateOps([histAdd('h1', { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'x/y', weight: 1 })], tree).ok).toBe(false);
+  });
+
+  it('rejects renaming to a sibling name but allows its own', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a'), addOp(ROOT_ID, 'b')]);
+    expect(validateOps([histAdd('h1', { kind: 'rename', id: 'b', name: 'a' })], tree).ok).toBe(false);
+    expect(validateOps([histAdd('h1', { kind: 'rename', id: 'b', name: 'b' })], tree).ok).toBe(true);
+  });
+
+  it('rejects moving into a parent with a same-named child', () => {
+    const tree = Tree.fromOps([
+      addOp(ROOT_ID, 'a'),
+      addOp(ROOT_ID, 'b'),
+      { kind: 'add', parentId: 'b', id: 'b-child', name: 'a', weight: 1 },
+    ]);
+    const result = validateOps([histAdd('h1', { kind: 'move', id: 'a', parentId: 'b', weight: 0 })], tree);
+    expect(result.ok).toBe(false);
+  });
+
+  it('rejects a copy whose effective name collides with a sibling', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
+    const result = validateOps(
+      [histAdd('h1', { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5 })],
+      tree,
+    );
+    expect(result.ok).toBe(false);
+    const ok = validateOps(
+      [histAdd('h1', { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' })],
+      tree,
+    );
+    expect(ok.ok).toBe(true);
+  });
+
   it('rejects an empty edit_reminder patch', () => {
     const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
     tree.apply({ kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R', deadline: 1 });

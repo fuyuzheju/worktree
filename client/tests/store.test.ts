@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID } from '@worktree/core';
 import { ClientStore } from '../src/store';
+import type { SavedState } from '../src/storage';
 
 describe('ClientStore', () => {
   it('renders local ops optimistically and queues them', () => {
@@ -72,5 +73,31 @@ describe('ClientStore', () => {
     store.setConfirmed([]);
     store.applyLocal({ kind: 'rename', id: 'missing', name: 'X' });
     expect(() => store.getTree()).not.toThrow();
+  });
+
+  it('persists confirmed and pending state on every mutation', () => {
+    const saved: SavedState[] = [];
+    const store = new ClientStore((s) => saved.push(s));
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    expect(saved.at(-1)!.pending).toHaveLength(1);
+    expect(saved.at(-1)!.confirmed).toHaveLength(0);
+    const p = store.getPending()[0]!;
+    if (p.kind !== 'add') throw new Error('unexpected pending op kind');
+    store.applyConfirmed({ id: p.id, op: p.op });
+    expect(saved.at(-1)!.pending).toHaveLength(0);
+    expect(saved.at(-1)!.confirmed).toHaveLength(1);
+    expect(saved.at(-1)!.confirmed[0]!.op).toEqual({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+  });
+
+  it('restore refills confirmed and pending and rebuilds the tree once', () => {
+    const saved: SavedState[] = [];
+    const store = new ClientStore((s) => saved.push(s));
+    store.restore(
+      [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
+      [{ kind: 'add', id: 'h2', op: { kind: 'rename', id: 'a', name: 'A2' } }],
+    );
+    expect(store.getTree().children[0]?.name).toBe('A2');
+    expect(store.getConfirmed()).toHaveLength(1);
+    expect(store.getPending()).toHaveLength(1);
   });
 });
