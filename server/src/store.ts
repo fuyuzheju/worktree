@@ -73,6 +73,15 @@ export class HistoryStore {
     return run;
   }
 
+  /** Resolves once all submitted batches (including ones arriving mid-drain) have settled. */
+  async drain(): Promise<void> {
+    for (;;) {
+      const current = this.queue;
+      await current.catch(() => undefined);
+      if (this.queue === current) return;
+    }
+  }
+
   /**
    * Append a batch atomically. Duplicate ids with the same op are skipped
    * (idempotent retry); a duplicate id with a different op is rejected.

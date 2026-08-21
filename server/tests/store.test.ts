@@ -295,4 +295,29 @@ describe('HistoryStore', () => {
     ).resolves.toBeDefined();
     expect(store.getTree().nodeCount()).toBe(0);
   });
+
+  it('drain waits for in-flight appends', async () => {
+    const store = new HistoryStore();
+    const p1 = store.appendBatch([{ kind: 'add', id: 'h1', op: op('a') }]);
+    await store.drain();
+    expect((await store.all()).map((n) => n.id)).toEqual(['h1']);
+    await p1;
+  });
+
+  it('drain waits for appends that arrive while draining', async () => {
+    const store = new HistoryStore();
+    const p1 = store.appendBatch([{ kind: 'add', id: 'h1', op: op('a') }]);
+    const draining = store.drain();
+    const p2 = store.appendBatch([{ kind: 'add', id: 'h2', op: op('b') }]);
+    await draining;
+    expect((await store.all()).map((n) => n.id)).toEqual(['h1', 'h2']);
+    await p1;
+    await p2;
+  });
+
+  it('drain resolves immediately when idle', async () => {
+    const store = new HistoryStore();
+    await store.drain();
+    expect(store.getTree().nodeCount()).toBe(0);
+  });
 });

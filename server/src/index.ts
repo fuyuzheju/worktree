@@ -5,6 +5,7 @@ import { config } from './config';
 import { onStateChange } from './state';
 import { HistoryStore } from './store';
 import { WsHub } from './ws';
+import { prisma } from './db';
 
 async function main(): Promise<void> {
   const store = new HistoryStore();
@@ -27,6 +28,26 @@ async function main(): Promise<void> {
   server.listen(config.port, () => {
     console.log(`worktree server listening on http://localhost:${config.port}`);
   });
+
+  let shuttingDown = false;
+  const shutdown = (signal: NodeJS.Signals): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} received — shutting down`);
+    hub.closeAll(); // clients reconnect when the server returns
+    server.close();
+    server.closeAllConnections();
+    void (async () => {
+      await store.drain(); // let in-flight submits finish
+      await prisma.$disconnect();
+      process.exit(0);
+    })().catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
+  };
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 main().catch((e) => {
