@@ -1,3 +1,7 @@
+User:
+name: string, /^[a-zA-Z0-9._-]{1,64}$/ — the identity (X-User header / ?user= WS param).
+"local" is a reserved client-side-only name: its data never leaves the device.
+
 Reminder:
 id: string,
 name: string,
@@ -41,5 +45,5 @@ HistoryOperation:
 add(id, op) | 
 remove(id)   // undo: delete the entry; only allowed at the head of History
 
-History: HistoryNode[]
+History: HistoryNode[] — per user on the server (each user has their own log)
 PendingQueue: Queue[HistoryOperation]

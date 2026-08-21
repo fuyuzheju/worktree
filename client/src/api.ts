@@ -11,7 +11,10 @@ export class ApiError extends Error {
 
 /** Thin HTTP transport for the server's REST endpoints. */
 export class ServerAPI {
-  constructor(private baseUrl: string) {}
+  constructor(
+    private baseUrl: string,
+    private user: string,
+  ) {}
 
   async submit(ops: HistoryOperation[]): Promise<void> {
     await this.request('/submit', { method: 'POST', body: { htrop: ops } satisfies SubmitRequest });
@@ -34,7 +37,10 @@ export class ServerAPI {
   private async request<T>(path: string, init?: { method?: string; body?: object }): Promise<T> {
     const res = await fetch(this.baseUrl + path, {
       method: init?.method ?? 'GET',
-      headers: init?.body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      headers: {
+        'X-User': this.user,
+        ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
       body: init?.body === undefined ? undefined : JSON.stringify(init.body),
     });
     if (!res.ok) throw new ApiError(res.status, await res.text());

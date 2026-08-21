@@ -3,17 +3,22 @@ import { ROOT_ID } from '@worktree/core';
 import { WorktreeClient } from '@worktree/client';
 import { renderTree } from './render';
 import { findNode, pathOf } from './resolve';
-import { FileStorage } from './storage';
-import { DEFAULT_SERVER, STATE_PATH } from './config';
+import { defaultStatePath, FileStorage } from './storage';
+import { DEFAULT_SERVER, LOCAL_USER, loadCurrentUser, saveCurrentUser } from './config';
 import { completeLine } from './completion';
 import { COMMANDS } from './commands';
 import { createCommandIO, createDispatcher, errMsg, isSuppressingUpdates, printConflict } from './command';
-import type { CommandIO, CommandResult } from './command';
+import type { CommandContext, CommandIO, CommandResult } from './command';
 
 const dispatch = createDispatcher(COMMANDS);
 
-function newClient(): WorktreeClient {
-  return new WorktreeClient({ serverUrl: DEFAULT_SERVER, storage: new FileStorage(STATE_PATH) });
+function newClient(user: string): WorktreeClient {
+  return new WorktreeClient({
+    serverUrl: DEFAULT_SERVER,
+    user,
+    local: user === LOCAL_USER,
+    storage: new FileStorage(defaultStatePath(DEFAULT_SERVER, user)),
+  });
 }
 
 const EXIT_FLUSH_BUDGET_MS = 2000;
@@ -51,10 +56,16 @@ async function runCommand(io: CommandIO, line: string): Promise<CommandResult> {
 }
 
 async function repl(): Promise<void> {
-  const client = newClient();
-  const io = createCommandIO({ client, out: (line) => console.log(line ?? ''), cwdId: ROOT_ID });
+  let client = newClient(loadCurrentUser());
+  const ctx: CommandContext = {
+    client,
+    out: (line) => console.log(line ?? ''),
+    cwdId: ROOT_ID,
+    currentUser: loadCurrentUser(),
+  };
+  const io = createCommandIO(ctx);
 
-  client.subscribe(() => {
+  function onTreeChange(): void {
     if (isSuppressingUpdates()) return;
     if (!findNode(client.getTree(), io.cwdId)) {
       io.cwdId = ROOT_ID;
@@ -65,17 +76,46 @@ async function repl(): Promise<void> {
     //   console.log(renderTree(client.getTree()));
     // }
     if (client.getConflict()) printConflict(io);
-  });
+  }
+  let unsubscribe = client.subscribe(onTreeChange);
+
+  io.switchUser = async (name: string): Promise<void> => {
+    const prev = client;
+    const prevUser = ctx.currentUser;
+    await shutdown(prev);
+    unsubscribe();
+    if (prev.getPendingCount() > 0) {
+      console.log(`note: ${prev.getPendingCount()} op(s) of "${prevUser}" are still pending — kept in local storage`);
+    }
+    saveCurrentUser(name);
+    client = newClient(name);
+    ctx.client = client;
+    ctx.currentUser = name;
+    unsubscribe = client.subscribe(onTreeChange);
+    client.connect();
+    if (!client.isLocal()) {
+      try {
+        await client.sync();
+      } catch {
+        // server may be down; the socket keeps retrying
+      }
+    }
+    console.log(`user: ${name}${client.isLocal() ? ' (local — offline only)' : ''}`);
+    console.log(renderTree(client.getTree()));
+  };
+
   client.connect();
-  try {
-    await client.sync();
-  } catch {
-    // server may be down; the socket keeps retrying
+  if (!client.isLocal()) {
+    try {
+      await client.sync();
+    } catch {
+      // server may be down; the socket keeps retrying
+    }
   }
   console.log(renderTree(client.getTree()));
 
   if (process.stdin.isTTY) {
-    console.log(`server: ${DEFAULT_SERVER} — type "help" for commands`);
+    console.log(`server: ${DEFAULT_SERVER} — user: ${ctx.currentUser} — type "help" for commands`);
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -119,17 +159,27 @@ async function main(): Promise<void> {
     return;
   }
   // One-shot mode: run a single command and exit (for scripts and quick tests).
-  const client = newClient();
-  const io = createCommandIO({ client, out: (line) => console.log(line ?? ''), cwdId: ROOT_ID });
+  const user = loadCurrentUser();
+  const client = newClient(user);
+  const ctx: CommandContext = { client, out: (line) => console.log(line ?? ''), cwdId: ROOT_ID, currentUser: user };
+  const io = createCommandIO(ctx);
+  // One-shot: the session ends right after, so switching only persists the preference.
+  io.switchUser = async (name: string): Promise<void> => {
+    saveCurrentUser(name);
+    ctx.currentUser = name;
+    console.log(`user: ${name}`);
+  };
   client.connect();
-  try {
-    await client.sync();
-  } catch {
-    // offline is fine for queued edits
-  }
-  // Give the websocket a moment to open so online status (and the auto-flush) is accurate.
-  for (let i = 0; i < 20 && !client.isOnline(); i++) {
-    await new Promise((r) => setTimeout(r, 100));
+  if (!client.isLocal()) {
+    try {
+      await client.sync();
+    } catch {
+      // offline is fine for queued edits
+    }
+    // Give the websocket a moment to open so online status (and the auto-flush) is accurate.
+    for (let i = 0; i < 20 && !client.isOnline(); i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
   }
   const [cmd, ...rest] = args;
   try {

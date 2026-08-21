@@ -3,20 +3,28 @@ import type { Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { findNode, resolveRef } from './resolve';
 
-/** Mutable shell state shared with the REPL (cwd tracking). */
+/** Mutable shell state shared with the REPL (cwd tracking, current client). */
 export interface CommandContext {
+  /** Swapped by `user switch`; everything reading io.client sees the new client. */
   client: WorktreeClient;
   out: (line?: string) => void;
   /** Working node; `ROOT_ID` means the root. `cd` mutates it. */
   cwdId: string;
+  /** The active username (updated on `user switch`). */
+  currentUser: string;
 }
 
 /** Everything a command needs to run. Bound by createCommandIO once per session. */
 export interface CommandIO {
-  readonly client: WorktreeClient;
   readonly out: (line?: string) => void;
+  /** Live getter — survives client swaps on `user switch`. */
+  readonly client: WorktreeClient;
   /** Mirrors the context's cwdId (getter/setter delegate to it). */
   cwdId: string;
+  /** Mirrors the context's currentUser. */
+  currentUser: string;
+  /** Wired by the REPL after io creation (needs io itself, so it is attached later). */
+  switchUser?: (name: string) => Promise<void>;
   /** Print `usage: <text>` (the command's own usage when omitted) and signal done. */
   usage(text?: string): 'ok';
   /** Resolve a ref against the cwd; prints the error and returns null when it fails. */
@@ -49,13 +57,18 @@ export function createCommandIO(ctx: CommandContext): CommandIO {
     return tree;
   };
   return {
-    client: ctx.client,
+    get client(): WorktreeClient {
+      return ctx.client;
+    },
     out: ctx.out,
     get cwdId(): string {
       return ctx.cwdId;
     },
     set cwdId(value: string) {
       ctx.cwdId = value;
+    },
+    get currentUser(): string {
+      return ctx.currentUser;
     },
     usage: (text: string): 'ok' => {
       ctx.out(`usage: ${text}`);
@@ -87,9 +100,11 @@ export function createDispatcher(commands: Command[]) {
       io.out(`unknown command: ${cmd} (type "help")`);
       return 'ok';
     }
-    // Delegating wrapper (not a spread — that would snapshot the cwd accessor).
+    // Delegating wrapper (not a spread — that would snapshot the accessors).
     const bound: CommandIO = {
-      client: io.client,
+      get client() {
+        return io.client;
+      },
       out: io.out,
       get cwdId() {
         return io.cwdId;
@@ -97,6 +112,10 @@ export function createDispatcher(commands: Command[]) {
       set cwdId(value) {
         io.cwdId = value;
       },
+      get currentUser() {
+        return io.currentUser;
+      },
+      switchUser: io.switchUser,
       usage: (text) => io.usage(text ?? command.usage),
       refNode: (ref) => io.refNode(ref),
       cwdNode: () => io.cwdNode(),
@@ -119,7 +138,7 @@ export function parseTimestamp(io: CommandIO, s: string): number | null {
 
 /** Tell the user their op is queued when the kernel is offline. */
 export async function afterCommand(io: CommandIO): Promise<void> {
-  if (!io.client.isOnline()) io.out('(offline — op queued, will sync on reconnect)');
+  if (!io.client.isOnline() && !io.client.isLocal()) io.out('(offline — op queued, will sync on reconnect)');
 }
 
 export function printConflict(io: CommandIO): void {

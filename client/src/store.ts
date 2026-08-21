@@ -37,6 +37,12 @@ export class ClientStore {
     this.rebuild();
   }
 
+  /** Offline-only edit (local user): go straight into the confirmed chain. */
+  applyLocalConfirmed(op: TreeOperation): void {
+    this.confirmed.append(newId(), op);
+    this.rebuild();
+  }
+
   /** A server-confirmed history node (from catch-up or broadcast). */
   applyConfirmed(node: HistoryNode): void {
     if (this.confirmed.get(node.id)) return;

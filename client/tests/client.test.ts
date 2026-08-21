@@ -3,7 +3,7 @@ import { ROOT_ID } from '@worktree/core';
 import { WorktreeClient } from '../src/client';
 import type { ClientStorage, SavedState } from '../src/storage';
 
-const newClient = () => new WorktreeClient({ serverUrl: 'http://localhost:1' });
+const newClient = () => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice' });
 
 class MemoryStorage implements ClientStorage {
   state: SavedState | null = null;
@@ -139,19 +139,65 @@ describe('WorktreeClient semantic operations', () => {
       confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
       pending: [{ kind: 'add', id: 'h2', op: { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 } }],
     };
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
     expect(c.getTree().children.map((n) => n.name)).toEqual(['A', 'B']);
     expect(c.getPendingCount()).toBe(1);
   });
 
   it('persists every mutation through the storage', () => {
     const storage = new MemoryStorage();
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
     c.addNode(ROOT_ID, 'A');
     expect(storage.state?.pending).toHaveLength(1);
     expect(storage.state?.confirmed).toHaveLength(0);
     c.removeNode(c.getTree().children[0]!.id);
     expect(storage.state?.pending).toHaveLength(2);
     expect(storage.state?.pending[1]).toMatchObject({ kind: 'add' });
+  });
+
+  it('rejects invalid usernames at construction', () => {
+    expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'a/b' })).toThrow(/invalid username/);
+    expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: '' })).toThrow(/invalid username/);
+  });
+});
+
+describe('WorktreeClient local mode', () => {
+  const localClient = (storage = new MemoryStorage()) =>
+    new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true, storage });
+
+  it('isLocal and edits go straight into the confirmed history', () => {
+    const c = localClient();
+    expect(c.isLocal()).toBe(true);
+    c.addNode(ROOT_ID, 'A');
+    c.addNode(ROOT_ID, 'B');
+    expect(c.getPendingCount()).toBe(0);
+    expect(c.getTree().children.map((n) => n.name)).toEqual(['A', 'B']);
+  });
+
+  it('persists confirmed edits (no pending) and restores them', async () => {
+    const storage = new MemoryStorage();
+    const c = localClient(storage);
+    c.addNode(ROOT_ID, 'A');
+    expect(storage.state?.confirmed).toHaveLength(1);
+    expect(storage.state?.pending).toHaveLength(0);
+
+    const restored = localClient(storage);
+    expect(restored.getTree().children.map((n) => n.name)).toEqual(['A']);
+  });
+
+  it('connect and sync are no-ops that never touch the network', async () => {
+    const c = localClient();
+    c.connect();
+    expect(c.isOnline()).toBe(false);
+    await expect(c.sync()).resolves.toBe('ok');
+    c.disconnect();
+  });
+
+  it('getStats computes from the local tree', async () => {
+    const c = localClient();
+    const a = c.addNode(ROOT_ID, 'A');
+    c.addReminder(a, 'R', 1000);
+    const stats = await c.getStats();
+    expect(stats).toEqual({ opCount: 2, nodeCount: 1, reminderCount: 1, state: 'working' });
   });
 });

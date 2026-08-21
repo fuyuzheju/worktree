@@ -1,20 +1,26 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { ServerState } from '@worktree/core';
 
-let state: ServerState = 'working';
-const listeners: Array<(state: ServerState) => void> = [];
+/** Per-user lifecycle state; unknown users default to 'working'. */
+const states = new Map<string, ServerState>();
+const listeners: Array<(user: string, state: ServerState) => void> = [];
 
-export function getState(): ServerState {
-  return state;
+export function getState(user: string): ServerState {
+  return states.get(user) ?? 'working';
 }
 
-export function setState(next: ServerState): void {
-  if (state === next) return;
-  state = next;
-  for (const l of [...listeners]) l(next);
+export function setState(user: string, next: ServerState): void {
+  const prev = getState(user);
+  if (prev === next) return;
+  if (next === 'working') {
+    states.delete(user);
+  } else {
+    states.set(user, next);
+  }
+  for (const l of [...listeners]) l(user, next);
 }
 
-export function onStateChange(cb: (state: ServerState) => void): () => void {
+export function onStateChange(cb: (user: string, state: ServerState) => void): () => void {
   listeners.push(cb);
   return () => {
     const i = listeners.indexOf(cb);
@@ -22,9 +28,9 @@ export function onStateChange(cb: (state: ServerState) => void): () => void {
   };
 }
 
-/** Rejects all requests with 503 while the server is offline. */
-export function offlineGuard(_req: Request, res: Response, next: NextFunction): void {
-  if (state === 'offline') {
+/** Rejects a user's requests with 503 while that user is offline. */
+export function offlineGuard(req: Request, res: Response, next: NextFunction): void {
+  if (getState(res.locals.user as string) === 'offline') {
     res.status(503).json({ error: 'server is offline' });
     return;
   }

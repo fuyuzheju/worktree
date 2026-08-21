@@ -140,4 +140,11 @@ describe('completeLine — subcommands and flags', () => {
     expect(completeLine(root, ROOT_ID, 'reminder rm rmd-5')[0]).toEqual(['rmd-5678 ']);
     expect(completeLine(root, ROOT_ID, 'reminder edit rmd-1')[0]).toEqual(['rmd-1234 ']);
   });
+
+  it('completes user subcommands and known users after "user switch"', () => {
+    const root = build().getRoot();
+    expect(completeLine(root, ROOT_ID, 'user ')[0]).toEqual(['current', 'list', 'switch']);
+    expect(completeLine(root, ROOT_ID, 'user s')[0]).toEqual(['switch ']);
+    expect(completeLine(root, ROOT_ID, 'user switch ')[0]).toContain('local');
+  });
 });

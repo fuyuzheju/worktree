@@ -1,4 +1,4 @@
-import { ROOT_ID, newId } from '@worktree/core';
+import { ROOT_ID, USER_RE, newId } from '@worktree/core';
 import type { HistoryOperation, Node, Stats, TreeOperation } from '@worktree/core';
 import { ServerAPI } from './api';
 import { ServerSocket } from './socket';
@@ -10,6 +10,10 @@ import type { ClientStorage } from './storage';
 export interface WorktreeClientOptions {
   /** e.g. http://localhost:3000 */
   serverUrl: string;
+  /** The identity sent as X-User / ?user=; the storage namespace key. */
+  user: string;
+  /** Offline-only: never talks to the server; ops go straight into the confirmed history. */
+  local?: boolean;
   /** Defaults to ws(s)://<serverUrl host>/websocket. */
   wsUrl?: string;
   /** Platform storage for confirmed history + pending queue; without it nothing persists. */
@@ -31,16 +35,21 @@ export class WorktreeClient {
   private conflict: Conflict | null = null;
   private online = false;
   private syncing = false;
+  private local: boolean;
 
   constructor(options: WorktreeClientOptions) {
+    if (!USER_RE.test(options.user)) {
+      throw new Error(`invalid username: ${options.user} (allowed: ${USER_RE.source})`);
+    }
+    this.local = options.local === true;
     this.storage = options.storage ?? null;
     this.store = new ClientStore((state) => this.storage?.save(state));
     const saved = this.storage?.load();
     if (saved) this.store.restore(saved.confirmed, saved.pending);
 
     const base = options.serverUrl.replace(/\/+$/, '');
-    this.api = new ServerAPI(base);
-    this.socket = new ServerSocket(options.wsUrl ?? defaultWsUrl(base), {
+    this.api = new ServerAPI(base, options.user);
+    this.socket = new ServerSocket(withUserParam(options.wsUrl ?? defaultWsUrl(base), options.user), {
       onOpen: () => {
         void this.resync();
       },
@@ -67,7 +76,7 @@ export class WorktreeClient {
   }
 
   connect(): void {
-    this.socket.connect();
+    if (!this.local) this.socket.connect();
   }
 
   disconnect(): void {
@@ -79,6 +88,15 @@ export class WorktreeClient {
   }
 
   getStats(): Promise<Stats> {
+    if (this.local) {
+      const tree = this.getTree();
+      return Promise.resolve({
+        opCount: this.store.getConfirmed().length,
+        nodeCount: countNodes(tree),
+        reminderCount: countReminders(tree),
+        state: 'working',
+      });
+    }
     return this.api.stats();
   }
 
@@ -95,8 +113,17 @@ export class WorktreeClient {
     return this.online;
   }
 
+  isLocal(): boolean {
+    return this.local;
+  }
+
   /** Optimistic local edit; flushed to the server automatically while online. */
   apply(op: TreeOperation): void {
+    if (this.local) {
+      this.store.applyLocalConfirmed(op);
+      this.emit();
+      return;
+    }
     this.store.applyLocal(op);
     this.emit();
     if (this.online) void this.resync();
@@ -209,6 +236,7 @@ export class WorktreeClient {
 
   /** Push pending ops and catch up. Resolves to 'conflict' when the server rejected them. */
   async sync(): Promise<SyncResult> {
+    if (this.local) return 'ok';
     const result = await this.syncer.sync();
     this.conflict = this.syncer.getConflict();
     this.emit();
@@ -259,6 +287,21 @@ function defaultWsUrl(base: string): string {
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   url.pathname = '/websocket';
   return url.toString();
+}
+
+/** Append the user identity to a WS URL, preserving existing query params. */
+function withUserParam(wsUrl: string, user: string): string {
+  const url = new URL(wsUrl);
+  url.searchParams.set('user', user);
+  return url.toString();
+}
+
+function countNodes(node: Node): number {
+  return node.children.reduce((sum, child) => sum + countNodes(child), node.id === ROOT_ID ? 0 : 1);
+}
+
+function countReminders(node: Node): number {
+  return node.reminders.length + node.children.reduce((sum, child) => sum + countReminders(child), 0);
 }
 
 function findNode(node: Node, id: string): Node | undefined {

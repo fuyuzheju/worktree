@@ -8,12 +8,13 @@ import type { HistoryStore } from '../store';
 export function rewriteRouter(store: HistoryStore): Router {
   const router = Router();
 
-  // Force-rewrite: take the server offline, replace the history, come back.
+  // Force-rewrite: take the user offline, replace their history, come back.
   // Rejected with 409 when the history advanced past the client's base.
   router.post('/', async (req, res) => {
     const body = req.body as RewriteRequest | undefined;
     const history = body?.history;
     const base = body?.base ?? null;
+    const user = res.locals.user as string;
     if (!Array.isArray(history)) {
       res.status(400).json({ error: 'history must be an array' });
       return;
@@ -25,9 +26,9 @@ export function rewriteRouter(store: HistoryStore): Router {
       return;
     }
 
-    setState('offline');
+    setState(user, 'offline');
     try {
-      await store.replace(base, history);
+      await store.replace(user, base, history);
     } catch (e) {
       if (e instanceof BaseMismatchError) {
         res.status(409).json({ error: e.message, head: e.headId });
@@ -35,7 +36,7 @@ export function rewriteRouter(store: HistoryStore): Router {
       }
       throw e;
     } finally {
-      setState('working');
+      setState(user, 'working');
     }
     res.json({ ok: true });
   });

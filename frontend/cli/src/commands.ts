@@ -1,7 +1,9 @@
-import { ROOT_ID } from '@worktree/core';
+import { ROOT_ID, USER_RE } from '@worktree/core';
 import { formatNode, renderTree, shortId } from './render';
 import { pathOf } from './resolve';
-import { STATE_PATH } from './config';
+import { DEFAULT_SERVER } from './config';
+import { defaultStatePath } from './storage';
+import { listUsers } from './users';
 import { afterCommand, errMsg, mutate, parseTimestamp, printConflict } from './command';
 import type { Command, CommandIO, CommandResult } from './command';
 
@@ -318,8 +320,47 @@ const statusCommand: Command = {
     io.out(
       `online=${io.client.isOnline()} pending=${io.client.getPendingCount()} conflict=${conflict ? `yes (base ${conflict.baseId ?? 'empty'})` : 'no'}`,
     );
-    io.out(`storage: ${STATE_PATH}`);
+    io.out(`user: ${io.currentUser}`);
+    io.out(`storage: ${defaultStatePath(DEFAULT_SERVER, io.currentUser)}`);
     return 'ok';
+  },
+};
+
+const userCommand: Command = {
+  name: 'user',
+  summary: 'show or switch users ("local" is offline-only)',
+  usage: 'user [current|list|switch <name>]',
+  run: async (io, args): Promise<CommandResult> => {
+    const sub = args[0];
+    if (sub === undefined || sub === 'current') {
+      io.out(io.currentUser);
+      return 'ok';
+    }
+    if (sub === 'list') {
+      for (const u of listUsers(DEFAULT_SERVER)) {
+        io.out(`${u === io.currentUser ? '* ' : '  '}${u}`);
+      }
+      return 'ok';
+    }
+    if (sub === 'switch') {
+      const name = args[1];
+      if (name === undefined) return io.usage('user switch <name>');
+      if (!USER_RE.test(name)) {
+        io.out(`invalid username: ${name} (allowed: ${USER_RE.source})`);
+        return 'ok';
+      }
+      if (!io.switchUser) {
+        io.out('user switching is unavailable here');
+        return 'ok';
+      }
+      try {
+        await io.switchUser(name);
+      } catch (e) {
+        io.out(`switch failed: ${errMsg(e)}`);
+      }
+      return 'ok';
+    }
+    return io.usage();
   },
 };
 
@@ -381,6 +422,7 @@ export const COMMANDS: Command[] = [
   syncCommand,
   statsCommand,
   statusCommand,
+  userCommand,
   resolveCommand,
   helpCommand,
   exitCommand,

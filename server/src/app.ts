@@ -8,6 +8,7 @@ import { submitRouter } from './routes/submit';
 import { historyRouter } from './routes/history';
 import { statsRouter } from './routes/stats';
 import { rewriteRouter } from './routes/rewrite';
+import { userMiddleware } from './user';
 
 export interface AppContext {
   store: HistoryStore;
@@ -18,6 +19,8 @@ export function createApp(ctx: AppContext): express.Express {
   const app = express();
   app.use(cors());
   app.use(express.json());
+  // Identity resolution comes before every router — including /rewrite.
+  app.use(userMiddleware);
 
   // /rewrite is mounted before the offline guard: it triggers offline mode
   // itself while it edits the database.

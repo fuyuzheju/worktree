@@ -2,6 +2,8 @@ import type { Node } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 import { findNode, resolvePath } from './resolve';
 import { COMMANDS as REGISTRY } from './commands';
+import { DEFAULT_SERVER } from './config';
+import { listUsers } from './users';
 
 /** Every name (aliases included) a user can type as a command. */
 export const COMMANDS = REGISTRY.flatMap((c) => [c.name, ...(c.aliases ?? [])]);
@@ -9,6 +11,7 @@ export const COMMANDS = REGISTRY.flatMap((c) => [c.name, ...(c.aliases ?? [])]);
 const REMINDER_SUB = ['add', 'rm', 'edit'];
 const RESOLVE_CHOICES = ['server', 'local'];
 const RM_FLAGS = ['-r', '--recursive'];
+const USER_SUB = ['current', 'list', 'switch'];
 
 /**
  * Complete a fixed option list: single match gets a trailing space.
@@ -91,6 +94,10 @@ export function completeLine(root: Node, cwdId: string, line: string): [string[]
       return [[], last];
     case 'resolve':
       if (position === 2) return completeFixed(RESOLVE_CHOICES, last);
+      return [[], last];
+    case 'user':
+      if (position === 2) return completeFixed(USER_SUB, last);
+      if (position === 3 && words[1] === 'switch') return completeFixed(listUsers(DEFAULT_SERVER), last);
       return [[], last];
     case 'rm':
       if (position === 2 && last.startsWith('-')) return completeFixed(RM_FLAGS, last);

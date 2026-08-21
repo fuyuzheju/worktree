@@ -7,18 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  headOpId  String?
+  createdAt DateTime @default(now())
+  nodes     HistoryNode[]
+}
+
 // One row per confirmed history operation. `id` is the server insertion
-// order (the cursor target); `opId` is the client-generated UUID.
+// order (the cursor target); `opId` is the client-generated UUID, unique
+// per user.
 model HistoryNode {
   id         Int      @id @default(autoincrement())
-  opId       String   @unique
+  opId       String
   parentOpId String?
   op         Json
   createdAt  DateTime @default(now())
-}
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
 
-// Small key-value store for server bookkeeping (e.g. current head opId).
-model Meta {
-  key   String @id
-  value String
+  @@unique([userId, opId])
 }

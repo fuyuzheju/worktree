@@ -20,9 +20,9 @@ async function main(): Promise<void> {
   const app = createApp({ store, hub });
   handler = app;
 
-  onStateChange((state) => {
-    hub.broadcast({ type: 'state', state });
-    if (state === 'offline') hub.closeAll();
+  onStateChange((user, state) => {
+    hub.broadcastTo(user, { type: 'state', state });
+    if (state === 'offline') hub.closeUser(user);
   });
 
   server.listen(config.port, () => {

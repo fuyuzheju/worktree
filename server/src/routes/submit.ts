@@ -15,9 +15,10 @@ export function submitRouter(store: HistoryStore, hub: WsHub): Router {
     }
 
     try {
-      const { added, removed } = await store.appendBatch(htrop);
-      for (const node of added) hub.broadcast({ type: 'op', node });
-      for (const id of removed) hub.broadcast({ type: 'removed', id });
+      const user = res.locals.user as string;
+      const { added, removed } = await store.appendBatch(user, htrop);
+      for (const node of added) hub.broadcastTo(user, { type: 'op', node });
+      for (const id of removed) hub.broadcastTo(user, { type: 'removed', id });
       res.json({ ok: true });
     } catch (e) {
       if (e instanceof ValidationError) {

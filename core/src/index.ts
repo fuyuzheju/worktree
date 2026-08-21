@@ -4,3 +4,4 @@ export * from './tree';
 export * from './history';
 export * from './pending-queue';
 export * from './id';
+export * from './user';

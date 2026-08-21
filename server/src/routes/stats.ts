@@ -5,13 +5,14 @@ import type { HistoryStore } from '../store';
 export function statsRouter(store: HistoryStore): Router {
   const router = Router();
 
-  router.get('/', async (_req, res) => {
-    const tree = store.getTree();
+  router.get('/', async (req, res) => {
+    const user = res.locals.user as string;
+    const tree = await store.getTreeForUser(user);
     res.json({
-      opCount: (await store.all()).length,
+      opCount: (await store.all(user)).length,
       nodeCount: tree.nodeCount(),
       reminderCount: tree.reminderCount(),
-      state: getState(),
+      state: getState(user),
     });
   });
 

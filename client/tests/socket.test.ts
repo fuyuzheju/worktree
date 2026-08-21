@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServerSocket } from '../src/socket';
 import type { SocketHandlers } from '../src/socket';
+import { WorktreeClient } from '../src/client';
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -75,5 +76,29 @@ describe('ServerSocket', () => {
     expect(h.onOp).toHaveBeenCalledWith({ id: 'h1', op: { kind: 'add', parentId: 'root', id: 'a', name: 'A', weight: 1 } });
     ws.onmessage!({ data: JSON.stringify({ type: 'state', state: 'offline' }) });
     expect(h.onState).toHaveBeenCalledWith('offline');
+  });
+
+  it('the client appends the user param to the derived WS URL', () => {
+    const client = new WorktreeClient({ serverUrl: 'http://localhost:3000', user: 'alice' });
+    client.connect();
+    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:3000/websocket?user=alice');
+    client.disconnect();
+  });
+
+  it('the client merges the user param into a custom wsUrl', () => {
+    const client = new WorktreeClient({
+      serverUrl: 'http://localhost:3000',
+      wsUrl: 'ws://localhost:9999/socket?foo=1',
+      user: 'alice',
+    });
+    client.connect();
+    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:9999/socket?foo=1&user=alice');
+    client.disconnect();
+  });
+
+  it('a local client never opens a socket', () => {
+    const client = new WorktreeClient({ serverUrl: 'http://localhost:3000', user: 'local', local: true });
+    client.connect();
+    expect(FakeWebSocket.instances).toHaveLength(0);
   });
 });

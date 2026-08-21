@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { FileStorage, defaultStatePath } from '../src/storage';
+import { FileStorage, currentUserPath, defaultStatePath, readCurrentUser, writeCurrentUser } from '../src/storage';
 import type { SavedState } from '@worktree/client';
 
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-storage-'));
@@ -65,5 +65,54 @@ describe('defaultStatePath', () => {
     expect(defaultStatePath('https://worktree.example.com', 'bob')).toBe(
       path.join(home, '.worktree', 'worktree.example.com', 'bob', 'state.json'),
     );
+  });
+
+  it('sanitizes unsafe characters in user ids', () => {
+    const home = process.env.HOME!;
+    expect(defaultStatePath('http://localhost:3000', 'a/b')).toBe(
+      path.join(home, '.worktree', 'localhost_3000', 'a_b', 'state.json'),
+    );
+  });
+
+  it('keeps the local user device-local, independent of the server', () => {
+    const home = process.env.HOME!;
+    expect(defaultStatePath('http://localhost:3000', 'local')).toBe(
+      path.join(home, '.worktree', 'local', 'state.json'),
+    );
+    expect(defaultStatePath('https://other.example.com', 'local')).toBe(
+      path.join(home, '.worktree', 'local', 'state.json'),
+    );
+  });
+});
+
+describe('currentUser', () => {
+  it('round-trips the persisted current user', () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
+    const prevHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      expect(readCurrentUser('http://localhost:3000')).toBeNull();
+      writeCurrentUser('http://localhost:3000', 'alice');
+      expect(readCurrentUser('http://localhost:3000')).toBe('alice');
+      expect(currentUserPath('http://localhost:3000')).toBe(
+        path.join(home, '.worktree', 'localhost_3000', 'current-user'),
+      );
+    } finally {
+      process.env.HOME = prevHome;
+    }
+  });
+
+  it('ignores an invalid persisted current user', () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
+    const prevHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      const dir = path.join(home, '.worktree', 'localhost_3000');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'current-user'), 'a/b\n');
+      expect(readCurrentUser('http://localhost:3000')).toBeNull();
+    } finally {
+      process.env.HOME = prevHome;
+    }
   });
 });

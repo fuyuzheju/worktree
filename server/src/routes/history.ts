@@ -10,8 +10,9 @@ export function historyRouter(store: HistoryStore): Router {
   router.get('/', async (req, res) => {
     const id = typeof req.query.id === 'string' ? req.query.id : null;
     const after = typeof req.query.after === 'string' ? req.query.after : null;
+    const user = res.locals.user as string;
     if (id !== null) {
-      const node = await store.getById(id);
+      const node = await store.getById(user, id);
       if (!node) {
         res.status(404).json({ error: 'not found' });
         return;
@@ -19,7 +20,7 @@ export function historyRouter(store: HistoryStore): Router {
       res.json(node);
       return;
     }
-    res.json(await store.since(after));
+    res.json(await store.since(user, after));
   });
 
   return router;

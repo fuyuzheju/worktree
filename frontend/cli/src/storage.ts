@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClientStorage, SavedState } from '@worktree/client';
+import { USER_RE } from '@worktree/core';
 
 /**
  * File-backed ClientStorage. Saves are atomic (tmp + rename) so a crash
@@ -47,12 +48,48 @@ export class FileStorage implements ClientStorage {
   }
 }
 
+function worktreeHome(): string {
+  return path.join(process.env.HOME ?? process.cwd(), '.worktree');
+}
+
+/** `~/.worktree/<server-host>` — the per-server storage root. */
+export function userStateRoot(serverUrl: string): string {
+  const host = new URL(serverUrl).host.replace(/[^a-zA-Z0-9.-]/g, '_');
+  return path.join(worktreeHome(), host);
+}
+
 /**
  * `~/.worktree/<server-host>/<userId>/state.json` — namespaced per server and
- * user so different servers (and future users) never share history.
+ * user so different servers and users never share history.
+ * The reserved user `local` is device-local: `~/.worktree/local/state.json`,
+ * independent of the server (its data never leaves this machine).
  */
 export function defaultStatePath(serverUrl: string, userId: string): string {
-  const host = new URL(serverUrl).host.replace(/[^a-zA-Z0-9.-]/g, '_');
-  const home = process.env.HOME ?? process.cwd();
-  return path.join(home, '.worktree', host, userId, 'state.json');
+  if (userId === 'local') return path.join(worktreeHome(), 'local', 'state.json');
+  const sanitized = userId.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return path.join(userStateRoot(serverUrl), sanitized, 'state.json');
+}
+
+/** `~/.worktree/<server-host>/current-user` — the user to resume after a restart. */
+export function currentUserPath(serverUrl: string): string {
+  return path.join(userStateRoot(serverUrl), 'current-user');
+}
+
+export function readCurrentUser(serverUrl: string): string | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(currentUserPath(serverUrl), 'utf8').trim();
+  } catch {
+    return null;
+  }
+  return USER_RE.test(raw) ? raw : null;
+}
+
+export function writeCurrentUser(serverUrl: string, user: string): void {
+  try {
+    fs.mkdirSync(path.dirname(currentUserPath(serverUrl)), { recursive: true });
+    fs.writeFileSync(currentUserPath(serverUrl), `${user}\n`);
+  } catch (e) {
+    console.error(`failed to save current user: ${e instanceof Error ? e.message : e}`);
+  }
 }
