@@ -19,17 +19,17 @@ export function createApp(ctx: AppContext): express.Express {
   const app = express();
   app.use(cors());
   app.use(express.json());
-  // Identity resolution comes before every router — including /rewrite.
+  // Identity resolution comes before every router — including /api/rewrite.
   app.use(userMiddleware);
 
-  // /rewrite is mounted before the offline guard: it triggers offline mode
+  // /api/rewrite is mounted before the offline guard: it triggers offline mode
   // itself while it edits the database.
-  app.use('/rewrite', rewriteRouter(ctx.store));
+  app.use('/api/rewrite', rewriteRouter(ctx.store));
 
   app.use(offlineGuard);
-  app.use('/submit', submitRouter(ctx.store, ctx.hub));
-  app.use('/history', historyRouter(ctx.store));
-  app.use('/stats', statsRouter(ctx.store));
+  app.use('/api/submit', submitRouter(ctx.store, ctx.hub));
+  app.use('/api/history', historyRouter(ctx.store));
+  app.use('/api/stats', statsRouter(ctx.store));
 
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     console.error(err);

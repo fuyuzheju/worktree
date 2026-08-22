@@ -27,10 +27,10 @@ describe('ServerAPI', () => {
     await api.stats();
     await api.rewrite(null, []);
     expect(calls.map((c) => c.url)).toEqual([
-      'http://localhost:3000/submit',
-      'http://localhost:3000/history',
-      'http://localhost:3000/stats',
-      'http://localhost:3000/rewrite',
+      'http://localhost:3000/api/submit',
+      'http://localhost:3000/api/history',
+      'http://localhost:3000/api/stats',
+      'http://localhost:3000/api/rewrite',
     ]);
     for (const call of calls) {
       expect(call.init?.headers).toMatchObject({ 'X-User': 'alice' });

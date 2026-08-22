@@ -17,21 +17,21 @@ export class ServerAPI {
   ) {}
 
   async submit(ops: HistoryOperation[]): Promise<void> {
-    await this.request('/submit', { method: 'POST', body: { htrop: ops } satisfies SubmitRequest });
+    await this.request('/api/submit', { method: 'POST', body: { htrop: ops } satisfies SubmitRequest });
   }
 
-  /** GET /history?after=<cursor> — chain after the cursor, plus whether the cursor was found. */
+  /** GET /api/history?after=<cursor> — chain after the cursor, plus whether the cursor was found. */
   async history(after: string | null): Promise<HistoryPage> {
     const query = after === null ? '' : `?after=${encodeURIComponent(after)}`;
-    return this.request(`/history${query}`);
+    return this.request(`/api/history${query}`);
   }
 
   async stats(): Promise<Stats> {
-    return this.request('/stats');
+    return this.request('/api/stats');
   }
 
   async rewrite(base: string | null, history: HistoryNode[]): Promise<void> {
-    await this.request('/rewrite', { method: 'POST', body: { base, history } satisfies RewriteRequest });
+    await this.request('/api/rewrite', { method: 'POST', body: { base, history } satisfies RewriteRequest });
   }
 
   private async request<T>(path: string, init?: { method?: string; body?: object }): Promise<T> {

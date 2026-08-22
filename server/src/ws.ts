@@ -4,7 +4,7 @@ import type { ServerMessage } from '@worktree/core';
 import { getState } from './state';
 import { parseUsername } from './user';
 
-export const WS_PATH = '/websocket';
+export const WS_PATH = '/api/websocket';
 
 /** Broadcasts history updates to the connections of each user. */
 export class WsHub {

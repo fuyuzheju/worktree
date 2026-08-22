@@ -21,7 +21,7 @@ other users are unaffected.
 
 --
 
-/submit
+/api/submit
 body: {htrop: HistoryOperation[]}
 header: X-User
 
@@ -43,7 +43,7 @@ allowed: append in order, return 200, broadcast to that user's connections.
 
 --
 
-/websocket?user=<name>
+/api/websocket?user=<name>
 
 build websocket connection, broadcast that user's appended ops to that user's
 connections. that user's connections are closed when that user's history is rewritten.
@@ -56,22 +56,22 @@ messages (server → client):
 
 --
 
-/stats
+/api/stats
 header: X-User
 
 get statistics for that user (op count, node count, reminder count, that user's state)
 
 --
 
-/history?id=<entry_id>       get one of the user's history entries (404 when missing)
-/history?after=<entry_id>    {cursorFound, nodes}: the user's entries after the id (catch-up);
+/api/history?id=<entry_id>       get one of the user's history entries (404 when missing)
+/api/history?after=<entry_id>    {cursorFound, nodes}: the user's entries after the id (catch-up);
                              when the id is unknown — or belongs to another user — the user's
                              full history is returned with cursorFound=false (the history was rewritten)
-/history                     {cursorFound: true, nodes}: the user's full history
+/api/history                     {cursorFound: true, nodes}: the user's full history
 
 --
 
-/rewrite
+/api/rewrite
 header: X-User
 body: {base: <id of the last entry the client has seen>, history: History}
 
@@ -98,12 +98,12 @@ no socket, no requests; ops are appended straight into the confirmed history and
 persisted locally. used for offline-only, device-local todos.
 
 when network recovers, resync:
-1. catch-up: GET /history?after=<last confirmed entry id>, append to local History
+1. catch-up: GET /api/history?after=<last confirmed entry id>, append to local History
 2. submit all pending operations
    success: clear PendingQueue, catch up again (other clients may have interleaved ops)
    conflict (400): branch at conflict_id, show two branches and let the user choose one
      - server branch: drop the pending ops, keep the server history
-     - own branch: resolve each conflicted op in the UI (keep / edit / drop), then /rewrite
+     - own branch: resolve each conflicted op in the UI (keep / edit / drop), then /api/rewrite
        with {base: current head, history: server history + chosen ops}
        — non-conflicting server ops are preserved; the rewritten history must replay cleanly
    503: that user is offline (maintenance or another of their clients rewriting) — keep the queue and retry, do NOT branch

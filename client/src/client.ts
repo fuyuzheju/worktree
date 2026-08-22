@@ -14,7 +14,7 @@ export interface WorktreeClientOptions {
   user: string;
   /** Offline-only: never talks to the server; ops go straight into the confirmed history. */
   local?: boolean;
-  /** Defaults to ws(s)://<serverUrl host>/websocket. */
+  /** Defaults to ws(s)://<serverUrl host>/api/websocket. */
   wsUrl?: string;
   /** Platform storage for confirmed history + pending queue; without it nothing persists. */
   storage?: ClientStorage;
@@ -295,7 +295,7 @@ export class WorktreeClient {
 function defaultWsUrl(base: string): string {
   const url = new URL(base);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-  url.pathname = '/websocket';
+  url.pathname = '/api/websocket';
   return url.toString();
 }
 

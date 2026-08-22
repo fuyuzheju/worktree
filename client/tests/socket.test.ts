@@ -81,7 +81,7 @@ describe('ServerSocket', () => {
   it('the client appends the user param to the derived WS URL', () => {
     const client = new WorktreeClient({ serverUrl: 'http://localhost:3000', user: 'alice' });
     client.connect();
-    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:3000/websocket?user=alice');
+    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:3000/api/websocket?user=alice');
     client.disconnect();
   });
 
