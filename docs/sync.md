@@ -22,7 +22,7 @@ other users are unaffected.
 --
 
 /submit
-body: HistoryOperation[]
+body: {htrop: HistoryOperation[]}
 header: X-User
 
 process ops in order, atomically:
@@ -48,6 +48,12 @@ allowed: append in order, return 200, broadcast to that user's connections.
 build websocket connection, broadcast that user's appended ops to that user's
 connections. that user's connections are closed when that user's history is rewritten.
 
+messages (server → client):
+  {type: 'op', node: HistoryNode}          a history entry was appended
+  {type: 'removed', id: string}            the head entry was undone
+  {type: 'history-replaced'}               the history was rewritten (clients re-catch-up)
+  {type: 'state', state: working|offline}  the user's server state changed
+
 --
 
 /stats
@@ -69,9 +75,11 @@ get statistics for that user (op count, node count, reminder count, that user's 
 header: X-User
 body: {base: <id of the last entry the client has seen>, history: History}
 
-force rewrite the user's history. rejected with 409 if base is not the user's current
-head (the history advanced since the client's snapshot — the client must re-merge).
-otherwise: toggle that user to "offline", replace their history, then back to "working".
+force rewrite the user's history. rejected with 400 if the submitted history does not
+replay cleanly, with 409 {error, head} if base is not the user's current head (the
+history advanced since the client's snapshot — the client must re-merge).
+otherwise: toggle that user to "offline", replace their history, then back to
+"working", and answer {ok: true}.
 
 --
 

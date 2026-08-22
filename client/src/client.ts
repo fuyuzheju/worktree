@@ -1,5 +1,5 @@
 import { ROOT_ID, USER_RE, newId } from '@worktree/core';
-import type { HistoryOperation, Node, Stats, TreeOperation } from '@worktree/core';
+import type { HistoryNode, HistoryOperation, Node, Stats, TreeOperation } from '@worktree/core';
 import { ServerAPI } from './api';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
@@ -103,6 +103,16 @@ export class WorktreeClient {
   /** Number of ops still waiting for server confirmation. */
   getPendingCount(): number {
     return this.store.getPending().length;
+  }
+
+  /** Confirmed history nodes (what the server has accepted). */
+  getConfirmed(): HistoryNode[] {
+    return this.store.getConfirmed();
+  }
+
+  /** Pending (unconfirmed) history operations. */
+  getPending(): HistoryOperation[] {
+    return this.store.getPending();
   }
 
   getConflict(): Conflict | null {
