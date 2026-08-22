@@ -28,9 +28,9 @@ export function TreeNode(props: TreeNodeProps) {
 
   return (
     <>
-      <div 
-        className={`whitespace-pre cursor-pointer ${bg}${ring}`}
-        onClick={() => onSelect(node.id)}
+      <div
+        data-node-id={node.id}
+        className={`flex py-1 whitespace-pre-wrap wrap-break-words select-none md:whitespace-pre`}
     >
         <span>{connectors(ancestorIsLast, isLast)}</span>
         {hasChildren ? (
@@ -38,12 +38,12 @@ export function TreeNode(props: TreeNodeProps) {
             type="button"
             onClick={(e) => {e.stopPropagation();onToggle(node.id)}}
             aria-label={isOpen ? 'collapse' : 'expand'}
-            className="inline-block w-5 cursor-pointer select-none text-gray-600 hover:text-gray-900"
+            className="inline-block h-8 w-8 cursor-pointer select-none text-gray-600 hover:text-gray-900 md:h-auto md:w-5"
           >
             {isOpen ? '▾' : '▸'}
           </button>
         ) : (
-          <span className="inline-block w-5" />
+          <span className="inline-block h-8 w-8 md:h-auto md:w-5" />
         )}
         {readOnly ? (
           <span data-node-id={node.id}>{formatNode(node, display)}</span>
@@ -51,6 +51,8 @@ export function TreeNode(props: TreeNodeProps) {
           <button
             type="button"
             data-node-id={node.id}
+            className={`p-1 cursor-pointer rounded-lg max-md:flex-1 ${bg}${ring} text-left`}
+            onClick={() => onSelect(node.id)}
           >
             {formatNode(node, display)}
           </button>

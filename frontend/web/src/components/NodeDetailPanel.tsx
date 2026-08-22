@@ -31,9 +31,11 @@ export function NodeDetailPanel(props: {
   node: Node;
   client: WorktreeClient;
   onClose: () => void;
+  /** Embedded in a parent surface (e.g. the mobile bottom sheet): drop the card frame. */
+  bare?: boolean;
 }) {
   const { t } = useI18n();
-  const { node, client, onClose } = props;
+  const { node, client, onClose, bare } = props;
   const [error, setError] = useState<string | null>(null);
 
   const [renameValue, setRenameValue] = useState(node.name);
@@ -46,7 +48,7 @@ export function NodeDetailPanel(props: {
   const [editingRmdId, setEditingRmdId] = useState<string | null>(null);
 
   if (node.id === ROOT_ID) {
-    return <RootPanel client={client} onClose={onClose} />;
+    return <RootPanel client={client} onClose={onClose} bare={bare} />;
   }
 
   const tree = client.getTree();
@@ -77,7 +79,7 @@ export function NodeDetailPanel(props: {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs"
+      className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-xs sm:w-auto sm:flex-1"
     >
       {options.map((f) => (
         <option key={f.node.id} value={f.node.id}>
@@ -124,13 +126,20 @@ export function NodeDetailPanel(props: {
   const reminders = node.reminders;
 
   return (
-    <div className="rounded border border-gray-300 bg-white p-4 text-sm">
-      <div className="flex items-start justify-between">
-        <h2 className="font-semibold">{t('detail.title')}</h2>
+    <div
+      data-detail
+      className={"rounded border border-gray-300 bg-white p-4 pt-0 text-sm h-full overflow-auto"}
+    >
+      <div
+        className={`flex items-center justify-between ${
+          bare === true ? 'sticky top-0 z-10 -mx-4 mb-1 bg-white px-4 py-1' : ''
+        }`}
+      >
+        <h1 className="font-semibold text-1.5xl">{t('detail.title')}</h1>
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-2 py-0.5 text-gray-500 hover:bg-gray-100"
+          className="rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
         >
           ✕
         </button>
@@ -164,7 +173,7 @@ export function NodeDetailPanel(props: {
           type="button"
           onClick={() => run(() => client.setCompleted(node.id, !node.status))}
           data-testid="detail-complete"
-          className="rounded bg-green-600 px-2 py-1 text-white hover:bg-green-700"
+          className="rounded bg-green-600 px-2 py-2 text-white hover:bg-green-700 md:py-1"
         >
           {node.status ? t('detail.uncomplete') : t('detail.complete')}
         </button>
@@ -172,7 +181,7 @@ export function NodeDetailPanel(props: {
           type="button"
           onClick={onRemove}
           data-testid="detail-remove"
-          className="rounded bg-red-600 px-2 py-1 text-white hover:bg-red-700"
+          className="rounded bg-red-600 px-2 py-2 text-white hover:bg-red-700 md:py-1"
         >
           {t('detail.remove')}
         </button>
@@ -181,7 +190,7 @@ export function NodeDetailPanel(props: {
       <div className="mt-4 space-y-3 border-t border-gray-200 pt-3">
         <div>
           <label className="text-xs text-gray-600">{t('detail.rename')}</label>
-          <div className="mt-1 flex gap-2">
+          <div className="mt-1 flex flex-wrap gap-2">
             <input
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
@@ -189,13 +198,13 @@ export function NodeDetailPanel(props: {
                 if (e.key === 'Enter') onSubmitRename();
               }}
               data-testid="detail-rename-input"
-              className="w-full rounded border border-gray-300 px-2 py-1"
+              className="w-full rounded border border-gray-300 px-2 py-1 sm:w-auto sm:flex-1"
             />
             <button
               type="button"
               onClick={onSubmitRename}
               data-testid="detail-rename-apply"
-              className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+              className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
             >
               {t('detail.apply')}
             </button>
@@ -204,7 +213,7 @@ export function NodeDetailPanel(props: {
 
         <div>
           <label className="text-xs text-gray-600">{t('detail.addChild')}</label>
-          <div className="mt-1 flex gap-2">
+          <div className="mt-1 flex flex-wrap gap-2">
             <input
               value={childName}
               onChange={(e) => setChildName(e.target.value)}
@@ -213,7 +222,7 @@ export function NodeDetailPanel(props: {
               }}
               placeholder={t('detail.name')}
               data-testid="detail-child-name"
-              className="w-full rounded border border-gray-300 px-2 py-1"
+              className="w-full rounded border border-gray-300 px-2 py-1 sm:w-auto sm:flex-1"
             />
             <input
               value={childWeight}
@@ -223,13 +232,13 @@ export function NodeDetailPanel(props: {
               }}
               placeholder={t('detail.newWeight')}
               data-testid="detail-child-weight"
-              className="w-28 rounded border border-gray-300 px-2 py-1"
+              className="w-24 rounded border border-gray-300 px-2 py-1 sm:w-28"
             />
             <button
               type="button"
               onClick={onSubmitAddChild}
               data-testid="detail-child-apply"
-              className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+              className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
             >
               {t('detail.apply')}
             </button>
@@ -238,18 +247,18 @@ export function NodeDetailPanel(props: {
 
         <div>
           <label className="text-xs text-gray-600">{t('detail.moveTo')}</label>
-          <div className="mt-1 flex gap-2">
+          <div className="mt-1 flex flex-wrap gap-2">
             {parentSelect(moveTarget, setMoveTarget, moveOptions)}
             <input
               value={moveWeight}
               onChange={(e) => setMoveWeight(e.target.value)}
               placeholder={t('detail.newWeight')}
-              className="w-28 rounded border border-gray-300 px-2 py-1"
+              className="w-24 rounded border border-gray-300 px-2 py-1 sm:w-28"
             />
             <button
               type="button"
               onClick={onSubmitMove}
-              className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+              className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
             >
               {t('detail.apply')}
             </button>
@@ -258,18 +267,18 @@ export function NodeDetailPanel(props: {
 
         <div>
           <label className="text-xs text-gray-600">{t('detail.copyTo')}</label>
-          <div className="mt-1 flex gap-2">
+          <div className="mt-1 flex flex-wrap gap-2">
             {parentSelect(copyTarget, setCopyTarget, flat)}
             <input
               value={copyWeight}
               onChange={(e) => setCopyWeight(e.target.value)}
               placeholder={t('detail.newWeight')}
-              className="w-28 rounded border border-gray-300 px-2 py-1"
+              className="w-24 rounded border border-gray-300 px-2 py-1 sm:w-28"
             />
             <button
               type="button"
               onClick={onSubmitCopy}
-              className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+              className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
             >
               {t('detail.apply')}
             </button>
@@ -310,7 +319,15 @@ export function NodeDetailPanel(props: {
 }
 
 /** The workspace root: only adding top-level nodes makes sense here. */
-function RootPanel({ client, onClose }: { client: WorktreeClient; onClose: () => void }) {
+function RootPanel({
+  client,
+  onClose,
+  bare,
+}: {
+  client: WorktreeClient;
+  onClose: () => void;
+  bare?: boolean;
+}) {
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [weight, setWeight] = useState('');
@@ -330,20 +347,27 @@ function RootPanel({ client, onClose }: { client: WorktreeClient; onClose: () =>
   };
 
   return (
-    <div className="rounded border border-gray-300 bg-white p-4 text-sm">
-      <div className="flex items-start justify-between">
+    <div
+      data-detail
+      className={`${bare === true ? '' : 'rounded border border-gray-300 bg-white '}p-4 text-sm`}
+    >
+      <div
+        className={`flex items-start justify-between ${
+          bare === true ? 'sticky top-0 z-10 -mx-4 mb-1 bg-white px-4 py-1' : ''
+        }`}
+      >
         <h2 className="font-semibold">{t('detail.rootTitle')}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-2 py-0.5 text-gray-500 hover:bg-gray-100"
+          className="rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
         >
           ✕
         </button>
       </div>
       <div className="mt-3">
         <label className="text-xs text-gray-600">{t('detail.addChild')}</label>
-        <div className="mt-1 flex gap-2">
+        <div className="mt-1 flex flex-wrap gap-2">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -352,7 +376,7 @@ function RootPanel({ client, onClose }: { client: WorktreeClient; onClose: () =>
             }}
             placeholder={t('detail.name')}
             data-testid="detail-child-name"
-            className="w-full rounded border border-gray-300 px-2 py-1"
+            className="w-full rounded border border-gray-300 px-2 py-1 sm:w-auto sm:flex-1"
           />
           <input
             value={weight}
@@ -362,13 +386,13 @@ function RootPanel({ client, onClose }: { client: WorktreeClient; onClose: () =>
             }}
             placeholder={t('detail.newWeight')}
             data-testid="detail-child-weight"
-            className="w-28 rounded border border-gray-300 px-2 py-1"
+            className="w-24 rounded border border-gray-300 px-2 py-1 sm:w-28"
           />
           <button
             type="button"
             onClick={submit}
             data-testid="detail-child-apply"
-            className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+            className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
           >
             {t('detail.apply')}
           </button>
@@ -427,14 +451,14 @@ function ReminderRow(props: {
       <button
         type="button"
         onClick={onStartEdit}
-        className="rounded px-1.5 py-0.5 text-blue-700 hover:bg-blue-50"
+        className="rounded px-2 py-1.5 text-blue-700 hover:bg-blue-50 md:px-1.5 md:py-0.5"
       >
         {t('detail.edit')}
       </button>
       <button
         type="button"
         onClick={() => run(() => client.removeReminder(reminder.id))}
-        className="rounded px-1.5 py-0.5 text-red-700 hover:bg-red-50"
+        className="rounded px-2 py-1.5 text-red-700 hover:bg-red-50 md:px-1.5 md:py-0.5"
       >
         {t('detail.delete')}
       </button>
@@ -552,14 +576,14 @@ function ReminderForm(props: {
             type="button"
             onClick={submit}
             data-testid="reminder-save"
-            className="rounded bg-blue-600 px-2 py-1 text-white hover:bg-blue-700"
+            className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
           >
             {t('detail.save')}
           </button>
           <button
             type="button"
             onClick={onDone}
-            className="rounded border border-gray-300 bg-white px-2 py-1 hover:bg-gray-50"
+            className="rounded border border-gray-300 bg-white px-2 py-2 hover:bg-gray-50 md:py-1"
           >
             {t('detail.cancel')}
           </button>

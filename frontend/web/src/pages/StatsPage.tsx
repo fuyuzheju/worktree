@@ -31,7 +31,7 @@ export function StatsPage({ client }: { client: WorktreeClient }) {
       ) : stats === null ? (
         <p className="mt-2 text-sm text-gray-500">{t('stats.loading')}</p>
       ) : (
-        <dl className="mt-3 grid w-80 grid-cols-2 gap-y-2 text-sm">
+        <dl className="mt-3 grid w-full max-w-80 grid-cols-2 gap-y-2 text-sm">
           <dt className="text-gray-600">{t('stats.opCount')}</dt>
           <dd className="text-right font-mono">{stats.opCount}</dd>
           <dt className="text-gray-600">{t('stats.nodeCount')}</dt>

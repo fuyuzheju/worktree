@@ -20,7 +20,7 @@ export function TreeView(props: TreeViewProps) {
   const { root, expanded, selectedId, display, onToggle, onSelect, readOnly } = props;
 
   return (
-    <div className="font-mono text-sm leading-6" data-testid="tree-view">
+    <div className="w-full px-4 font-mono text-sm leading-6" data-testid="tree-view">
       {readOnly ? (
         <div className="text-gray-700">{rootLine(root, display)}</div>
       ) : (
@@ -28,7 +28,7 @@ export function TreeView(props: TreeViewProps) {
           type="button"
           onClick={() => onSelect(root.id)}
           data-node-id={root.id}
-          className={`cursor-pointer text-gray-700${
+          className={`whitespace-pre-wrap wrap-break-words py-1 select-none cursor-pointer text-gray-700 md:whitespace-pre md:py-0${
             selectedId === root.id ? ' ring-2 ring-inset ring-blue-400' : ''
           }`}
         >

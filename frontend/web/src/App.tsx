@@ -73,15 +73,15 @@ function Shell(props: {
   const { client, tree, online, pendingCount } = snap;
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900">
-      <header className="border-b border-gray-300 bg-white px-6 py-3">
-        <div className="flex items-center justify-between">
+    <div className="flex flex-col min-h-screen max-h-screen bg-gray-100 text-gray-900">
+      <header className="border-b border-gray-300 bg-white px-4 py-3 md:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-xl font-bold tracking-wide">{t('app.title')}</h1>
           <StatusBar online={online} pendingCount={pendingCount} client={client} />
         </div>
         <Tabs active={tab} onChange={setTab} />
       </header>
-      <main className="px-6 py-4">
+      <main className="py-4 md:px-6 flex-1 flex w-full min-h-0 overflow-y-auto">
         {tab === 'tree' && <TreePage tree={tree} client={client} display={config.display} />}
         {tab === 'stats' && <StatsPage client={client} />}
         {tab === 'settings' && (
@@ -113,8 +113,8 @@ function ErrorScreen({ message }: { message: string }) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="w-96 rounded border border-red-300 bg-red-50 px-6 py-4 text-red-800">
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
+      <div className="w-full max-w-96 rounded border border-red-300 bg-red-50 px-6 py-4 text-red-800">
         <p className="font-semibold">Worktree could not start</p>
         <p className="mt-1 text-sm">{message}</p>
         <div className="mt-3 flex flex-col gap-2">

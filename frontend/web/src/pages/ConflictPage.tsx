@@ -66,7 +66,7 @@ export function ConflictPage(props: {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6 text-gray-900">
+    <div className="min-h-screen bg-gray-100 p-4 text-gray-900 md:p-6">
       <div className="mx-auto max-w-6xl">
         <h1 className="text-xl font-bold">{t('conflict.title')}</h1>
         <p className="mt-1 text-sm text-gray-600">{t('conflict.explanation')}</p>
@@ -74,7 +74,7 @@ export function ConflictPage(props: {
           {t('conflict.base', { base: conflict.baseId ?? '∅' })}
         </p>
 
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded border border-gray-300 bg-white p-3">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold">{t('conflict.serverVersion')}</h2>
@@ -129,13 +129,13 @@ export function ConflictPage(props: {
           </div>
         </div>
 
-        <div className="mt-4 flex gap-3">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
             disabled={resolving !== null}
             onClick={() => void resolve('server')}
             data-testid="conflict-keep-server"
-            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-40"
+            className="w-full rounded bg-blue-600 px-4 py-2.5 text-white hover:bg-blue-700 disabled:opacity-40 sm:w-auto sm:py-2"
           >
             {resolving === 'server' ? t('conflict.resolving') : t('conflict.keepServer')}
           </button>
@@ -144,7 +144,7 @@ export function ConflictPage(props: {
             disabled={resolving !== null}
             onClick={() => void resolve('local')}
             data-testid="conflict-keep-local"
-            className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-40"
+            className="w-full rounded bg-green-600 px-4 py-2.5 text-white hover:bg-green-700 disabled:opacity-40 sm:w-auto sm:py-2"
           >
             {resolving === 'local' ? t('conflict.resolving') : t('conflict.keepLocal')}
           </button>

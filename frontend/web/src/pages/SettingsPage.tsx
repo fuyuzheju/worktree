@@ -73,12 +73,12 @@ export function SettingsPage(props: {
         <h2 className="font-semibold">{t('settings.user')}</h2>
         <p className="mt-1 text-gray-600">{t('settings.currentUser', { user: config.user })}</p>
         <p className="mt-1 text-xs text-gray-500">{t('settings.userNote')}</p>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           <input
             value={userDraft}
             onChange={(e) => setUserDraft(e.target.value)}
             data-testid="settings-user-input"
-            className="w-56 rounded border border-gray-300 px-2 py-1"
+            className="w-56 max-w-full rounded border border-gray-300 px-2 py-1"
           />
           <button
             type="button"
