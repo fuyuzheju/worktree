@@ -22,17 +22,17 @@ export function TreeView(props: TreeViewProps) {
   return (
     <div className="w-full px-4 font-mono text-sm leading-6" data-testid="tree-view">
       {readOnly ? (
-        <div className="text-gray-700">{rootLine(root, display)}</div>
+        <div className="text-gray-700">{rootLine(root, display, t('tree.rootName'))}</div>
       ) : (
         <button
           type="button"
           onClick={() => onSelect(root.id)}
           data-node-id={root.id}
-          className={`whitespace-pre-wrap wrap-break-words py-1 select-none cursor-pointer text-gray-700 md:whitespace-pre md:py-0${
+          className={`block px-2 text-left whitespace-pre-wrap wrap-break-words py-1 select-none cursor-pointer text-gray-700 rounded-lg bg-gray-200 hover:bg-gray-300 md:whitespace-pre md:py-0${
             selectedId === root.id ? ' ring-2 ring-inset ring-blue-400' : ''
           }`}
         >
-          {rootLine(root, display)}
+          {rootLine(root, display, t('tree.rootName'))}
         </button>
       )}
       {root.children.length === 0 && (

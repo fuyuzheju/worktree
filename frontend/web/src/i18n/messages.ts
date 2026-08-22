@@ -25,6 +25,7 @@ export const messages: Record<string, StringMap> = {
       user: 'user: {user}',
     },
     tree: {
+      rootName: 'workroot',
       selectHint: 'Select a node to see its details.',
       empty: '(empty tree — select the root to add a node)',
     },

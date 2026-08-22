@@ -37,7 +37,7 @@ export function connectors(ancestorIsLast: boolean[], isLast: boolean): string {
   return prefix + (isLast ? '└── ' : '├── ');
 }
 
-/** The tree headline: `.` for the worktree root, the node itself otherwise. */
-export function rootLine(root: Node, display: DisplayPrefs): string {
-  return root.id === ROOT_ID ? '.' : formatNode(root, display);
+/** The tree headline: `rootName` for the worktree root, the node itself otherwise. */
+export function rootLine(root: Node, display: DisplayPrefs, rootName = '.'): string {
+  return root.id === ROOT_ID ? rootName : formatNode(root, display);
 }

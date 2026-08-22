@@ -70,8 +70,13 @@ describe('connectors', () => {
 });
 
 describe('rootLine', () => {
-  it('renders the worktree root as a dot', () => {
+  it('renders the worktree root as a dot by default', () => {
     const root = Tree.fromOps([]).getRoot();
     expect(rootLine(root, fullDisplay)).toBe('.');
+  });
+
+  it('uses the given root name for the worktree root', () => {
+    const root = Tree.fromOps([]).getRoot();
+    expect(rootLine(root, fullDisplay, 'workroot')).toBe('workroot');
   });
 });
