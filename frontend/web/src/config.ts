@@ -1,4 +1,4 @@
-export const DEFAULT_SERVER = 'https://fuyuzheju.worktree.cn';
+export const DEFAULT_SERVER = 'https://worktree.fuyuzheju.cn';
 export const LOCAL_USER = 'local';
 
 export interface DisplayPrefs {
