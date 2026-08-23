@@ -5,7 +5,7 @@ import type { Conflict, WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
 import { TreeView } from '../components/TreeView';
-import { filterReplayable, formatHistoryNode, formatHistoryOp } from '../conflict-utils';
+import { formatHistoryNode, formatHistoryOp } from '../conflict-utils';
 
 function toggleIn(set: Set<string>, id: string): Set<string> {
   const next = new Set(set);
@@ -75,18 +75,9 @@ export function ConflictPage(props: {
     setResolving(choice);
     setError(null);
     try {
-      if (choice === 'local') {
-        // Keep the pending ops that still replay on the server history and
-        // rewrite with those; drop the ones that conflict. If nothing
-        // survives, adopting the server history is the same as keep-server.
-        const chosen = filterReplayable(
-          [...conflict.base, ...conflict.serverBranch],
-          conflict.localBranch,
-        );
-        await client.resolveConflict(chosen.length > 0 ? 'local' : 'server', chosen);
-      } else {
-        await client.resolveConflict('server');
-      }
+      // Keeping the local version rewrites the history to the agreed base
+      // plus the pending ops — the tree shown in the "your version" pane.
+      await client.resolveConflict(choice);
       // On success the kernel clears the conflict and emits; App unmounts us.
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

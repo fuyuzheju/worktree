@@ -232,6 +232,43 @@ describe('Syncer', () => {
     expect(store.getPending()).toHaveLength(0);
   });
 
+  it('resolveConflict(local) after a conflict keeps the local version (server branch discarded)', async () => {
+    const store = new ClientStore();
+    store.setConfirmed([node('s1'), node('s2')]);
+    store.applyLocal(addOp('a'));
+    const pendingId = store.getPending()[0]!.id;
+    const api = new FakeAPI();
+    api.serverHistory = [node('s1'), node('s2'), node('s3')];
+    api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"boom"}');
+    const syncer = new Syncer(store, api);
+    expect(await syncer.sync()).toBe('conflict');
+    api.failSubmitWith = null;
+    await syncer.resolveConflict('local');
+    // The rewrite starts from the agreed base [s1, s2]; s3 is discarded.
+    expect(api.rewriteCalls[0]).toEqual({
+      base: 's3',
+      history: [node('s1'), node('s2'), node(pendingId, addOp('a'))],
+    });
+    expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', 's2', pendingId]);
+    expect(store.getPending()).toHaveLength(0);
+  });
+
+  it('resolveConflict(local) applies a pending undo to the agreed base', async () => {
+    const store = new ClientStore();
+    store.setConfirmed([node('s1'), node('s2')]);
+    store.applyUndo(); // targets s2
+    const api = new FakeAPI();
+    api.serverHistory = [node('s1'), node('s2'), node('s3')];
+    api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"boom"}');
+    const syncer = new Syncer(store, api);
+    expect(await syncer.sync()).toBe('conflict');
+    api.failSubmitWith = null;
+    await syncer.resolveConflict('local');
+    expect(api.rewriteCalls[0]).toEqual({ base: 's3', history: [node('s1')] });
+    expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1']);
+    expect(store.getPending()).toHaveLength(0);
+  });
+
   it('resolveConflict(local) propagates a rewrite 400 and keeps the conflict', async () => {
     const store = new ClientStore();
     store.applyLocal(addOp('a'));

@@ -1,3 +1,4 @@
+import { Tree } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, HistoryPage } from '@worktree/core';
 import { ApiError } from './api';
 import type { ClientStore } from './store';
@@ -81,23 +82,30 @@ export class Syncer {
       this.store.clearPending();
       await this.catchUp();
     } else {
-      // Re-catch-up first so non-conflicting server ops survive the rewrite,
-      // then send the merged history guarded by the server's current head.
-      // A 409 means the history advanced mid-merge: re-merge against the
-      // fresh history (bounded retries).
-      const keep = chosenOps ?? this.store.getPending();
+      // Keeping the local version discards the server's branch: with a
+      // conflict the rewrite starts from the agreed base (what the "your
+      // version" view shows); without one it merges onto the current server
+      // history. Pending ops that do not replay on that history are dropped
+      // so the rewritten history stays clean.
+      const keep = chosenOps ?? this.conflict?.localBranch ?? this.store.getPending();
       for (let attempt = 0; ; attempt++) {
         const serverHistory = (await this.api.history(null)).nodes;
-        const history = [...serverHistory];
+        const history = this.conflict ? [...this.conflict.base] : [...serverHistory];
         for (const p of keep) {
           if (p.kind === 'add') {
+            const probe = Tree.fromOps(history.map((n) => n.op));
+            try {
+              probe.apply(p.op);
+            } catch {
+              continue;
+            }
             history.push({ id: p.id, op: p.op });
           } else if (history.at(-1)?.id === p.id) {
-            // Undo applies when it still targets the merged tail;
-            // a stale undo (the head advanced) is dropped.
             history.pop();
           }
         }
+        // The rewrite guard is the server's current head; a 409 means it
+        // advanced mid-merge — retry against the same agreed base.
         const base = serverHistory.at(-1)?.id ?? null;
         try {
           await this.api.rewrite(base, history);

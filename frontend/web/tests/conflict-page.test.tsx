@@ -83,28 +83,10 @@ describe('ConflictPage', () => {
     await waitFor(() => expect(resolveConflict).toHaveBeenCalledWith('server'));
   });
 
-  it('falls back to adopting the server when no pending op survives', async () => {
-    // The pending rename targets a node the server removed — nothing replays.
+  it('resolves with the local branch (no per-op filtering in the page)', async () => {
     const resolveConflict = vi.fn(async () => undefined);
     renderPage(resolveConflict);
     fireEvent.click(screen.getByRole('button', { name: 'Keep my version' }));
-    await waitFor(() => expect(resolveConflict).toHaveBeenCalledWith('server', []));
-  });
-
-  it('keeps surviving pending ops when keeping the local branch', async () => {
-    const resolveConflict = vi.fn(async () => undefined);
-    const pendingAdd = {
-      kind: 'add' as const,
-      id: 'op3',
-      op: { kind: 'add' as const, parentId: ROOT_ID, id: 'mmmm-1', name: 'm', weight: 9 },
-    };
-    const conflict2: Conflict = { ...conflict, localBranch: [pendingAdd] };
-    render(
-      <I18nProvider lang="en">
-        <ConflictPage conflict={conflict2} client={makeClient(resolveConflict)} display={display} />
-      </I18nProvider>,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Keep my version' }));
-    await waitFor(() => expect(resolveConflict).toHaveBeenCalledWith('local', [pendingAdd]));
+    await waitFor(() => expect(resolveConflict).toHaveBeenCalledWith('local'));
   });
 });

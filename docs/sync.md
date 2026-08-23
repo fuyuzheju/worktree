@@ -111,13 +111,15 @@ when network recovers, resync:
 1. catch-up: GET /api/history?after=<last confirmed entry id>, append to local History
 2. submit all pending operations
    success: clear PendingQueue, catch up again (other clients may have interleaved ops)
-   conflict (400): branch at conflict_id, show two branches and let the user choose one
+   conflict (400): branch at the pre-catch-up head (the "last agreed entry"), show the two
+     branches and let the user choose one
      - server branch: drop the pending ops, keep the server history
-     - own branch: resolve each conflicted op in the UI (keep / edit / drop), then /api/rewrite
-       with {base: current head, history: server history + chosen ops}
-       — non-conflicting server ops are preserved; the rewritten history must replay cleanly
-       — a pending undo is applied to the merged history when it still targets the tail,
-         dropped otherwise (the head advanced)
+     - own branch: keep the local version — /api/rewrite with
+       {base: current server head, history: agreed base + pending ops}; the server's
+       branch is discarded, pending ops that do not replay on the base are dropped,
+       and a pending undo drops the base's tail entry
+     - the rewritten history must replay cleanly (400 otherwise); a 409 retries the
+       rewrite against the same agreed base
    503: that user is offline (maintenance or another of their clients rewriting) — keep the queue and retry, do NOT branch
 
 undo:
