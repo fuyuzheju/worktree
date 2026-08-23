@@ -215,4 +215,42 @@ describe('validateOps', () => {
     );
     expect(result.ok).toBe(true);
   });
+
+  it('rejects an empty edit_node patch', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
+    const result = validateOps(
+      [{ kind: 'add', id: 'h1', op: { kind: 'edit_node', id: 'a' } }],
+      tree,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('edit_node patch is empty');
+  });
+
+  it('rejects edit_node on an unknown node', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
+    const result = validateOps(
+      [{ kind: 'add', id: 'h1', op: { kind: 'edit_node', id: 'missing', note: 'x' } }],
+      tree,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.opId).toBe('h1');
+  });
+
+  it('accepts a partial edit_node patch', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
+    expect(validateOps([histAdd('h1', { kind: 'edit_node', id: 'a', note: 'n' })], tree).ok).toBe(true);
+    expect(validateOps([histAdd('h1', { kind: 'edit_node', id: 'a', deadline: null })], tree).ok).toBe(true);
+  });
+
+  it('lets a later op in the batch see an earlier edit_node', () => {
+    const tree = Tree.fromOps([addOp(ROOT_ID, 'a')]);
+    const result = validateOps(
+      [
+        histAdd('h1', { kind: 'edit_node', id: 'a', note: 'n' }),
+        histAdd('h2', { kind: 'edit_node', id: 'a', note: 'n2' }),
+      ],
+      tree,
+    );
+    expect(result.ok).toBe(true);
+  });
 });

@@ -1,23 +1,35 @@
-import { useEffect, useRef, useState } from 'react';
-import type { Node } from '@worktree/core';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { filterTree, hasActiveFilter } from '@worktree/core';
+import type { Node, NodeFilter } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
-import type { DisplayPrefs } from '../config';
+import type { AppConfig, DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { findNode } from '../tree-utils';
 import { TreeView } from '../components/TreeView';
+import { FilterBar } from '../components/FilterBar';
 import { NodeDetailPanel } from '../components/NodeDetailPanel';
+import { highlightView } from '../filter-view';
 
 export function TreePage(props: {
   tree: Node;
   client: WorktreeClient;
   display: DisplayPrefs;
+  updateConfig: (patch: Partial<AppConfig>) => void;
 }) {
   const { t } = useI18n();
-  const { tree, client, display } = props;
+  const { tree, client, display, updateConfig } = props;
   const isMobile = useIsMobile();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<NodeFilter>({});
+
+  const mode = display.filterMode;
+  const filterActive = hasActiveFilter(filter);
+  const view = useMemo(
+    () => (mode === 'hide' ? filterTree(tree, filter) : highlightView(tree, filter)),
+    [tree, filter, mode],
+  );
 
   const toggle = (id: string): void => {
     setExpanded((prev) => {
@@ -59,24 +71,31 @@ export function TreePage(props: {
   const close = (): void => setSelectedId(null);
 
   return (
-    <div ref={rootRef} className={`flex ${isMobile?"flex-col":""} w-full flex-1 min-h-0`}>
-      <div className="flex min-w-0 flex-1 overflow-auto bg-gray-100">
-        {/* <div
-          className={`flex-1 flex rounded border border-gray-300 bg-white p-3`}
-        > */}
+    <div ref={rootRef} className={`flex w-full flex-1 min-h-0 ${isMobile ? 'flex-col' : ''}`}>
+      <div className="relative flex min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 overflow-auto bg-gray-100">
           <TreeView
-            root={tree}
+            root={view}
             expanded={expanded}
             selectedId={selectedId}
             display={display}
             onToggle={toggle}
             onSelect={select}
+            filterActive={filterActive}
           />
-        {/* </div> */}
+        </div>
+        <div className="absolute right-2 top-0 z-10">
+          <FilterBar
+            filter={filter}
+            mode={mode}
+            onFilterChange={setFilter}
+            onModeChange={(m) => updateConfig({ display: { ...display, filterMode: m } })}
+          />
+        </div>
       </div>
       {isMobile ? (
         selected !== undefined && (
-          <div className="max-h-[55vh] overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl w-full">
+          <div className="max-h-[55vh] w-full overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl">
             <NodeDetailPanel bare node={selected} client={client} onClose={close} />
           </div>
         )

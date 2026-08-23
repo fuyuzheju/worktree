@@ -82,7 +82,9 @@ function Shell(props: {
         <Tabs active={tab} onChange={setTab} />
       </header>
       <main className="py-4 md:px-6 flex-1 flex w-full min-h-0 overflow-y-auto">
-        {tab === 'tree' && <TreePage tree={tree} client={client} display={config.display} />}
+        {tab === 'tree' && (
+          <TreePage tree={tree} client={client} display={config.display} updateConfig={updateConfig} />
+        )}
         {tab === 'stats' && <StatsPage client={client} />}
         {tab === 'settings' && (
           <SettingsPage

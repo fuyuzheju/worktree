@@ -8,7 +8,7 @@ import { I18nProvider } from '../src/i18n';
 import { ConflictPage } from '../src/pages/ConflictPage';
 import type { DisplayPrefs } from '../src/config';
 
-const display: DisplayPrefs = { showId: true, showWeight: true, showReminders: true };
+const display: DisplayPrefs = { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' };
 
 const conflict: Conflict = {
   baseId: 'op1',

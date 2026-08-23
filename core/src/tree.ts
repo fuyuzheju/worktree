@@ -9,7 +9,7 @@ export class Tree {
   private parents = new Map<string, string>();
 
   constructor() {
-    this.root = { id: ROOT_ID, name: '', weight: 0, children: [], reminders: [], status: false };
+    this.root = { id: ROOT_ID, name: '', weight: 0, children: [], reminders: [], status: false, note: '', createdAt: 0 };
     this.index.set(ROOT_ID, this.root);
   }
 
@@ -30,6 +30,9 @@ export class Tree {
         children: [],
         reminders: node.reminders.map((r) => ({ ...r })),
         status: node.status,
+        note: node.note,
+        createdAt: node.createdAt,
+        deadline: node.deadline,
       };
       copy.index.set(c.id, c);
       c.children = node.children.map(cloneNode);
@@ -47,7 +50,17 @@ export class Tree {
         if (this.index.has(op.id)) throw new Error(`duplicate node id: ${op.id}`);
         this.validateName(op.name);
         this.ensureUniqueSiblingName(parent, op.name);
-        const node: Node = { id: op.id, name: op.name, weight: op.weight, children: [], reminders: [], status: false };
+        const node: Node = {
+          id: op.id,
+          name: op.name,
+          weight: op.weight,
+          children: [],
+          reminders: [],
+          status: false,
+          note: op.note ?? '',
+          createdAt: op.createdAt ?? 0,
+          deadline: op.deadline,
+        };
         parent.children.push(node);
         this.sortChildren(parent);
         this.index.set(node.id, node);
@@ -63,6 +76,7 @@ export class Tree {
         const parentId = this.parents.get(op.id);
         if (parentId !== undefined) this.ensureUniqueSiblingName(this.mustGet(parentId), op.name, op.id);
         node.name = op.name;
+        this.resortSiblings(op.id);
         break;
       }
       case 'move': {
@@ -94,6 +108,11 @@ export class Tree {
           // ambiguity between the source's and the copy's reminders.
           reminders: src.reminders.map((r: Reminder) => ({ ...r, id: `${op.newId}#${r.id}` })),
           status: src.status,
+          note: src.note,
+          // Apply-time, not replayed from the op — display-only, no
+          // validation depends on it.
+          createdAt: Date.now(),
+          deadline: src.deadline,
         };
         parent.children.push(clone);
         this.sortChildren(parent);
@@ -103,9 +122,11 @@ export class Tree {
       }
       case 'complete':
         this.mustGet(op.id).status = true;
+        this.resortSiblings(op.id);
         break;
       case 'uncomplete':
         this.mustGet(op.id).status = false;
+        this.resortSiblings(op.id);
         break;
       case 'add_reminder': {
         const node = this.mustGet(op.nodeId);
@@ -119,6 +140,14 @@ export class Tree {
         break;
       }
       case 'edit_reminder': {
+        if (
+          op.name === undefined &&
+          op.deadline === undefined &&
+          op.repeat === undefined &&
+          op.active === undefined
+        ) {
+          throw new Error('edit_reminder patch is empty');
+        }
         const node = this.findReminderNode(op.rmdId);
         const reminder = node?.reminders.find((r) => r.id === op.rmdId);
         if (!reminder) throw new Error(`unknown reminder id: ${op.rmdId}`);
@@ -126,6 +155,15 @@ export class Tree {
         if (op.deadline !== undefined) reminder.deadline = op.deadline;
         if (op.repeat !== undefined) reminder.repeat = op.repeat ?? undefined;
         if (op.active !== undefined) reminder.active = op.active;
+        break;
+      }
+      case 'edit_node': {
+        if (op.note === undefined && op.deadline === undefined) {
+          throw new Error('edit_node patch is empty');
+        }
+        const node = this.mustGet(op.id);
+        if (op.note !== undefined) node.note = op.note;
+        if (op.deadline !== undefined) node.deadline = op.deadline ?? undefined;
         break;
       }
     }
@@ -159,9 +197,24 @@ export class Tree {
     return node;
   }
 
-  /** Sibling order: ascending (weight, id) — deterministic across replays. */
+  /**
+   * Sibling order: uncompleted nodes first, then completed; within each group
+   * ascending (weight, name). Names are unique among siblings, so the order
+   * is deterministic across replays.
+   */
   private sortChildren(parent: Node): void {
-    parent.children.sort((a, b) => a.weight - b.weight || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    parent.children.sort(
+      (a, b) =>
+        Number(a.status) - Number(b.status) ||
+        a.weight - b.weight ||
+        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
+    );
+  }
+
+  /** Re-sort a node's siblings after a status change flips its group. */
+  private resortSiblings(id: string): void {
+    const parentId = this.parents.get(id);
+    if (parentId !== undefined) this.sortChildren(this.mustGet(parentId));
   }
 
   private validateName(name: string): void {

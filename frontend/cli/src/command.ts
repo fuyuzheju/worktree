@@ -1,7 +1,10 @@
 import { ROOT_ID } from '@worktree/core';
-import type { Node } from '@worktree/core';
+import type { Node, NodeFilter } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { findNode, resolveRef } from './resolve';
+
+/** How a non-empty filter renders: hide non-matching nodes, or highlight matches. */
+export type FilterDisplayMode = 'hide' | 'highlight';
 
 /** Mutable shell state shared with the REPL (cwd tracking, current client). */
 export interface CommandContext {
@@ -12,6 +15,10 @@ export interface CommandContext {
   cwdId: string;
   /** The active username (updated on `user switch`). */
   currentUser: string;
+  /** Active display filter (session-only, not persisted). */
+  filter: NodeFilter;
+  /** How a non-empty filter renders. */
+  filterMode: FilterDisplayMode;
 }
 
 /** Everything a command needs to run. Bound by createCommandIO once per session. */
@@ -23,6 +30,10 @@ export interface CommandIO {
   cwdId: string;
   /** Mirrors the context's currentUser. */
   currentUser: string;
+  /** Mirrors the context's filter (getter/setter delegate to it). */
+  filter: NodeFilter;
+  /** Mirrors the context's filterMode. */
+  filterMode: FilterDisplayMode;
   /** Wired by the REPL after io creation (needs io itself, so it is attached later). */
   switchUser?: (name: string) => Promise<void>;
   /** Print `usage: <text>` (the command's own usage when omitted) and signal done. */
@@ -70,6 +81,18 @@ export function createCommandIO(ctx: CommandContext): CommandIO {
     get currentUser(): string {
       return ctx.currentUser;
     },
+    get filter(): NodeFilter {
+      return ctx.filter;
+    },
+    set filter(value: NodeFilter) {
+      ctx.filter = value;
+    },
+    get filterMode(): FilterDisplayMode {
+      return ctx.filterMode;
+    },
+    set filterMode(value: FilterDisplayMode) {
+      ctx.filterMode = value;
+    },
     usage: (text: string): 'ok' => {
       ctx.out(`usage: ${text}`);
       return 'ok';
@@ -114,6 +137,18 @@ export function createDispatcher(commands: Command[]) {
       },
       get currentUser() {
         return io.currentUser;
+      },
+      get filter() {
+        return io.filter;
+      },
+      set filter(value) {
+        io.filter = value;
+      },
+      get filterMode() {
+        return io.filterMode;
+      },
+      set filterMode(value) {
+        io.filterMode = value;
       },
       switchUser: io.switchUser,
       usage: (text) => io.usage(text ?? command.usage),

@@ -8,12 +8,14 @@ export function shortId(id: string): string {
   return id.slice(0, SHORT_ID_LEN);
 }
 
-/** One node row, same token order as the CLI: `name [id4] ✔ w:<weight> R(n):...` */
+/** One node row, same token order as the CLI: `name [id4] ✔ w:<weight> ⏰deadline ✎ note R(n):...` */
 export function formatNode(node: Node, display: DisplayPrefs): string {
   const parts = [node.name];
   if (display.showId) parts.push(`[${shortId(node.id)}]`);
   if (node.status) parts.push('✔');
   if (display.showWeight) parts.push(`w:${node.weight}`);
+  if (node.deadline !== undefined) parts.push(`⏰${new Date(node.deadline).toISOString()}`);
+  if (node.note !== '') parts.push(`✎ ${node.note}`);
   if (display.showReminders && node.reminders.length > 0) {
     parts.push(`R(${node.reminders.length}):${node.reminders.map(formatReminder).join(', ')}`);
   }

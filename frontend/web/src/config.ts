@@ -1,10 +1,14 @@
 export const DEFAULT_SERVER = 'https://worktree.fuyuzheju.cn';
 export const LOCAL_USER = 'local';
 
+/** How an active filter renders: hide non-matching nodes, or highlight matches. */
+export type FilterDisplayMode = 'hide' | 'highlight';
+
 export interface DisplayPrefs {
   showId: boolean;
   showWeight: boolean;
   showReminders: boolean;
+  filterMode: FilterDisplayMode;
 }
 
 export interface AppConfig {
@@ -19,7 +23,7 @@ const CONFIG_KEY = 'worktree.config';
 const defaultConfig: AppConfig = {
   serverUrl: DEFAULT_SERVER,
   user: LOCAL_USER,
-  display: { showId: true, showWeight: true, showReminders: true },
+  display: { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' },
   lang: 'en',
 };
 

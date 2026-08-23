@@ -1,5 +1,5 @@
-import { ROOT_ID, USER_RE } from '@worktree/core';
-import { formatNode, renderTree, shortId } from './render';
+import { ROOT_ID, USER_RE, matchesFilter } from '@worktree/core';
+import { formatNode, renderFiltered, renderTree, shortId } from './render';
 import { pathOf } from './resolve';
 import { DEFAULT_SERVER } from './config';
 import { defaultStatePath } from './storage';
@@ -23,7 +23,7 @@ const treeCommand: Command = {
   usage: 'tree [ref]',
   run: (io, args) => {
     const node = args[0] !== undefined ? io.refNode(args[0]) : io.cwdNode();
-    if (node) io.out(renderTree(node));
+    if (node) io.out(renderFiltered(node, io.filter, io.filterMode));
     return 'ok';
   },
 };
@@ -35,7 +35,69 @@ const lsCommand: Command = {
   run: (io, args) => {
     const node = args[0] !== undefined ? io.refNode(args[0]) : io.cwdNode();
     if (!node) return 'ok';
-    for (const child of node.children) io.out(formatNode(child));
+    for (const child of node.children) {
+      if (io.filterMode === 'hide') {
+        if (matchesFilter(child, io.filter)) io.out(formatNode(child));
+      } else {
+        io.out(`${matchesFilter(child, io.filter) ? '* ' : ''}${formatNode(child)}`);
+      }
+    }
+    return 'ok';
+  },
+};
+
+const filterCommand: Command = {
+  name: 'filter',
+  summary: 'set/clear the display filter (name= note= keyword= status= overdue= has-deadline= deadline-before= created-after= created-before= mode=)',
+  usage: 'filter [clear] [key=value ...]',
+  run: (io, args): CommandResult => {
+    if (args[0] === 'clear') {
+      io.filter = {};
+      io.filterMode = 'hide';
+      io.out('filter cleared');
+      return 'ok';
+    }
+    if (args.length === 0) {
+      io.out(JSON.stringify({ ...io.filter, mode: io.filterMode }));
+      return 'ok';
+    }
+    for (const kv of args) {
+      const eq = kv.indexOf('=');
+      if (eq <= 0) {
+        io.out(`invalid key=value: ${kv}`);
+        return 'ok';
+      }
+      const key = kv.slice(0, eq);
+      const value = kv.slice(eq + 1);
+      if (key === 'name') io.filter = { ...io.filter, nameContains: value };
+      else if (key === 'note') io.filter = { ...io.filter, noteContains: value };
+      else if (key === 'keyword') io.filter = { ...io.filter, keyword: value };
+      else if (key === 'status') {
+        if (value !== 'true' && value !== 'false' && value !== 'completed' && value !== 'uncompleted') {
+          io.out(`invalid status: ${value} (use true/completed or false/uncompleted)`);
+          return 'ok';
+        }
+        io.filter = { ...io.filter, status: value === 'true' || value === 'completed' };
+      } else if (key === 'overdue') io.filter = { ...io.filter, overdue: value === 'true' };
+      else if (key === 'has-deadline') io.filter = { ...io.filter, hasDeadline: value === 'true' };
+      else if (key === 'deadline-before' || key === 'created-after' || key === 'created-before') {
+        const t = parseTimestamp(io, value);
+        if (t === null) return 'ok';
+        if (key === 'deadline-before') io.filter = { ...io.filter, deadlineBefore: t };
+        else if (key === 'created-after') io.filter = { ...io.filter, createdAfter: t };
+        else io.filter = { ...io.filter, createdBefore: t };
+      } else if (key === 'mode') {
+        if (value !== 'hide' && value !== 'highlight') {
+          io.out(`invalid mode: ${value} (use hide or highlight)`);
+          return 'ok';
+        }
+        io.filterMode = value;
+      } else {
+        io.out(`unknown field: ${key}`);
+        return 'ok';
+      }
+    }
+    io.out(renderFiltered(io.client.getTree(), io.filter, io.filterMode));
     return 'ok';
   },
 };
@@ -125,6 +187,67 @@ const renameCommand: Command = {
     if (!node) return 'ok';
     mutate(() => io.client.renameNode(node.id, args[1]!));
     io.out(`renamed to "${args[1]}"`);
+    await afterCommand(io);
+    return 'ok';
+  },
+};
+
+const editCommand: Command = {
+  name: 'edit',
+  summary: 'edit node fields: name= weight= status=true|false note= deadline= (deadline=null clears)',
+  usage: 'edit <ref> name=... weight=... status=... note=... deadline=...',
+  run: async (io, args): Promise<CommandResult> => {
+    if (args.length < 2) return io.usage();
+    const node = io.refNode(args[0]);
+    if (!node) return 'ok';
+    let name: string | undefined;
+    let weight: number | undefined;
+    let status: boolean | undefined;
+    let note: string | undefined;
+    let deadline: number | null | undefined;
+    for (const kv of args.slice(1)) {
+      const eq = kv.indexOf('=');
+      if (eq <= 0) {
+        io.out(`invalid key=value: ${kv}`);
+        return 'ok';
+      }
+      const key = kv.slice(0, eq);
+      const value = kv.slice(eq + 1);
+      if (key === 'name') {
+        if (value === '') {
+          io.out('node name must not be empty');
+          return 'ok';
+        }
+        name = value;
+      } else if (key === 'weight') {
+        const w = parseWeight(io, value);
+        if (w === undefined) return 'ok';
+        weight = w;
+      } else if (key === 'status') {
+        if (value !== 'true' && value !== 'false') {
+          io.out(`invalid status: ${value} (use true or false)`);
+          return 'ok';
+        }
+        status = value === 'true';
+      } else if (key === 'note') note = value;
+      else if (key === 'deadline') {
+        if (value === 'null' || value === '') deadline = null;
+        else {
+          const t = parseTimestamp(io, value);
+          if (t === null) return 'ok';
+          deadline = t;
+        }
+      } else {
+        io.out(`unknown field: ${key}`);
+        return 'ok';
+      }
+    }
+    if (name !== undefined) mutate(() => io.client.renameNode(node.id, name));
+    if (weight !== undefined) mutate(() => io.client.setWeight(node.id, weight));
+    if (status !== undefined) mutate(() => io.client.setCompleted(node.id, status));
+    if (note !== undefined) mutate(() => io.client.setNote(node.id, note));
+    if (deadline !== undefined) mutate(() => io.client.setDeadline(node.id, deadline));
+    io.out(`edited ${node.name}`);
     await afterCommand(io);
     return 'ok';
   },
@@ -291,7 +414,7 @@ const syncCommand: Command = {
     } catch (e) {
       io.out(`sync failed: ${errMsg(e)}`);
     }
-    io.out(renderTree(io.client.getTree()));
+    io.out(renderFiltered(io.client.getTree(), io.filter, io.filterMode));
     return 'ok';
   },
 };
@@ -377,7 +500,7 @@ const resolveCommand: Command = {
     } catch (e) {
       io.out(`resolve failed: ${errMsg(e)}`);
     }
-    io.out(renderTree(io.client.getTree()));
+    io.out(renderFiltered(io.client.getTree(), io.filter, io.filterMode));
     return 'ok';
   },
 };
@@ -409,11 +532,13 @@ const exitCommand: Command = {
 export const COMMANDS: Command[] = [
   treeCommand,
   lsCommand,
+  filterCommand,
   cdCommand,
   pwdCommand,
   addCommand,
   rmCommand,
   renameCommand,
+  editCommand,
   mvCommand,
   cpCommand,
   cplCommand,

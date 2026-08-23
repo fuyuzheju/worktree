@@ -15,6 +15,8 @@ const newIO = (user = 'alice') => {
     out: (line: string | undefined) => lines.push(line ?? ''),
     cwdId: ROOT_ID,
     currentUser: user,
+    filter: {},
+    filterMode: 'hide' as const,
   };
   const io = createCommandIO(ctx);
   return { ctx, io, lines };
@@ -146,5 +148,147 @@ describe('command dispatcher', () => {
     await run(io, 'tree');
     expect(lines.join('\n')).not.toContain('alpha');
     expect(io.client).not.toBe(prev);
+  });
+
+  it('edit sets note and deadline, null clears the deadline', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'edit alpha note=hello');
+    expect(io.client.getTree().children[0]?.note).toBe('hello');
+    await run(io, 'edit alpha deadline=1000');
+    expect(io.client.getTree().children[0]?.deadline).toBe(1000);
+    await run(io, 'edit alpha deadline=null');
+    expect(io.client.getTree().children[0]?.deadline).toBeUndefined();
+    await run(io, 'edit alpha note=');
+    expect(io.client.getTree().children[0]?.note).toBe('');
+    expect(lines.some((l) => l.startsWith('edited alpha'))).toBe(true);
+  });
+
+  it('edit sets name, weight and status', async () => {
+    const { io } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'add beta');
+    await run(io, 'edit alpha name=alpine');
+    await run(io, 'edit alpine weight=9');
+    await run(io, 'edit alpine status=true');
+    const nodes = io.client.getTree().children;
+    const alpha = nodes.find((n) => n.name === 'alpine')!;
+    expect(alpha.weight).toBe(9);
+    expect(alpha.status).toBe(true);
+    // completed nodes sink: beta (uncompleted) now comes first
+    expect(nodes.map((n) => n.name)).toEqual(['beta', 'alpine']);
+  });
+
+  it('edit applies several fields in one call', async () => {
+    const { io } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'edit alpha name=alpine weight=3 status=false note=hi deadline=500');
+    const node = io.client.getTree().children[0]!;
+    expect(node.name).toBe('alpine');
+    expect(node.weight).toBe(3);
+    expect(node.status).toBe(false);
+    expect(node.note).toBe('hi');
+    expect(node.deadline).toBe(500);
+  });
+
+  it('edit reports unknown fields (system fields included), invalid values and usage errors', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    lines.length = 0;
+    await run(io, 'edit alpha id=xyz');
+    expect(lines).toEqual(['unknown field: id']);
+    lines.length = 0;
+    await run(io, 'edit alpha createdAt=1');
+    expect(lines).toEqual(['unknown field: createdAt']);
+    lines.length = 0;
+    await run(io, 'edit alpha status=maybe');
+    expect(lines).toEqual(['invalid status: maybe (use true or false)']);
+    lines.length = 0;
+    await run(io, 'edit alpha name=');
+    expect(lines).toEqual(['node name must not be empty']);
+    lines.length = 0;
+    await run(io, 'edit alpha nokv');
+    expect(lines).toEqual(['invalid key=value: nokv']);
+    lines.length = 0;
+    await run(io, 'edit alpha');
+    expect(lines).toEqual(['usage: edit <ref> name=... weight=... status=... note=... deadline=...']);
+  });
+
+  it('filter hide mode shows only matches with their ancestor chain', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add parent');
+    await run(io, 'add child parent');
+    await run(io, 'add other');
+    lines.length = 0;
+    await run(io, 'edit child note=target');
+    lines.length = 0;
+    await run(io, 'filter keyword=target');
+    const out = lines[lines.length - 1]!;
+    expect(out).toContain('parent');
+    expect(out).toContain('child');
+    expect(out).not.toContain('other');
+  });
+
+  it('filter highlight mode marks matches with *', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'add beta');
+    lines.length = 0;
+    await run(io, 'filter mode=highlight name=alpha');
+    const out = lines[lines.length - 1]!;
+    expect(out).toMatch(/─+ \* alpha/);
+    expect(out).toMatch(/─+ beta/);
+  });
+
+  it('filter clear resets and filter with no args prints the state', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'filter keyword=x mode=highlight');
+    lines.length = 0;
+    await run(io, 'filter');
+    expect(lines).toEqual([JSON.stringify({ keyword: 'x', mode: 'highlight' })]);
+    lines.length = 0;
+    await run(io, 'filter clear');
+    expect(lines).toEqual(['filter cleared']);
+    expect(io.filter).toEqual({});
+    expect(io.filterMode).toBe('hide');
+  });
+
+  it('filter reports unknown fields and invalid modes', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'filter bogus=1');
+    expect(lines).toEqual(['unknown field: bogus']);
+    lines.length = 0;
+    await run(io, 'filter mode=weird');
+    expect(lines[0]).toMatch(/^invalid mode/);
+  });
+
+  it('filter status selects completed or uncompleted nodes', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'add beta');
+    await run(io, 'cpl beta');
+    lines.length = 0;
+    await run(io, 'filter status=completed');
+    expect(lines[lines.length - 1]).toContain('beta');
+    expect(lines[lines.length - 1]).not.toContain('alpha');
+    lines.length = 0;
+    await run(io, 'filter status=uncompleted');
+    expect(lines[lines.length - 1]).toContain('alpha');
+    expect(lines[lines.length - 1]).not.toContain('beta');
+    lines.length = 0;
+    await run(io, 'filter status=maybe');
+    expect(lines[0]).toMatch(/^invalid status/);
+  });
+
+  it('ls respects the filter in hide mode', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'add beta');
+    lines.length = 0;
+    await run(io, 'filter name=beta');
+    lines.length = 0;
+    await run(io, 'ls');
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain('beta');
   });
 });

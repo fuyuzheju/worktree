@@ -147,4 +147,39 @@ describe('completeLine — subcommands and flags', () => {
     expect(completeLine(root, ROOT_ID, 'user s')[0]).toEqual(['switch ']);
     expect(completeLine(root, ROOT_ID, 'user switch ')[0]).toContain('local');
   });
+
+  it('completes refs for edit', () => {
+    const root = build().getRoot();
+    expect(completeLine(root, ROOT_ID, 'edit alph')[0]).toEqual(['alpha/']);
+  });
+
+  it('completes edit field keys after the ref', () => {
+    const root = build().getRoot();
+    expect(completeLine(root, ROOT_ID, 'edit alpha w')[0]).toEqual(['weight= ']);
+    expect(completeLine(root, ROOT_ID, 'edit alpha ')[0]).toEqual([
+      'name=',
+      'weight=',
+      'status=',
+      'note=',
+      'deadline=',
+    ]);
+  });
+
+  it('completes filter keys', () => {
+    const root = build().getRoot();
+    expect(completeLine(root, ROOT_ID, 'filter key')[0]).toEqual(['keyword= ']);
+    expect(completeLine(root, ROOT_ID, 'filter ')[0]).toEqual([
+      'clear',
+      'name=',
+      'note=',
+      'keyword=',
+      'status=',
+      'overdue=',
+      'has-deadline=',
+      'deadline-before=',
+      'created-after=',
+      'created-before=',
+      'mode=',
+    ]);
+  });
 });

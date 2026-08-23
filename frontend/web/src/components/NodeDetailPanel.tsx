@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
 import { ROOT_ID } from '@worktree/core';
 import type { Node, Reminder } from '@worktree/core';
@@ -6,7 +6,7 @@ import type { WorktreeClient } from '@worktree/client';
 import { useI18n } from '../i18n';
 import { flattenTree, descendants } from '../tree-utils';
 import { formatReminder } from '../render';
-import { epochToLocalInput, localInputToEpoch } from '../time';
+import { epochToLocalInput, formatDeadline, localInputToEpoch } from '../time';
 
 const REPEAT_PRESETS: { key: string; ms: number | null }[] = [
   { key: 'detail.repeatPresets.none', ms: null },
@@ -46,6 +46,18 @@ export function NodeDetailPanel(props: {
   const [copyTarget, setCopyTarget] = useState(ROOT_ID);
   const [copyWeight, setCopyWeight] = useState('');
   const [editingRmdId, setEditingRmdId] = useState<string | null>(null);
+  const [noteValue, setNoteValue] = useState(node.note);
+  const [deadlineValue, setDeadlineValue] = useState(
+    node.deadline !== undefined ? epochToLocalInput(node.deadline) : '',
+  );
+
+  // The panel is reused across selections — reset the field drafts on node change.
+  useEffect(() => {
+    setRenameValue(node.name);
+    setNoteValue(node.note);
+    setDeadlineValue(node.deadline !== undefined ? epochToLocalInput(node.deadline) : '');
+    setEditingRmdId(null);
+  }, [node.id]);
 
   if (node.id === ROOT_ID) {
     return <RootPanel client={client} onClose={onClose} bare={bare} />;
@@ -162,6 +174,18 @@ export function NodeDetailPanel(props: {
           <dt className="w-16 text-gray-500">{t('detail.status')}</dt>
           <dd className={node.status ? 'text-green-700' : 'text-yellow-700'}>
             {node.status ? t('detail.completed') : t('detail.uncompleted')}
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="w-16 text-gray-500">{t('detail.createdAt')}</dt>
+          <dd className="font-mono" data-testid="detail-created">
+            {node.createdAt === 0 ? t('detail.noDeadline') : formatDeadline(node.createdAt)}
+          </dd>
+        </div>
+        <div className="flex gap-2">
+          <dt className="w-16 text-gray-500">{t('detail.deadline')}</dt>
+          <dd className="font-mono" data-testid="detail-deadline-value">
+            {node.deadline !== undefined ? formatDeadline(node.deadline) : t('detail.noDeadline')}
           </dd>
         </div>
       </dl>
@@ -284,6 +308,69 @@ export function NodeDetailPanel(props: {
             </button>
           </div>
           <p className="mt-1 text-xs text-gray-500">{t('detail.copyNote')}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-3 border-t border-gray-200 pt-3">
+        <div>
+          <label className="text-xs text-gray-600">{t('detail.note')}</label>
+          <textarea
+            value={noteValue}
+            onChange={(e) => setNoteValue(e.target.value)}
+            placeholder={t('detail.notePlaceholder')}
+            data-testid="detail-note"
+            rows={3}
+            className="mt-1 w-full rounded border border-gray-300 px-2 py-1"
+          />
+          <button
+            type="button"
+            onClick={() => run(() => client.setNote(node.id, noteValue))}
+            data-testid="detail-note-save"
+            className="mt-1 rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
+          >
+            {t('detail.saveNote')}
+          </button>
+        </div>
+
+        <div>
+          <label className="text-xs text-gray-600">{t('detail.deadline')}</label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <input
+              type="datetime-local"
+              value={deadlineValue}
+              onChange={(e) => setDeadlineValue(e.target.value)}
+              data-testid="detail-deadline"
+              className="rounded border border-gray-300 px-2 py-1"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const ms = localInputToEpoch(deadlineValue);
+                if (ms === null) {
+                  setError('invalid deadline');
+                  return;
+                }
+                run(() => client.setDeadline(node.id, ms));
+              }}
+              data-testid="detail-deadline-save"
+              className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
+            >
+              {t('detail.saveDeadline')}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                run(() => {
+                  client.setDeadline(node.id, null);
+                  setDeadlineValue('');
+                })
+              }
+              data-testid="detail-deadline-clear"
+              className="rounded border border-gray-300 bg-white px-2 py-2 hover:bg-gray-50 md:py-1"
+            >
+              {t('detail.clearDeadline')}
+            </button>
+          </div>
         </div>
       </div>
 

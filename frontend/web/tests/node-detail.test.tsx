@@ -23,6 +23,8 @@ function makeClient(node: Node): WorktreeClient {
     addReminder: vi.fn(),
     removeReminder: vi.fn(),
     editReminder: vi.fn(),
+    setNote: vi.fn(),
+    setDeadline: vi.fn(),
   } as unknown as WorktreeClient;
 }
 
@@ -78,5 +80,61 @@ describe('NodeDetailPanel remove confirmation', () => {
     renderPanel(node, client);
     fireEvent.click(screen.getByTestId('detail-remove'));
     expect(client.removeNode).toHaveBeenCalledWith('aaaa-1');
+  });
+});
+
+describe('NodeDetailPanel note and deadline editing', () => {
+  const nodeWithFields = (): Node =>
+    makeNode(
+      [
+        {
+          kind: 'add',
+          parentId: ROOT_ID,
+          id: 'aaaa-1',
+          name: 'alpha',
+          weight: 1,
+          note: 'hello',
+          deadline: 1_760_000_000_000,
+          createdAt: 1_750_000_000_000,
+        },
+      ],
+      'aaaa-1',
+    );
+
+  it('shows createdAt and deadline in the metadata', () => {
+    const node = nodeWithFields();
+    renderPanel(node, makeClient(node));
+    expect(screen.getByTestId('detail-created').textContent).toContain('2025-06-');
+    expect(screen.getByTestId('detail-deadline-value').textContent).toContain('2025-10-');
+  });
+
+  it('shows a placeholder for legacy nodes without createdAt or deadline', () => {
+    const node = makeNode(
+      [{ kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 }],
+      'aaaa-1',
+    );
+    renderPanel(node, makeClient(node));
+    expect(screen.getByTestId('detail-created').textContent).toBe('—');
+    expect(screen.getByTestId('detail-deadline-value').textContent).toBe('—');
+  });
+
+  it('saves the note through client.setNote', () => {
+    const node = nodeWithFields();
+    const client = makeClient(node);
+    renderPanel(node, client);
+    fireEvent.change(screen.getByTestId('detail-note'), { target: { value: 'updated' } });
+    fireEvent.click(screen.getByTestId('detail-note-save'));
+    expect(client.setNote).toHaveBeenCalledWith('aaaa-1', 'updated');
+  });
+
+  it('saves and clears the deadline through client.setDeadline', () => {
+    const node = nodeWithFields();
+    const client = makeClient(node);
+    renderPanel(node, client);
+    fireEvent.change(screen.getByTestId('detail-deadline'), { target: { value: '2026-09-01T10:00' } });
+    fireEvent.click(screen.getByTestId('detail-deadline-save'));
+    expect(client.setDeadline).toHaveBeenCalledWith('aaaa-1', new Date('2026-09-01T10:00').getTime());
+    fireEvent.click(screen.getByTestId('detail-deadline-clear'));
+    expect(client.setDeadline).toHaveBeenCalledWith('aaaa-1', null);
   });
 });

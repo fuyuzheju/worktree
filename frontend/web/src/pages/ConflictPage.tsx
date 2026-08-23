@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Tree } from '@worktree/core';
+import { Tree, filterTree } from '@worktree/core';
 import type { Node, TreeOperation } from '@worktree/core';
 import type { Conflict, WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
@@ -91,7 +91,7 @@ export function ConflictPage(props: {
             )}
             <div className="mt-2 max-h-[50vh] overflow-auto">
               <TreeView
-                root={serverTree}
+                root={filterTree(serverTree, {})}
                 expanded={serverExpanded}
                 selectedId={null}
                 display={display}
@@ -117,7 +117,7 @@ export function ConflictPage(props: {
             )}
             <div className="mt-2 max-h-[50vh] overflow-auto">
               <TreeView
-                root={localTree}
+                root={filterTree(localTree, {})}
                 expanded={localExpanded}
                 selectedId={null}
                 display={display}

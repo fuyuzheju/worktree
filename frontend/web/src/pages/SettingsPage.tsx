@@ -140,6 +140,22 @@ export function SettingsPage(props: {
             onChange={(v) => updateConfig({ display: { ...config.display, showReminders: v } })}
             label={t('settings.showReminders')}
           />
+          <label className="mt-1 flex items-center gap-2">
+            <span>{t('settings.filterMode')}</span>
+            <select
+              value={config.display.filterMode}
+              onChange={(e) =>
+                updateConfig({
+                  display: { ...config.display, filterMode: e.target.value as 'hide' | 'highlight' },
+                })
+              }
+              data-testid="settings-filter-mode"
+              className="rounded border border-gray-300 px-2 py-1"
+            >
+              <option value="hide">{t('settings.filterHide')}</option>
+              <option value="highlight">{t('settings.filterHighlight')}</option>
+            </select>
+          </label>
         </div>
       </section>
 

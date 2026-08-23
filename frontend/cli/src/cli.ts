@@ -1,7 +1,7 @@
 import readline from 'node:readline';
 import { ROOT_ID } from '@worktree/core';
 import { WorktreeClient } from '@worktree/client';
-import { renderTree } from './render';
+import { renderFiltered } from './render';
 import { findNode, pathOf } from './resolve';
 import { defaultStatePath, FileStorage } from './storage';
 import { DEFAULT_SERVER, LOCAL_USER, loadCurrentUser, saveCurrentUser } from './config';
@@ -62,6 +62,8 @@ async function repl(): Promise<void> {
     out: (line) => console.log(line ?? ''),
     cwdId: ROOT_ID,
     currentUser: loadCurrentUser(),
+    filter: {},
+    filterMode: 'hide',
   };
   const io = createCommandIO(ctx);
 
@@ -101,7 +103,7 @@ async function repl(): Promise<void> {
       }
     }
     console.log(`user: ${name}${client.isLocal() ? ' (local — offline only)' : ''}`);
-    console.log(renderTree(client.getTree()));
+    console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
   };
 
   client.connect();
@@ -112,7 +114,7 @@ async function repl(): Promise<void> {
       // server may be down; the socket keeps retrying
     }
   }
-  console.log(renderTree(client.getTree()));
+  console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
 
   if (process.stdin.isTTY) {
     console.log(`server: ${DEFAULT_SERVER} — user: ${ctx.currentUser} — type "help" for commands`);
@@ -161,7 +163,14 @@ async function main(): Promise<void> {
   // One-shot mode: run a single command and exit (for scripts and quick tests).
   const user = loadCurrentUser();
   const client = newClient(user);
-  const ctx: CommandContext = { client, out: (line) => console.log(line ?? ''), cwdId: ROOT_ID, currentUser: user };
+  const ctx: CommandContext = {
+    client,
+    out: (line) => console.log(line ?? ''),
+    cwdId: ROOT_ID,
+    currentUser: user,
+    filter: {},
+    filterMode: 'hide',
+  };
   const io = createCommandIO(ctx);
   // One-shot: the session ends right after, so switching only persists the preference.
   io.switchUser = async (name: string): Promise<void> => {

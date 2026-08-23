@@ -15,13 +15,64 @@ describe('Tree', () => {
     expect(tree.nodeCount()).toBe(2);
   });
 
-  it('orders siblings by (weight, id)', () => {
+  it('orders siblings by (weight, name)', () => {
     const tree = Tree.fromOps([
       add(ROOT_ID, 'b', 2),
       add(ROOT_ID, 'a', 1),
       add(ROOT_ID, 'c', 2),
     ]);
     expect(tree.getRoot().children.map((c) => c.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('same-weight siblings order by name, not id', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'zz-1', 1, 'zulu'),
+      add(ROOT_ID, 'aa-1', 1, 'alpha'),
+    ]);
+    expect(tree.getRoot().children.map((c) => c.id)).toEqual(['aa-1', 'zz-1']);
+  });
+
+  it('completed siblings sink below uncompleted ones regardless of weight', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'done', 0),
+      add(ROOT_ID, 'todo', 5),
+    ]);
+    tree.apply({ kind: 'complete', id: 'done' });
+    expect(tree.getRoot().children.map((c) => c.id)).toEqual(['todo', 'done']);
+    tree.apply({ kind: 'complete', id: 'todo' });
+    expect(tree.getRoot().children.map((c) => c.id)).toEqual(['done', 'todo']);
+  });
+
+  it('uncomplete moves the node back into the uncompleted group', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'done', 0),
+      add(ROOT_ID, 'todo', 5),
+      { kind: 'complete', id: 'done' },
+      { kind: 'complete', id: 'todo' },
+    ]);
+    tree.apply({ kind: 'uncomplete', id: 'todo' });
+    expect(tree.getRoot().children.map((c) => c.id)).toEqual(['todo', 'done']);
+  });
+
+  it('completed siblings order by (weight, name) among themselves', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'b', 2, 'beta'),
+      add(ROOT_ID, 'a', 2, 'alpha'),
+      add(ROOT_ID, 'x', 9),
+      { kind: 'complete', id: 'b' },
+      { kind: 'complete', id: 'a' },
+      { kind: 'complete', id: 'x' },
+    ]);
+    expect(tree.getRoot().children.map((c) => c.id)).toEqual(['a', 'b', 'x']);
+  });
+
+  it('rename re-sorts within the same-weight group', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'a', 1, 'alpha'),
+      add(ROOT_ID, 'b', 1, 'beta'),
+    ]);
+    tree.apply({ kind: 'rename', id: 'a', name: 'zeta' });
+    expect(tree.getRoot().children.map((c) => c.id)).toEqual(['b', 'a']);
   });
 
   it('applies rename, move and complete', () => {
@@ -280,5 +331,78 @@ describe('Tree', () => {
     const backward = Tree.fromOps([...ops].reverse());
     expect(forward.getRoot().children.map((c) => c.id)).toEqual(['a', 'b', 'c']);
     expect(backward.getRoot().children.map((c) => c.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('legacy add ops replay to fixed defaults for the new fields', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a')]);
+    const node = tree.getNode('a');
+    expect(node?.note).toBe('');
+    expect(node?.createdAt).toBe(0);
+    expect(node?.deadline).toBeUndefined();
+  });
+
+  it('add carries note, deadline and createdAt when provided', () => {
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, note: 'hi', deadline: 1000, createdAt: 5 },
+    ]);
+    const node = tree.getNode('a');
+    expect(node?.note).toBe('hi');
+    expect(node?.deadline).toBe(1000);
+    expect(node?.createdAt).toBe(5);
+  });
+
+  it('edit_node applies partial patches, clears the deadline with null', () => {
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, deadline: 100 },
+    ]);
+    tree.apply({ kind: 'edit_node', id: 'a', note: 'first' });
+    expect(tree.getNode('a')?.note).toBe('first');
+    expect(tree.getNode('a')?.deadline).toBe(100);
+    tree.apply({ kind: 'edit_node', id: 'a', deadline: 200 });
+    expect(tree.getNode('a')?.deadline).toBe(200);
+    tree.apply({ kind: 'edit_node', id: 'a', deadline: null });
+    expect(tree.getNode('a')?.deadline).toBeUndefined();
+    tree.apply({ kind: 'edit_node', id: 'a', note: '' });
+    expect(tree.getNode('a')?.note).toBe('');
+  });
+
+  it('rejects an empty edit_node patch', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a')]);
+    expect(() => tree.apply({ kind: 'edit_node', id: 'a' })).toThrow(/edit_node patch is empty/);
+  });
+
+  it('rejects edit_node on an unknown node', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a')]);
+    expect(() => tree.apply({ kind: 'edit_node', id: 'missing', note: 'x' })).toThrow(/unknown node id/);
+  });
+
+  it('rejects an empty edit_reminder patch', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'a'),
+      { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R', deadline: 100 },
+    ]);
+    expect(() => tree.apply({ kind: 'edit_reminder', rmdId: 'r1' })).toThrow(/edit_reminder patch is empty/);
+  });
+
+  it('copy carries note and deadline but gets a fresh createdAt', () => {
+    const before = Date.now();
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, note: 'n', deadline: 50, createdAt: 7 },
+    ]);
+    tree.apply({ kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' });
+    const copyNode = tree.getNode('a2');
+    expect(copyNode?.note).toBe('n');
+    expect(copyNode?.deadline).toBe(50);
+    expect(copyNode?.createdAt).toBeGreaterThanOrEqual(before);
+    expect(copyNode?.createdAt).toBeLessThanOrEqual(Date.now());
+    expect(copyNode?.createdAt).not.toBe(7);
+  });
+
+  it('clone preserves note, createdAt and deadline', () => {
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, note: 'n', deadline: 50, createdAt: 7 },
+    ]);
+    const clone = tree.clone();
+    expect(clone.getNode('a')).toMatchObject({ note: 'n', createdAt: 7, deadline: 50 });
   });
 });

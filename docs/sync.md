@@ -35,9 +35,14 @@ process ops in order, atomically:
         no sibling name collision in the new parent (copy: with its effective name)
       add_reminder: node exists
       edit_reminder: reminder exists, patch has at least one field
+      edit_node: node exists, patch has at least one field
   - validation and append run under the same serialization lock, so the
     validate → append sequence is atomic across concurrent requests
   - any op invalid → 400 {conflict_id: op.id, reason}, nothing is appended
+
+legacy ops replay deterministically: an `add` without note/deadline/created_at
+yields note '', no deadline, createdAt 0 on every client and the server — the
+same history always produces the same tree.
 
 allowed: append in order, return 200, broadcast to that user's connections.
 

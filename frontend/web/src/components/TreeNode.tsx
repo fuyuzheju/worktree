@@ -1,9 +1,9 @@
-import type { Node } from '@worktree/core';
+import type { FilteredNode } from '@worktree/core';
 import type { DisplayPrefs } from '../config';
 import { connectors, formatNode } from '../render';
 
 export interface TreeNodeProps {
-  node: Node;
+  view: FilteredNode;
   ancestorIsLast: boolean[];
   isLast: boolean;
   expanded: Set<string>;
@@ -12,12 +12,14 @@ export interface TreeNodeProps {
   onToggle: (id: string) => void;
   onSelect: (id: string) => void;
   readOnly?: boolean;
+  filterActive?: boolean;
 }
 
 export function TreeNode(props: TreeNodeProps) {
-  const { node, ancestorIsLast, isLast, expanded, selectedId, display, onToggle, onSelect, readOnly } =
+  const { view, ancestorIsLast, isLast, expanded, selectedId, display, onToggle, onSelect, readOnly, filterActive } =
     props;
-  const hasChildren = node.children.length > 0;
+  const node = view.node;
+  const hasChildren = view.children.length > 0;
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
 
@@ -25,6 +27,14 @@ export function TreeNode(props: TreeNodeProps) {
     ? 'bg-green-100 hover:bg-green-200'
     : 'bg-yellow-100 hover:bg-yellow-200';
   const ring = isSelected ? ' ring-2 ring-inset ring-blue-400' : '';
+  // An active filter styles the row: hide mode dims context ancestors,
+  // highlight mode outlines matches.
+  const filterStyle =
+    filterActive === true
+      ? view.matched
+        ? ' outline outline-2 outline-blue-400'
+        : ' opacity-50'
+      : '';
 
   return (
     <>
@@ -46,12 +56,12 @@ export function TreeNode(props: TreeNodeProps) {
           <span className="inline-block h-8 w-8 md:h-auto md:w-5" />
         )}
         {readOnly ? (
-          <span data-node-id={node.id}>{formatNode(node, display)}</span>
+          <span data-node-id={node.id} className={filterStyle}>{formatNode(node, display)}</span>
         ) : (
           <button
             type="button"
             data-node-id={node.id}
-            className={`p-1 cursor-pointer rounded-lg max-md:flex-1 ${bg}${ring} text-left`}
+            className={`p-1 cursor-pointer rounded-lg max-md:flex-1 ${bg}${ring}${filterStyle} text-left`}
             onClick={() => onSelect(node.id)}
           >
             {formatNode(node, display)}
@@ -60,18 +70,19 @@ export function TreeNode(props: TreeNodeProps) {
       </div>
       {hasChildren &&
         isOpen &&
-        node.children.map((child, i) => (
+        view.children.map((child, i) => (
           <TreeNode
-            key={child.id}
-            node={child}
+            key={child.node.id}
+            view={child}
             ancestorIsLast={[...ancestorIsLast, isLast]}
-            isLast={i === node.children.length - 1}
+            isLast={i === view.children.length - 1}
             expanded={expanded}
             selectedId={selectedId}
             display={display}
             onToggle={onToggle}
             onSelect={onSelect}
             readOnly={readOnly}
+            filterActive={filterActive}
           />
         ))}
     </>

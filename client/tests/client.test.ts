@@ -133,6 +133,51 @@ describe('WorktreeClient semantic operations', () => {
     expect(() => c.addNode('missing', 'X')).toThrow();
   });
 
+  it('addNode carries note, deadline and a fresh createdAt', () => {
+    const c = newClient();
+    const before = Date.now();
+    const a = c.addNode(ROOT_ID, 'A', undefined, { note: 'hi', deadline: 1000 });
+    const node = c.getTree().children.find((n) => n.id === a)!;
+    expect(node.note).toBe('hi');
+    expect(node.deadline).toBe(1000);
+    expect(node.createdAt).toBeGreaterThanOrEqual(before);
+    expect(node.createdAt).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('setNote and setDeadline apply edit_node ops', () => {
+    const c = newClient();
+    const a = c.addNode(ROOT_ID, 'A', undefined, { deadline: 100 });
+    c.setNote(a, 'first');
+    c.setDeadline(a, 200);
+    expect(c.getTree().children[0]).toMatchObject({ note: 'first', deadline: 200 });
+    c.setNote(a, '');
+    c.setDeadline(a, null);
+    expect(c.getTree().children[0]).toMatchObject({ note: '', deadline: undefined });
+  });
+
+  it('copyNode carries note and deadline with a fresh createdAt', () => {
+    const c = newClient();
+    const a = c.addNode(ROOT_ID, 'A', undefined, { note: 'n', deadline: 50 });
+    const before = Date.now();
+    const copy = c.copyNode(a, ROOT_ID);
+    const copyNode = c.getTree().children.find((n) => n.id === copy)!;
+    expect(copyNode.note).toBe('n');
+    expect(copyNode.deadline).toBe(50);
+    expect(copyNode.createdAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('setWeight reorders among siblings without changing the parent', () => {
+    const c = newClient();
+    const a = c.addNode(ROOT_ID, 'A', 1);
+    const b = c.addNode(ROOT_ID, 'B', 2);
+    const child = c.addNode(a, 'child');
+    c.setWeight(b, 0);
+    expect(c.getTree().children.map((n) => n.id)).toEqual([b, a]);
+    expect(c.getTree().children.find((n) => n.id === a)!.children.map((n) => n.id)).toEqual([child]);
+    c.setWeight(child, 5);
+    expect(c.getTree().children.find((n) => n.id === a)!.children[0]!.weight).toBe(5);
+  });
+
   it('restores persisted confirmed history and pending queue at construction', () => {
     const storage = new MemoryStorage();
     storage.state = {

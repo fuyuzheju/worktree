@@ -5,7 +5,7 @@ import type { Node, TreeOperation } from '@worktree/core';
 import { connectors, formatNode, formatReminder, rootLine, shortId } from '../src/render';
 import type { DisplayPrefs } from '../src/config';
 
-const fullDisplay: DisplayPrefs = { showId: true, showWeight: true, showReminders: true };
+const fullDisplay: DisplayPrefs = { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' };
 
 describe('shortId', () => {
   it('truncates ids to 4 characters', () => {
@@ -46,9 +46,20 @@ describe('formatNode', () => {
       { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'a', weight: 1 },
       { kind: 'add_reminder', nodeId: 'aaaa-1', rmdId: 'r1', name: 'R', deadline: 1000 },
     ]);
-    expect(formatNode(n, { showId: false, showWeight: false, showReminders: false })).toBe('a');
-    expect(formatNode(n, { showId: false, showWeight: true, showReminders: false })).toBe('a w:1');
-    expect(formatNode(n, { showId: true, showWeight: false, showReminders: true })).toContain('[aaaa] R(1):');
+    expect(formatNode(n, { ...fullDisplay, showId: false, showWeight: false, showReminders: false })).toBe('a');
+    expect(formatNode(n, { ...fullDisplay, showId: false, showWeight: true, showReminders: false })).toBe('a w:1');
+    expect(formatNode(n, { ...fullDisplay, showId: true, showWeight: false, showReminders: true })).toContain(
+      '[aaaa] R(1):',
+    );
+  });
+
+  it('shows deadline and note tokens only when present', () => {
+    const n = node([
+      { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'a', weight: 1, deadline: 1000, note: 'hi' },
+    ]);
+    expect(formatNode(n, fullDisplay)).toBe('a [aaaa] w:1 ⏰1970-01-01T00:00:01.000Z ✎ hi');
+    const plain = node([{ kind: 'add', parentId: ROOT_ID, id: 'bbbb-1', name: 'b', weight: 1 }]);
+    expect(formatNode(plain, fullDisplay)).toBe('b [bbbb] w:1');
   });
 });
 

@@ -1,5 +1,5 @@
 import { ROOT_ID, USER_RE, newId } from '@worktree/core';
-import type { HistoryNode, HistoryOperation, Node, Stats, TreeOperation } from '@worktree/core';
+import type { HistoryNode, HistoryOperation, Node, Stats, Timestamp, TreeOperation } from '@worktree/core';
 import { ServerAPI } from './api';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
@@ -143,13 +143,22 @@ export class WorktreeClient {
   // callers (CLI, web UI) never construct TreeOperations themselves.
 
   /** Add a node; default weight appends it after its siblings. Returns the new node id. */
-  addNode(parentId: string, name: string, weight?: number): string {
+  addNode(parentId: string, name: string, weight?: number, fields?: { note?: string; deadline?: Timestamp }): string {
     this.validateName(name);
     const parent = parentId === ROOT_ID ? this.getTree() : findNode(this.getTree(), parentId);
     if (!parent) throw new Error(`unknown parent id: ${parentId}`);
     this.ensureUniqueSiblingName(parent, name);
     const id = newId();
-    this.apply({ kind: 'add', parentId, id, name, weight: weight ?? this.nextWeight(parentId) });
+    this.apply({
+      kind: 'add',
+      parentId,
+      id,
+      name,
+      weight: weight ?? this.nextWeight(parentId),
+      note: fields?.note,
+      deadline: fields?.deadline,
+      createdAt: Date.now(),
+    });
     return id;
   }
 
@@ -204,6 +213,23 @@ export class WorktreeClient {
 
   editReminder(rmdId: string, patch: { name?: string; deadline?: number; repeat?: number | null; active?: boolean }): void {
     this.apply({ kind: 'edit_reminder', rmdId, ...patch });
+  }
+
+  /** Change a node's ordering weight in place (keeps its parent). */
+  setWeight(id: string, weight: number): void {
+    const found = findNodeWithParent(this.getTree(), id);
+    if (!found) throw new Error(`unknown node id: ${id}`);
+    this.apply({ kind: 'move', id, parentId: found.parent.id, weight });
+  }
+
+  /** Set or clear the node's note (empty string clears it). */
+  setNote(id: string, note: string): void {
+    this.apply({ kind: 'edit_node', id, note });
+  }
+
+  /** Set the node's deadline; null clears it. */
+  setDeadline(id: string, deadline: Timestamp | null): void {
+    this.apply({ kind: 'edit_node', id, deadline });
   }
 
   private nextWeight(parentId: string): number {

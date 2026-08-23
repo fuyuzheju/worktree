@@ -12,6 +12,20 @@ const REMINDER_SUB = ['add', 'rm', 'edit'];
 const RESOLVE_CHOICES = ['server', 'local'];
 const RM_FLAGS = ['-r', '--recursive'];
 const USER_SUB = ['current', 'list', 'switch'];
+const FILTER_KEYS = [
+  'clear',
+  'name=',
+  'note=',
+  'keyword=',
+  'status=',
+  'overdue=',
+  'has-deadline=',
+  'deadline-before=',
+  'created-after=',
+  'created-before=',
+  'mode=',
+];
+const EDIT_KEYS = ['name=', 'weight=', 'status=', 'note=', 'deadline='];
 
 /**
  * Complete a fixed option list: single match gets a trailing space.
@@ -112,6 +126,11 @@ export function completeLine(root: Node, cwdId: string, line: string): [string[]
     case 'rename':
       if (position === 2) return completeRef(root, cwd, last);
       return [[], last];
+    case 'edit':
+      if (position === 2) return completeRef(root, cwd, last);
+      return completeFixed(EDIT_KEYS, last);
+    case 'filter':
+      return completeFixed(FILTER_KEYS, last);
     case 'mv':
     case 'cp':
       if (position === 2 || position === 3) return completeRef(root, cwd, last);

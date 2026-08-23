@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ROOT_ID, Tree } from '@worktree/core';
-import { renderTree, setColorEnabled, shortId } from '../src/render';
+import { renderFiltered, renderTree, setColorEnabled, shortId } from '../src/render';
 
 afterEach(() => setColorEnabled(false));
 
@@ -65,6 +65,47 @@ describe('renderTree', () => {
       { kind: 'edit_reminder', rmdId: 'r1', active: false },
     ]);
     expect(renderTree(tree.getRoot())).toContain('R(1):R@1970-01-01T00:00:01.000Z/off');
+  });
+
+  it('shows deadline and note tokens only when present', () => {
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'a', weight: 1, deadline: 1000, note: 'hi' },
+      { kind: 'add', parentId: ROOT_ID, id: 'bbbb-1', name: 'b', weight: 2 },
+    ]);
+    const out = renderTree(tree.getRoot());
+    expect(out).toContain('a [aaaa] w:1 ⏰1970-01-01T00:00:01.000Z ✎ hi');
+    expect(out).toContain('b [bbbb] w:2');
+  });
+});
+
+describe('renderFiltered', () => {
+  const tree = () =>
+    Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'parent', weight: 1 },
+      { kind: 'add', parentId: 'aaaa-1', id: 'bbbb-1', name: 'child', weight: 1, note: 'target' },
+      { kind: 'add', parentId: ROOT_ID, id: 'cccc-1', name: 'other', weight: 2 },
+    ]);
+
+  it('hide mode keeps only matches and their ancestor chain', () => {
+    expect(renderFiltered(tree().getRoot(), { keyword: 'target' }, 'hide')).toBe(
+      ['.', '└── parent [aaaa] w:1', '    └── child [bbbb] w:1 ✎ target'].join('\n'),
+    );
+  });
+
+  it('highlight mode shows every node and marks matches', () => {
+    expect(renderFiltered(tree().getRoot(), { keyword: 'target' }, 'highlight')).toBe(
+      [
+        '.',
+        '├── parent [aaaa] w:1',
+        '│   └── * child [bbbb] w:1 ✎ target',
+        '└── other [cccc] w:2',
+      ].join('\n'),
+    );
+  });
+
+  it('an empty filter renders the full tree in either mode', () => {
+    expect(renderFiltered(tree().getRoot(), {}, 'hide')).toBe(renderTree(tree().getRoot()));
+    expect(renderFiltered(tree().getRoot(), {}, 'highlight')).toBe(renderTree(tree().getRoot()));
   });
 });
 

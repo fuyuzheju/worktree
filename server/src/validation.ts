@@ -12,12 +12,6 @@ export function validateOps(ops: HistoryOperation[], tree: Tree): ValidationResu
   const probe = tree.clone();
   for (const op of ops) {
     if (op.kind === 'remove') continue;
-    if (op.op.kind === 'edit_reminder') {
-      const p = op.op;
-      if (p.name === undefined && p.deadline === undefined && p.repeat === undefined && p.active === undefined) {
-        return { ok: false, opId: op.id, reason: 'edit_reminder patch is empty' };
-      }
-    }
     try {
       probe.apply(op.op);
     } catch (e) {
