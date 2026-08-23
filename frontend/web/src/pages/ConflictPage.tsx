@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Tree, filterTree } from '@worktree/core';
-import type { Node, TreeOperation } from '@worktree/core';
+import type { HistoryNode, HistoryOperation, Node, TreeOperation } from '@worktree/core';
 import type { Conflict, WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
@@ -18,8 +18,34 @@ function replay(ops: TreeOperation[]): Node {
   try {
     return Tree.fromOps(ops).getRoot();
   } catch {
-    // Should not happen: confirmed is the shared prefix and serverBranch its
+    // Should not happen: base is the shared prefix and serverBranch its
     // suffix. Fall back to an empty tree rather than crashing the page.
+    return Tree.fromOps([]).getRoot();
+  }
+}
+
+/**
+ * The user's intended tree: the agreed base plus their pending ops as they
+ * apply to the base. Ops that no longer apply are dropped from the preview.
+ */
+function replayBranch(base: HistoryNode[], pending: HistoryOperation[]): Node {
+  try {
+    const history = [...base];
+    for (const p of pending) {
+      if (p.kind === 'add') {
+        const probe = Tree.fromOps(history.map((n) => n.op));
+        try {
+          probe.apply(p.op);
+        } catch {
+          continue; // does not apply to the base — dropped from the preview
+        }
+        history.push({ id: p.id, op: p.op });
+      } else if (history.at(-1)?.id === p.id) {
+        history.pop();
+      }
+    }
+    return Tree.fromOps(history.map((n) => n.op)).getRoot();
+  } catch {
     return Tree.fromOps([]).getRoot();
   }
 }
@@ -37,10 +63,13 @@ export function ConflictPage(props: {
   const [error, setError] = useState<string | null>(null);
 
   const serverTree = useMemo(
-    () => replay([...client.getConfirmed(), ...conflict.serverBranch].map((n) => n.op)),
-    [client, conflict],
+    () => replay([...conflict.base, ...conflict.serverBranch].map((n) => n.op)),
+    [conflict],
   );
-  const localTree = client.getTree();
+  const localTree = useMemo(
+    () => replayBranch(conflict.base, conflict.localBranch),
+    [conflict],
+  );
 
   const resolve = async (choice: 'server' | 'local'): Promise<void> => {
     setResolving(choice);
@@ -51,7 +80,7 @@ export function ConflictPage(props: {
         // rewrite with those; drop the ones that conflict. If nothing
         // survives, adopting the server history is the same as keep-server.
         const chosen = filterReplayable(
-          [...client.getConfirmed(), ...conflict.serverBranch],
+          [...conflict.base, ...conflict.serverBranch],
           conflict.localBranch,
         );
         await client.resolveConflict(chosen.length > 0 ? 'local' : 'server', chosen);

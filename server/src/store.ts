@@ -3,6 +3,7 @@ import type { HistoryNode, HistoryOperation, TreeOperation } from '@worktree/cor
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { validateOps } from './validation';
+import type { ValidationResult } from './validation';
 
 const asJson = (op: TreeOperation): Prisma.InputJsonValue => op as unknown as Prisma.InputJsonValue;
 
@@ -134,9 +135,9 @@ export class HistoryStore {
         if (JSON.stringify(existing.op) !== JSON.stringify(op.op)) throw new DuplicateOpError(op.id);
         existingIds.add(op.id);
       }
-      const validation = validateOps(
+      const validation = await this.validateBatch(
+        userId,
         ops.filter((op) => op.kind === 'remove' || !existingIds.has(op.id)),
-        this.getTree(userId),
       );
       if (!validation.ok) throw new ValidationError(validation.opId, validation.reason);
       const added: HistoryNode[] = [];
@@ -144,13 +145,14 @@ export class HistoryStore {
       await prisma.$transaction(async (tx) => {
         for (const op of ops) {
           if (op.kind === 'remove') {
-            const userRow = await tx.user.findUnique({ where: { id: userId } });
-            const headId = userRow?.headOpId ?? null;
-            if (headId !== op.id) throw new HeadUndoError(op.id, headId);
             const row = await tx.historyNode.findUnique({
               where: { userId_opId: { userId, opId: op.id } },
             });
-            if (!row) throw new HeadUndoError(op.id, headId);
+            // Already removed (idempotent retry, concurrent undo of the same head): no-op.
+            if (!row) continue;
+            const userRow = await tx.user.findUnique({ where: { id: userId } });
+            const headId = userRow?.headOpId ?? null;
+            if (headId !== op.id) throw new HeadUndoError(op.id, headId);
             await tx.historyNode.delete({ where: { userId_opId: { userId, opId: op.id } } });
             await tx.user.update({ where: { id: userId }, data: { headOpId: row.parentOpId } });
             removed.push(op.id);
@@ -180,6 +182,40 @@ export class HistoryStore {
       }
       return { added, removed };
     });
+  }
+
+  /**
+   * Validate a batch against the tree as it stands after the batch's removes.
+   * Batches without removes take the fast tree-clone path; batches with
+   * removes simulate the whole batch against the current history so an add
+   * cannot depend on an entry its own batch undoes.
+   */
+  private async validateBatch(userId: number, ops: HistoryOperation[]): Promise<ValidationResult> {
+    if (!ops.some((op) => op.kind === 'remove')) {
+      return validateOps(ops, this.getTree(userId));
+    }
+    const remaining = await this.allByUserId(userId);
+    let headId = remaining.at(-1)?.id ?? null;
+    let probe = Tree.fromOps(remaining.map((n) => n.op));
+    for (const op of ops) {
+      if (op.kind === 'remove') {
+        const idx = remaining.findIndex((n) => n.id === op.id);
+        if (idx === -1) continue; // already removed: idempotent retry
+        if (idx !== remaining.length - 1) throw new HeadUndoError(op.id, headId);
+        remaining.pop();
+        headId = remaining.at(-1)?.id ?? null;
+        probe = Tree.fromOps(remaining.map((n) => n.op));
+        continue;
+      }
+      try {
+        probe.apply(op.op);
+      } catch (e) {
+        return { ok: false, opId: op.id, reason: e instanceof Error ? e.message : String(e) };
+      }
+      remaining.push({ id: op.id, op: op.op });
+      headId = op.id;
+    }
+    return { ok: true };
   }
 
   /**

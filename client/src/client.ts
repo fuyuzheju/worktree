@@ -166,6 +166,31 @@ export class WorktreeClient {
     this.apply({ kind: 'remove', id });
   }
 
+  /**
+   * Undo the last operation. A pending (unconfirmed) edit is undone by
+   * dropping it from the queue without touching the server; otherwise a
+   * remove history op is queued and sent — targeting the newest confirmed
+   * entry no pending undo covers yet, so undo works offline and can be
+   * repeated (pending removes run in order). Removes themselves are never
+   * undone.
+   */
+  undo(): void {
+    if (this.local) {
+      const head = this.store.getConfirmed().at(-1);
+      if (!head) throw new Error('nothing to undo');
+      this.store.applyRemoved(head.id);
+      this.emit();
+      return;
+    }
+    if (this.store.undoPendingAdd()) {
+      this.emit();
+      return;
+    }
+    if (!this.store.applyUndo()) throw new Error('nothing to undo');
+    this.emit();
+    if (this.online) void this.resync();
+  }
+
   renameNode(id: string, name: string): void {
     this.validateName(name);
     const found = findNodeWithParent(this.getTree(), id);

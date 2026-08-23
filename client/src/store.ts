@@ -37,6 +37,29 @@ export class ClientStore {
     this.rebuild();
   }
 
+  /** Undo the newest unconfirmed local edit. Returns false when there is none. */
+  undoPendingAdd(): boolean {
+    const popped = this.pending.popLastAdd();
+    if (!popped) return false;
+    this.rebuild();
+    return true;
+  }
+
+  /**
+   * Queue an undo of the newest confirmed entry that no pending undo targets
+   * yet (the server deletes that history entry). Only call when the queue
+   * holds no adds. Returns false when the confirmed chain is exhausted.
+   */
+  applyUndo(): boolean {
+    const pendingRemoves = this.pending.getAll().filter((p) => p.kind === 'remove').length;
+    const confirmed = this.confirmed.toArray();
+    const target = confirmed[confirmed.length - 1 - pendingRemoves];
+    if (!target) return false;
+    this.pending.enqueue({ kind: 'remove', id: target.id });
+    this.rebuild();
+    return true;
+  }
+
   /** Offline-only edit (local user): go straight into the confirmed chain. */
   applyLocalConfirmed(op: TreeOperation): void {
     this.confirmed.append(newId(), op);
@@ -55,6 +78,7 @@ export class ClientStore {
   applyRemoved(id: string): void {
     if (this.confirmed.getHead()?.id !== id) return;
     this.confirmed.remove(id);
+    this.pending.confirm(id);
     this.rebuild();
   }
 
@@ -72,17 +96,29 @@ export class ClientStore {
   /** The server accepted the pending chain: move it to confirmed. */
   confirmAllPending(): void {
     for (const p of this.pending.getAll()) {
-      if (p.kind !== 'add') throw new Error(`history operation '${p.kind}' is not supported`);
-      this.confirmed.append(p.id, p.op);
+      if (p.kind === 'add') {
+        this.confirmed.append(p.id, p.op);
+      } else if (this.confirmed.getHead()?.id === p.id) {
+        this.confirmed.remove(p.id);
+      }
     }
     this.pending.clear();
     this.rebuild();
   }
 
   private rebuild(): void {
+    const confirmed = this.confirmed.toArray();
+    const pending = this.pending.getAll();
+    // Each pending undo drops the confirmed head it targets (mirroring the
+    // server rule: only the head may be undone); stale ones are left for
+    // the server to reject.
+    for (const p of pending) {
+      if (p.kind !== 'remove') continue;
+      if (confirmed.at(-1)?.id === p.id) confirmed.pop();
+    }
     const tree = new Tree();
-    for (const n of this.confirmed.toArray()) tree.apply(n.op);
-    for (const p of this.pending.getAll()) {
+    for (const n of confirmed) tree.apply(n.op);
+    for (const p of pending) {
       if (p.kind !== 'add') continue;
       try {
         tree.apply(p.op);

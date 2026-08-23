@@ -11,6 +11,10 @@ export function StatusBar(props: {
   const { online, pendingCount, client } = props;
   const [syncing, setSyncing] = useState(false);
 
+  const pending = client.getPending();
+  const removeCount = pending.filter((p) => p.kind === 'remove').length;
+  const canUndo = pending.some((p) => p.kind === 'add') || client.getConfirmed().length > removeCount;
+
   const onSync = async (): Promise<void> => {
     if (syncing) return;
     setSyncing(true);
@@ -20,6 +24,14 @@ export function StatusBar(props: {
       console.error('sync failed:', e);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const onUndo = (): void => {
+    try {
+      client.undo();
+    } catch (e) {
+      console.error('undo failed:', e);
     }
   };
 
@@ -35,6 +47,15 @@ export function StatusBar(props: {
       {pendingCount > 0 && (
         <span className="text-amber-700">{t('status.pending', { n: pendingCount })}</span>
       )}
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={!canUndo}
+        data-testid="status-undo"
+        className="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-40"
+      >
+        {t('status.undo')}
+      </button>
       <button
         type="button"
         onClick={() => void onSync()}

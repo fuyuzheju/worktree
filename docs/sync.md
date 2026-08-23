@@ -27,7 +27,12 @@ header: X-User
 
 process ops in order, atomically:
   - id already in the user's History → skip (idempotent retry); same id with a different op → reject
-  - validate each op against the user's tree as it stands after the preceding ops of the batch:
+  - validate each op against the user's tree as it stands after the preceding ops
+    of the batch, history removes included (an add cannot depend on an entry its
+    own batch undoes):
+      history remove: no-op when the target entry is already gone (idempotent retry;
+        concurrent undos of the same head commute); when it still exists it must be
+        the user's current head (only the head may be undone)
       add: parent exists, new_id unused, name valid (non-empty, no '/'), no sibling name collision
       remove/remove_reminder: no-op when the target is already gone (idempotent, concurrent removes commute)
       rename/complete/uncomplete: target exists; rename: name valid, no sibling collision (self excluded)
@@ -111,4 +116,20 @@ when network recovers, resync:
      - own branch: resolve each conflicted op in the UI (keep / edit / drop), then /api/rewrite
        with {base: current head, history: server history + chosen ops}
        — non-conflicting server ops are preserved; the rewritten history must replay cleanly
+       — a pending undo is applied to the merged history when it still targets the tail,
+         dropped otherwise (the head advanced)
    503: that user is offline (maintenance or another of their clients rewriting) — keep the queue and retry, do NOT branch
+
+undo:
+
+the client exposes undo() as the only operation on the history log itself:
+  - the PendingQueue has add entries: drop the newest pending add locally —
+    no server roundtrip
+  - otherwise: enqueue remove {id: <target id>} and submit; the target is the
+    newest confirmed entry that no pending remove covers yet, so undo can be
+    repeated offline (the queued removes run in order on the server)
+  - the server deletes the head entry only (a stale undo is a 400 conflict)
+  - a pending remove is never dropped by undo (removes themselves cannot be undone)
+  - pending undos render optimistically: each pending remove drops its target
+    confirmed entry when building the local tree, so undo works offline
+  - local user: undo removes the confirmed head directly, no queue

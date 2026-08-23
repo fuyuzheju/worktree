@@ -7,6 +7,8 @@ import { WorktreeClient } from '@worktree/client';
 import { COMMANDS } from '../src/commands';
 import { createCommandIO, createDispatcher } from '../src/command';
 import type { Command, CommandIO } from '../src/command';
+import { DEFAULT_SERVER } from '../src/config';
+import { userStateRoot } from '../src/storage';
 
 const newIO = (user = 'alice') => {
   const lines: string[] = [];
@@ -68,6 +70,22 @@ describe('command dispatcher', () => {
     expect(lines[0]).toMatch(/^added "alpha" \[[0-9a-f]{4}\]$/);
   });
 
+  it('undo drops the last edit and reports it', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    await run(io, 'add beta');
+    lines.length = 0;
+    await run(io, 'undo');
+    expect(lines).toEqual(['undone', '(offline — op queued, will sync on reconnect)']);
+    expect(io.client.getTree().children.map((n) => n.name)).toEqual(['alpha']);
+  });
+
+  it('undo with nothing to undo reports the error', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'undo');
+    expect(lines).toEqual(['nothing to undo']);
+  });
+
   it('a new command only needs to implement the interface and register', async () => {
     const greet: Command = {
       name: 'greet',
@@ -99,7 +117,7 @@ describe('command dispatcher', () => {
     const prevHome = process.env.HOME;
     process.env.HOME = home;
     try {
-      const aliceDir = path.join(home, '.worktree', 'localhost_3000', 'alice');
+      const aliceDir = path.join(userStateRoot(DEFAULT_SERVER), 'alice');
       fs.mkdirSync(aliceDir, { recursive: true });
       fs.writeFileSync(path.join(aliceDir, 'state.json'), '{}');
       const { io, lines } = newIO('alice');

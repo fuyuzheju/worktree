@@ -10,7 +10,9 @@ export interface SyncAPI {
 }
 
 export interface Conflict {
-  /** Last confirmed history node both sides agree on (null when histories diverged entirely). */
+  /** Frozen snapshot of the history both sides agree on (before the failed catch-up). */
+  base: HistoryNode[];
+  /** Last entry of `base`; null when the histories diverged entirely (rewrite). */
   baseId: string | null;
   serverBranch: HistoryNode[];
   localBranch: HistoryOperation[];
@@ -37,6 +39,9 @@ export class Syncer {
 
   async sync(): Promise<SyncResult> {
     try {
+      // The head before catch-up: the conflict branches must diverge here,
+      // not at the post-catch-up head (where the server branch would be empty).
+      const baseId = this.store.getConfirmed().at(-1)?.id ?? null;
       await this.catchUp();
       if (this.store.getPending().length > 0) {
         try {
@@ -44,7 +49,7 @@ export class Syncer {
           this.store.confirmAllPending();
         } catch (e) {
           if (e instanceof ApiError && e.status === 400) {
-            this.conflict = await this.buildConflict();
+            this.conflict = await this.buildConflict(baseId);
             return 'conflict';
           }
           throw e;
@@ -81,13 +86,18 @@ export class Syncer {
       // A 409 means the history advanced mid-merge: re-merge against the
       // fresh history (bounded retries).
       const keep = chosenOps ?? this.store.getPending();
-      const keepNodes: HistoryNode[] = keep.map((p): HistoryNode => {
-        if (p.kind !== 'add') throw new Error(`history operation '${p.kind}' is not supported`);
-        return { id: p.id, op: p.op };
-      });
       for (let attempt = 0; ; attempt++) {
         const serverHistory = (await this.api.history(null)).nodes;
-        const history = [...serverHistory, ...keepNodes];
+        const history = [...serverHistory];
+        for (const p of keep) {
+          if (p.kind === 'add') {
+            history.push({ id: p.id, op: p.op });
+          } else if (history.at(-1)?.id === p.id) {
+            // Undo applies when it still targets the merged tail;
+            // a stale undo (the head advanced) is dropped.
+            history.pop();
+          }
+        }
         const base = serverHistory.at(-1)?.id ?? null;
         try {
           await this.api.rewrite(base, history);
@@ -103,10 +113,13 @@ export class Syncer {
     this.conflict = null;
   }
 
-  private async buildConflict(): Promise<Conflict> {
+  private async buildConflict(baseId: string | null): Promise<Conflict> {
     const confirmed = this.store.getConfirmed();
-    const baseId = confirmed.at(-1)?.id ?? null;
+    const idx = baseId === null ? -1 : confirmed.findIndex((n) => n.id === baseId);
+    // The agreed prefix: confirmed up to the pre-catch-up head. After a
+    // rewrite the old head is gone — the branches diverge at nothing.
+    const base = idx === -1 ? [] : confirmed.slice(0, idx + 1);
     const serverBranch = (await this.api.history(baseId)).nodes;
-    return { baseId, serverBranch, localBranch: this.store.getPending() };
+    return { base, baseId: base.at(-1)?.id ?? null, serverBranch, localBranch: this.store.getPending() };
   }
 }

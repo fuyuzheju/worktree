@@ -22,6 +22,7 @@ export const messages: Record<string, StringMap> = {
       pending: '{n} pending',
       sync: 'Sync',
       syncing: 'Syncing…',
+      undo: 'Undo',
       user: 'user: {user}',
     },
     tree: {

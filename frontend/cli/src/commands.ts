@@ -177,6 +177,23 @@ const rmCommand: Command = {
   },
 };
 
+const undoCommand: Command = {
+  name: 'undo',
+  summary: 'undo the last operation',
+  usage: 'undo',
+  run: async (io): Promise<CommandResult> => {
+    try {
+      mutate(() => io.client.undo());
+    } catch (e) {
+      io.out(errMsg(e));
+      return 'ok';
+    }
+    io.out('undone');
+    await afterCommand(io);
+    return 'ok';
+  },
+};
+
 const renameCommand: Command = {
   name: 'rename',
   summary: 'rename a node',
@@ -537,6 +554,7 @@ export const COMMANDS: Command[] = [
   pwdCommand,
   addCommand,
   rmCommand,
+  undoCommand,
   renameCommand,
   editCommand,
   mvCommand,

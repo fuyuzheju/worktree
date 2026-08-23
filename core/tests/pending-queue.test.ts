@@ -58,4 +58,25 @@ describe('PendingQueue', () => {
     q.enqueue({ kind: 'remove', id: 'a' });
     expect(q.peek()?.id).toBe('a');
   });
+
+  it('popLastAdd removes the newest add and keeps the rest in order', () => {
+    const q = new PendingQueue();
+    q.enqueue(op('a'));
+    q.enqueue(op('b'));
+    q.enqueue(op('c'));
+    expect(q.popLastAdd()?.id).toBe('c');
+    expect(q.getAll().map((o) => o.id)).toEqual(['a', 'b']);
+    expect(q.popLastAdd()?.id).toBe('b');
+    expect(q.getAll().map((o) => o.id)).toEqual(['a']);
+  });
+
+  it('popLastAdd skips remove ops and returns undefined when no add is queued', () => {
+    const q = new PendingQueue();
+    q.enqueue({ kind: 'remove', id: 'h1' });
+    q.enqueue(op('a'));
+    expect(q.popLastAdd()?.id).toBe('a');
+    expect(q.getAll().map((o) => o.id)).toEqual(['h1']);
+    expect(q.popLastAdd()).toBeUndefined();
+    expect(q.getAll()).toHaveLength(1);
+  });
 });

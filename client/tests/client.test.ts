@@ -245,4 +245,97 @@ describe('WorktreeClient local mode', () => {
     const stats = await c.getStats();
     expect(stats).toEqual({ opCount: 2, nodeCount: 1, reminderCount: 1, state: 'working' });
   });
+
+  it('undo removes the confirmed head in local mode', () => {
+    const c = localClient();
+    const a = c.addNode(ROOT_ID, 'A');
+    c.addNode(ROOT_ID, 'B');
+    c.undo();
+    expect(c.getTree().children.map((n) => n.id)).toEqual([a]);
+    expect(c.getConfirmed()).toHaveLength(1);
+    c.undo();
+    expect(c.getTree().children).toHaveLength(0);
+    expect(() => c.undo()).toThrow(/nothing to undo/);
+  });
+});
+
+describe('WorktreeClient undo', () => {
+  it('drops the last pending edit without any server op', () => {
+    const c = newClient();
+    const a = c.addNode(ROOT_ID, 'A');
+    c.addNode(ROOT_ID, 'B');
+    c.undo();
+    expect(c.getTree().children.map((n) => n.id)).toEqual([a]);
+    expect(c.getPendingCount()).toBe(1);
+    c.undo();
+    expect(c.getTree().children).toHaveLength(0);
+    expect(c.getPendingCount()).toBe(0);
+  });
+
+  it('queues a remove history op against the confirmed head', () => {
+    const storage = new MemoryStorage();
+    storage.state = {
+      confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
+      pending: [],
+    };
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    c.undo();
+    expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h1' }]);
+    expect(c.getTree().children).toHaveLength(0);
+    expect(storage.state?.pending).toEqual([{ kind: 'remove', id: 'h1' }]);
+  });
+
+  it('queues successive removes offline (undoing the previous heads)', () => {
+    const storage = new MemoryStorage();
+    storage.state = {
+      confirmed: [
+        { id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } },
+        { id: 'h2', op: { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 } },
+      ],
+      pending: [],
+    };
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    c.undo();
+    expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h2' }]);
+    expect(c.getTree().children.map((n) => n.id)).toEqual(['a']);
+    c.undo();
+    expect(c.getPending()).toEqual([
+      { kind: 'remove', id: 'h2' },
+      { kind: 'remove', id: 'h1' },
+    ]);
+    expect(c.getTree().children).toHaveLength(0);
+    expect(storage.state?.pending).toHaveLength(2);
+    expect(() => c.undo()).toThrow(/nothing to undo/);
+  });
+
+  it('undo with a pending remove and an exhausted chain reports nothing to undo', () => {
+    const storage = new MemoryStorage();
+    storage.state = {
+      confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
+      pending: [{ kind: 'remove', id: 'h1' }],
+    };
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    expect(() => c.undo()).toThrow(/nothing to undo/);
+    expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h1' }]);
+  });
+
+  it('throws when there is nothing to undo', () => {
+    const c = newClient();
+    expect(() => c.undo()).toThrow(/nothing to undo/);
+  });
+
+  it('undoes the pending add first, then the confirmed head', () => {
+    const storage = new MemoryStorage();
+    storage.state = {
+      confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
+      pending: [{ kind: 'add', id: 'h2', op: { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 } }],
+    };
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    c.undo();
+    expect(c.getPending()).toEqual([]);
+    expect(c.getTree().children.map((n) => n.id)).toEqual(['a']);
+    c.undo();
+    expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h1' }]);
+    expect(c.getTree().children).toHaveLength(0);
+  });
 });

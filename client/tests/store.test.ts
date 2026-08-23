@@ -100,4 +100,91 @@ describe('ClientStore', () => {
     expect(store.getConfirmed()).toHaveLength(1);
     expect(store.getPending()).toHaveLength(1);
   });
+
+  it('undoPendingAdd pops the newest pending add and rebuilds the tree', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
+    expect(store.undoPendingAdd()).toBe(true);
+    expect(store.getPending()).toHaveLength(1);
+    expect(store.getTree().children.map((c) => c.id)).toEqual(['a']);
+    expect(store.undoPendingAdd()).toBe(true);
+    expect(store.getTree().children).toHaveLength(0);
+    expect(store.undoPendingAdd()).toBe(false);
+  });
+
+  it('applyUndo queues a remove against the head and previews the tree without it', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.confirmAllPending();
+    const headId = store.getConfirmed().at(-1)!.id;
+    expect(store.applyUndo()).toBe(true);
+    expect(store.getPending()).toEqual([{ kind: 'remove', id: headId }]);
+    expect(store.getConfirmed()).toHaveLength(1);
+    expect(store.getTree().children).toHaveLength(0);
+  });
+
+  it('applyUndo targets the previous head when a remove is already pending', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
+    store.confirmAllPending();
+    const [first, second] = store.getConfirmed().map((n) => n.id);
+    expect(store.applyUndo()).toBe(true); // targets B
+    expect(store.applyUndo()).toBe(true); // targets A
+    expect(store.getPending()).toEqual([
+      { kind: 'remove', id: second },
+      { kind: 'remove', id: first },
+    ]);
+    expect(store.getTree().children).toHaveLength(0);
+    expect(store.applyUndo()).toBe(false);
+  });
+
+  it('confirmAllPending applies a pending remove (head rolled back)', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
+    store.confirmAllPending();
+    store.applyUndo();
+    store.confirmAllPending();
+    expect(store.getPending()).toHaveLength(0);
+    expect(store.getConfirmed().map((n) => n.op.kind)).toEqual(['add']);
+    expect(store.getTree().children.map((c) => c.id)).toEqual(['a']);
+  });
+
+  it('confirmAllPending applies removes and adds of the same batch in order', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.confirmAllPending();
+    store.applyUndo();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
+    const addId = store.getPending()[1]!.id;
+    store.confirmAllPending();
+    expect(store.getConfirmed().map((n) => n.id)).toEqual([addId]);
+    expect(store.getTree().children.map((c) => c.id)).toEqual(['b']);
+  });
+
+  it('applyRemoved drops the matching pending remove (idempotent double-apply)', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.confirmAllPending();
+    const headId = store.getConfirmed().at(-1)!.id;
+    store.applyUndo();
+    store.applyRemoved(headId);
+    expect(store.getPending()).toHaveLength(0);
+    expect(store.getConfirmed()).toHaveLength(0);
+    expect(store.getTree().children).toHaveLength(0);
+    store.applyRemoved(headId); // second delivery is a no-op
+    expect(store.getConfirmed()).toHaveLength(0);
+  });
+
+  it('a stale pending remove (head advanced) does not hide confirmed ops', () => {
+    const store = new ClientStore();
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
+    store.confirmAllPending();
+    const first = store.getConfirmed()[0]!.id;
+    store.restore(store.getConfirmed(), [{ kind: 'remove', id: first }]);
+    expect(store.getTree().children.map((c) => c.id)).toEqual(['a', 'b']);
+  });
 });

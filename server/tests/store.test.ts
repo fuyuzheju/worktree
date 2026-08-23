@@ -227,8 +227,43 @@ describe('HistoryStore', () => {
     const store = new HistoryStore();
     await store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h2')]);
     await expect(store.appendBatch(ALICE, [{ kind: 'remove', id: 'h1' }])).rejects.toBeInstanceOf(HeadUndoError);
-    await expect(store.appendBatch(ALICE, [{ kind: 'remove', id: 'missing' }])).rejects.toBeInstanceOf(HeadUndoError);
     expect(await store.all(ALICE)).toHaveLength(2);
+  });
+
+  it('removing an already-removed or unknown entry is an idempotent no-op', async () => {
+    const store = new HistoryStore();
+    await store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h2')]);
+    await store.appendBatch(ALICE, [{ kind: 'remove', id: 'h2' }]);
+    // a retry of the same undo (lost response) and an unknown id must not fail
+    const retry = await store.appendBatch(ALICE, [{ kind: 'remove', id: 'h2' }]);
+    expect(retry.removed).toEqual([]);
+    const unknown = await store.appendBatch(ALICE, [{ kind: 'remove', id: 'missing' }]);
+    expect(unknown.removed).toEqual([]);
+    expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('rejects an add that depends on a node its own batch removes', async () => {
+    const store = new HistoryStore();
+    await store.appendBatch(ALICE, [add('a', 'h1')]);
+    await expect(
+      store.appendBatch(ALICE, [
+        { kind: 'remove', id: 'h1' },
+        { kind: 'add', id: 'h2', op: { kind: 'add', parentId: 'a', id: 'b', name: 'B', weight: 1 } },
+      ]),
+    ).rejects.toBeInstanceOf(ValidationError);
+    // the whole batch was rejected: nothing changed
+    expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+    expect((await store.getTreeForUser(ALICE)).getNode('a')).toBeDefined();
+  });
+
+  it('accepts an add after an undo when it does not depend on the removed entry', async () => {
+    const store = new HistoryStore();
+    await store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h2')]);
+    const result = await store.appendBatch(ALICE, [{ kind: 'remove', id: 'h2' }, add('c', 'h3')]);
+    expect(result.removed).toEqual(['h2']);
+    expect(result.added.map((n) => n.id)).toEqual(['h3']);
+    expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1', 'h3']);
+    expect((await store.getTreeForUser(ALICE)).getNode('c')).toBeDefined();
   });
 
   it('since returns entries after the cursor; unknown cursor returns the whole chain', async () => {
@@ -383,8 +418,11 @@ describe('HistoryStore', () => {
     // alice's head is h2 and she can undo it
     const result = await store.appendBatch(ALICE, [{ kind: 'remove', id: 'h2' }]);
     expect(result.removed).toEqual(['h2']);
-    // bob's head is x1 — alice's head is not bob's
-    await expect(store.appendBatch(BOB, [{ kind: 'remove', id: 'h2' }])).rejects.toBeInstanceOf(HeadUndoError);
+    // bob's head is x1 — removing alice's id is a no-op in bob's history
+    // (ids are namespaced per user)
+    const bobResult = await store.appendBatch(BOB, [{ kind: 'remove', id: 'h2' }]);
+    expect(bobResult.removed).toEqual([]);
+    expect((await store.all(BOB)).map((n) => n.id)).toEqual(['x1']);
   });
 
   it('creates a new user lazily on first use', async () => {

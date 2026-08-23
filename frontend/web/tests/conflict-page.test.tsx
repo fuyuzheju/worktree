@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { Tree } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import type { Conflict } from '@worktree/client';
@@ -11,21 +10,14 @@ import type { DisplayPrefs } from '../src/config';
 const display: DisplayPrefs = { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' };
 
 const conflict: Conflict = {
+  base: [{ id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } }],
   baseId: 'op1',
   serverBranch: [{ id: 'op2', op: { kind: 'remove', id: 'aaaa-1' } }],
   localBranch: [{ kind: 'add', id: 'op3', op: { kind: 'rename', id: 'aaaa-1', name: 'alpha2' } }],
 };
 
 function makeClient(resolveConflict: (choice: string) => Promise<void>): WorktreeClient {
-  const localTree = Tree.fromOps([
-    { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 },
-    { kind: 'rename', id: 'aaaa-1', name: 'alpha2' },
-  ]).getRoot();
   return {
-    getConfirmed: () => [
-      { id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } },
-    ],
-    getTree: () => localTree,
     resolveConflict,
   } as unknown as WorktreeClient;
 }
@@ -52,6 +44,36 @@ describe('ConflictPage', () => {
     expect(screen.getAllByText('(empty tree — select the root to add a node)').length).toBe(1);
     // Local branch: the renamed node.
     expect(screen.getByText(/alpha2 \[aaaa\] w:1/)).toBeTruthy();
+  });
+
+  it('shows different trees for a stale-undo conflict', () => {
+    const undoConflict: Conflict = {
+      base: [
+        { id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } },
+        { id: 'op2', op: { kind: 'add', parentId: ROOT_ID, id: 'bbbb-1', name: 'beta', weight: 2 } },
+      ],
+      baseId: 'op2',
+      serverBranch: [
+        { id: 'op3', op: { kind: 'add', parentId: ROOT_ID, id: 'cccc-1', name: 'gamma', weight: 3 } },
+      ],
+      localBranch: [{ kind: 'remove', id: 'op2' }],
+    };
+    render(
+      <I18nProvider lang="en">
+        <ConflictPage
+          conflict={undoConflict}
+          client={makeClient(async () => undefined)}
+          display={display}
+        />
+      </I18nProvider>,
+    );
+    // Server version keeps beta and adds gamma; your version applies the undo.
+    const serverView = screen.getAllByTestId('tree-view')[0]!;
+    const localView = screen.getAllByTestId('tree-view')[1]!;
+    expect(serverView.textContent).toContain('beta');
+    expect(serverView.textContent).toContain('gamma');
+    expect(localView.textContent).not.toContain('beta');
+    expect(localView.textContent).toContain('alpha');
   });
 
   it('resolves with the server branch', async () => {

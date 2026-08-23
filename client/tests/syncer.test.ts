@@ -43,7 +43,10 @@ class FakeAPI implements SyncAPI {
     this.submitCalls.push(ops);
     if (this.failSubmitWith) throw this.failSubmitWith;
     for (const o of ops) {
-      if (o.kind !== 'add') continue;
+      if (o.kind === 'remove') {
+        if (this.serverHistory.at(-1)?.id === o.id) this.serverHistory.pop();
+        continue;
+      }
       if (this.serverHistory.some((n) => n.id === o.id)) continue;
       this.serverHistory.push({ id: o.id, op: o.op });
     }
@@ -105,6 +108,7 @@ describe('Syncer', () => {
     expect(await syncer.sync()).toBe('conflict');
     const conflict = syncer.getConflict();
     expect(conflict?.baseId).toBeNull();
+    expect(conflict?.base).toEqual([]);
     expect(conflict?.localBranch).toHaveLength(1);
     expect(store.getPending()).toHaveLength(1);
   });
@@ -190,7 +194,7 @@ describe('Syncer', () => {
     expect(store.getConfirmed()).toHaveLength(3);
   });
 
-  it('conflict after catch-up reports the fresh head as base', async () => {
+  it('conflict branches diverge at the pre-catch-up head', async () => {
     const store = new ClientStore();
     store.setConfirmed([node('s1')]);
     store.applyLocal(addOp('a'));
@@ -200,9 +204,11 @@ describe('Syncer', () => {
     const syncer = new Syncer(store, api);
     expect(await syncer.sync()).toBe('conflict');
     const conflict = syncer.getConflict();
-    // The catch-up applied s2 first, so the branches diverge at s2.
-    expect(conflict?.baseId).toBe('s2');
-    expect(conflict?.serverBranch).toEqual([]);
+    // The catch-up applied s2 into confirmed, but the branches must diverge
+    // at the pre-catch-up head so the server branch is non-empty.
+    expect(conflict?.baseId).toBe('s1');
+    expect(conflict?.base).toEqual([node('s1')]);
+    expect(conflict?.serverBranch).toEqual([node('s2')]);
     expect(conflict?.localBranch).toHaveLength(1);
     expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', 's2']);
   });
@@ -238,5 +244,53 @@ describe('Syncer', () => {
     await expect(syncer.resolveConflict('local')).rejects.toBeInstanceOf(ApiError);
     expect(syncer.getConflict()).not.toBeNull();
     expect(store.getPending()).toHaveLength(1);
+  });
+
+  it('sync flushes a pending undo and rolls the confirmed head back', async () => {
+    const store = new ClientStore();
+    store.applyLocal(addOp('s1'));
+    store.confirmAllPending();
+    const headId = store.getConfirmed().at(-1)!.id;
+    const api = new FakeAPI();
+    api.serverHistory = [...store.getConfirmed()];
+    const syncer = new Syncer(store, api);
+    store.applyUndo();
+    expect(await syncer.sync()).toBe('ok');
+    expect(api.submitCalls).toEqual([[{ kind: 'remove', id: headId }]]);
+    expect(store.getPending()).toHaveLength(0);
+    expect(store.getConfirmed()).toHaveLength(0);
+    expect(countNodes(store.getTree())).toBe(0);
+  });
+
+  it('resolveConflict(local) drops a stale undo (the server head advanced)', async () => {
+    const store = new ClientStore();
+    store.setConfirmed([node('s1')]);
+    store.applyUndo();
+    const api = new FakeAPI();
+    api.serverHistory = [node('s1'), node('s2')];
+    const syncer = new Syncer(store, api);
+    await syncer.resolveConflict('local');
+    // The undo targets s1 which is no longer the server tail (s2 arrived):
+    // it is dropped from the merged history.
+    expect(api.rewriteCalls).toEqual([{ base: 's2', history: [node('s1'), node('s2')] }]);
+    expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', 's2']);
+    expect(store.getPending()).toHaveLength(0);
+  });
+
+  it('resolveConflict(local) applies a pending undo that targets the merged tail', async () => {
+    const store = new ClientStore();
+    store.setConfirmed([node('s1')]);
+    store.applyUndo();
+    store.applyLocal(addOp('a'));
+    const pendingAddId = store.getPending().find((p) => p.kind === 'add')!.id;
+    const api = new FakeAPI();
+    api.serverHistory = [node('s1')];
+    const syncer = new Syncer(store, api);
+    await syncer.resolveConflict('local');
+    // Here the undo still targets the server tail: the rewrite removes s1.
+    expect(api.rewriteCalls[0]!.base).toBe('s1');
+    expect(api.rewriteCalls[0]!.history.map((n) => n.id)).toEqual([pendingAddId]);
+    expect(store.getConfirmed().map((n) => n.id)).toEqual([pendingAddId]);
+    expect(store.getPending()).toHaveLength(0);
   });
 });
