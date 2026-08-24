@@ -63,7 +63,13 @@ export function ConflictPage(props: {
   const [error, setError] = useState<string | null>(null);
 
   const serverTree = useMemo(
-    () => replay([...conflict.base, ...conflict.serverBranch].map((n) => n.op)),
+    () =>
+      replay(
+        (conflict.cursorFound
+          ? [...conflict.base, ...conflict.serverBranch]
+          : conflict.serverBranch
+        ).map((n) => n.op),
+      ),
     [conflict],
   );
   const localTree = useMemo(

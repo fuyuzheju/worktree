@@ -11,10 +11,13 @@ export interface SyncAPI {
 }
 
 export interface Conflict {
-  /** Frozen snapshot of the history both sides agree on (before the failed catch-up). */
+  /** Frozen snapshot of the confirmed history before the failed catch-up. */
   base: HistoryNode[];
-  /** Last entry of `base`; null when the histories diverged entirely (rewrite). */
+  /** Last entry of `base`; null when there was no confirmed history. */
   baseId: string | null;
+  /** True when `base` is still a prefix of the server history (server tree = base + serverBranch). */
+  cursorFound: boolean;
+  /** Server ops after `base`; the whole server history when the cursor was gone. */
   serverBranch: HistoryNode[];
   localBranch: HistoryOperation[];
 }
@@ -40,9 +43,9 @@ export class Syncer {
 
   async sync(): Promise<SyncResult> {
     try {
-      // The head before catch-up: the conflict branches must diverge here,
+      // Snapshot before catch-up: the conflict branches must diverge here,
       // not at the post-catch-up head (where the server branch would be empty).
-      const baseId = this.store.getConfirmed().at(-1)?.id ?? null;
+      const base = this.store.getConfirmed();
       await this.catchUp();
       if (this.store.getPending().length > 0) {
         try {
@@ -50,10 +53,18 @@ export class Syncer {
           this.store.confirmAllPending();
         } catch (e) {
           if (e instanceof ApiError && e.status === 400) {
-            this.conflict = await this.buildConflict(baseId);
-            return 'conflict';
+            // A rejected undo can never apply (the server only undoes its
+            // head): a pure-remove queue is dropped instead of surfacing a
+            // conflict that has nothing to show.
+            if (this.store.getPending().every((p) => p.kind === 'remove')) {
+              this.store.clearPending();
+            } else {
+              this.conflict = await this.buildConflict(base);
+              return 'conflict';
+            }
+          } else {
+            throw e;
           }
-          throw e;
         }
       }
       await this.catchUp();
@@ -121,13 +132,9 @@ export class Syncer {
     this.conflict = null;
   }
 
-  private async buildConflict(baseId: string | null): Promise<Conflict> {
-    const confirmed = this.store.getConfirmed();
-    const idx = baseId === null ? -1 : confirmed.findIndex((n) => n.id === baseId);
-    // The agreed prefix: confirmed up to the pre-catch-up head. After a
-    // rewrite the old head is gone — the branches diverge at nothing.
-    const base = idx === -1 ? [] : confirmed.slice(0, idx + 1);
-    const serverBranch = (await this.api.history(baseId)).nodes;
-    return { base, baseId: base.at(-1)?.id ?? null, serverBranch, localBranch: this.store.getPending() };
+  private async buildConflict(base: HistoryNode[]): Promise<Conflict> {
+    const baseId = base.at(-1)?.id ?? null;
+    const { cursorFound, nodes } = await this.api.history(baseId);
+    return { base, baseId, cursorFound, serverBranch: nodes, localBranch: this.store.getPending() };
   }
 }

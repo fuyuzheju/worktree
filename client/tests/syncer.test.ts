@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROOT_ID } from '@worktree/core';
+import { ROOT_ID, Tree } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, HistoryPage, Node, TreeOperation } from '@worktree/core';
 import { ApiError } from '../src/api';
 import type { SyncAPI } from '../src/syncer';
@@ -44,7 +44,12 @@ class FakeAPI implements SyncAPI {
     if (this.failSubmitWith) throw this.failSubmitWith;
     for (const o of ops) {
       if (o.kind === 'remove') {
-        if (this.serverHistory.at(-1)?.id === o.id) this.serverHistory.pop();
+        const idx = this.serverHistory.findIndex((n) => n.id === o.id);
+        if (idx === -1) continue; // already removed: idempotent
+        if (idx !== this.serverHistory.length - 1) {
+          throw new ApiError(400, `{"conflict_id":"${o.id}","reason":"head moved"}`);
+        }
+        this.serverHistory.pop();
         continue;
       }
       if (this.serverHistory.some((n) => n.id === o.id)) continue;
@@ -109,6 +114,7 @@ describe('Syncer', () => {
     const conflict = syncer.getConflict();
     expect(conflict?.baseId).toBeNull();
     expect(conflict?.base).toEqual([]);
+    expect(conflict?.cursorFound).toBe(true);
     expect(conflict?.localBranch).toHaveLength(1);
     expect(store.getPending()).toHaveLength(1);
   });
@@ -208,9 +214,80 @@ describe('Syncer', () => {
     // at the pre-catch-up head so the server branch is non-empty.
     expect(conflict?.baseId).toBe('s1');
     expect(conflict?.base).toEqual([node('s1')]);
+    expect(conflict?.cursorFound).toBe(true);
     expect(conflict?.serverBranch).toEqual([node('s2')]);
     expect(conflict?.localBranch).toHaveLength(1);
     expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', 's2']);
+  });
+
+  it('a conflict after a history rewrite keeps the pre-catch-up base', async () => {
+    const store = new ClientStore();
+    store.setConfirmed([node('s1'), node('s2')]);
+    store.applyLocal(addOp('a', 's2'));
+    const api = new FakeAPI();
+    api.serverHistory = [node('s1')]; // rewritten: s2 is gone
+    api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"boom"}');
+    const syncer = new Syncer(store, api);
+    expect(await syncer.sync()).toBe('conflict');
+    const conflict = syncer.getConflict();
+    expect(conflict?.base).toEqual([node('s1'), node('s2')]);
+    expect(conflict?.baseId).toBe('s2');
+    expect(conflict?.cursorFound).toBe(false);
+    expect(conflict?.serverBranch).toEqual([node('s1')]);
+    expect(conflict?.localBranch).toHaveLength(1);
+  });
+
+  it('offline add under a node the server removed branches with different trees', async () => {
+    // A and B share [alpha]; A goes offline and adds a child under alpha;
+    // B removes alpha; A reconnects and its child op is rejected.
+    const store = new ClientStore();
+    store.setConfirmed([node('h1', addOp('alpha'))]);
+    store.applyLocal(addOp('child', 'alpha'));
+    const api = new FakeAPI();
+    api.serverHistory = [node('h1', addOp('alpha')), node('h2', { kind: 'remove', id: 'alpha' })];
+    api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"parent missing"}');
+    const syncer = new Syncer(store, api);
+    expect(await syncer.sync()).toBe('conflict');
+    const conflict = syncer.getConflict()!;
+    expect(conflict.base.map((n) => n.id)).toEqual(['h1']);
+    expect(conflict.baseId).toBe('h1');
+    expect(conflict.cursorFound).toBe(true);
+    expect(conflict.serverBranch.map((n) => n.id)).toEqual(['h2']);
+    expect(conflict.localBranch).toHaveLength(1);
+    // Server version: alpha removed. Local version: alpha with its child.
+    const serverTree = Tree.fromOps([...conflict.base, ...conflict.serverBranch].map((n) => n.op)).getRoot();
+    expect(findNode(serverTree, 'alpha')).toBeUndefined();
+    const localHistory = [...conflict.base];
+    for (const p of conflict.localBranch) {
+      if (p.kind === 'add') {
+        const probe = Tree.fromOps(localHistory.map((n) => n.op));
+        try {
+          probe.apply(p.op);
+        } catch {
+          continue;
+        }
+        localHistory.push({ id: p.id, op: p.op });
+      } else if (localHistory.at(-1)?.id === p.id) {
+        localHistory.pop();
+      }
+    }
+    const localTree = Tree.fromOps(localHistory.map((n) => n.op)).getRoot();
+    expect(findNode(localTree, 'alpha')).toBeDefined();
+    expect(findNode(localTree, 'child')).toBeDefined();
+  });
+
+  it('drops rejected undos instead of surfacing a conflict', async () => {
+    const store = new ClientStore();
+    store.setConfirmed([node('s1'), node('s2')]);
+    store.applyUndo(); // targets s2, but the server head moved to s3
+    const api = new FakeAPI();
+    api.serverHistory = [node('s1'), node('s2'), node('s3')];
+    const syncer = new Syncer(store, api);
+    expect(await syncer.sync()).toBe('ok');
+    expect(syncer.getConflict()).toBeNull();
+    expect(store.getPending()).toHaveLength(0);
+    expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', 's2', 's3']);
+    expect(api.rewriteCalls).toHaveLength(0);
   });
 
   it('resolveConflict(local) retries once on 409 with a re-merged base', async () => {
@@ -256,7 +333,9 @@ describe('Syncer', () => {
   it('resolveConflict(local) applies a pending undo to the agreed base', async () => {
     const store = new ClientStore();
     store.setConfirmed([node('s1'), node('s2')]);
-    store.applyUndo(); // targets s2
+    store.applyUndo(); // remove s2
+    store.applyLocal(addOp('a'));
+    const pendingAddId = store.getPending().find((p) => p.kind === 'add')!.id;
     const api = new FakeAPI();
     api.serverHistory = [node('s1'), node('s2'), node('s3')];
     api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"boom"}');
@@ -264,8 +343,10 @@ describe('Syncer', () => {
     expect(await syncer.sync()).toBe('conflict');
     api.failSubmitWith = null;
     await syncer.resolveConflict('local');
-    expect(api.rewriteCalls[0]).toEqual({ base: 's3', history: [node('s1')] });
-    expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1']);
+    // base [s1, s2] + undo(s2) + add a → [s1, a]; s3 is discarded.
+    expect(api.rewriteCalls[0]!.base).toBe('s3');
+    expect(api.rewriteCalls[0]!.history.map((n) => n.id)).toEqual(['s1', pendingAddId]);
+    expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', pendingAddId]);
     expect(store.getPending()).toHaveLength(0);
   });
 

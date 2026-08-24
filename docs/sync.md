@@ -113,11 +113,15 @@ when network recovers, resync:
    success: clear PendingQueue, catch up again (other clients may have interleaved ops)
    conflict (400): branch at the pre-catch-up head (the "last agreed entry"), show the two
      branches and let the user choose one
+     - rejected undos never surface a conflict: a queue of only removes is dropped
+       (the server only undoes its head, so a rejected undo can never apply)
      - server branch: drop the pending ops, keep the server history
      - own branch: keep the local version — /api/rewrite with
        {base: current server head, history: agreed base + pending ops}; the server's
        branch is discarded, pending ops that do not replay on the base are dropped,
        and a pending undo drops the base's tail entry
+     - when the catch-up found the base gone (history rewritten), the server branch
+       is the whole server history
      - the rewritten history must replay cleanly (400 otherwise); a 409 retries the
        rewrite against the same agreed base
    503: that user is offline (maintenance or another of their clients rewriting) — keep the queue and retry, do NOT branch

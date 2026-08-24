@@ -12,6 +12,7 @@ const display: DisplayPrefs = { showId: true, showWeight: true, showReminders: t
 const conflict: Conflict = {
   base: [{ id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } }],
   baseId: 'op1',
+  cursorFound: true,
   serverBranch: [{ id: 'op2', op: { kind: 'remove', id: 'aaaa-1' } }],
   localBranch: [{ kind: 'add', id: 'op3', op: { kind: 'rename', id: 'aaaa-1', name: 'alpha2' } }],
 };
@@ -53,6 +54,7 @@ describe('ConflictPage', () => {
         { id: 'op2', op: { kind: 'add', parentId: ROOT_ID, id: 'bbbb-1', name: 'beta', weight: 2 } },
       ],
       baseId: 'op2',
+      cursorFound: true,
       serverBranch: [
         { id: 'op3', op: { kind: 'add', parentId: ROOT_ID, id: 'cccc-1', name: 'gamma', weight: 3 } },
       ],
@@ -74,6 +76,38 @@ describe('ConflictPage', () => {
     expect(serverView.textContent).toContain('gamma');
     expect(localView.textContent).not.toContain('beta');
     expect(localView.textContent).toContain('alpha');
+  });
+
+  it('shows the whole server history when the cursor is gone (rewrite)', () => {
+    const rewritten: Conflict = {
+      base: [
+        { id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } },
+        { id: 'op2', op: { kind: 'add', parentId: ROOT_ID, id: 'bbbb-1', name: 'beta', weight: 2 } },
+      ],
+      baseId: 'op2',
+      cursorFound: false,
+      serverBranch: [
+        { id: 'op9', op: { kind: 'add', parentId: ROOT_ID, id: 'cccc-1', name: 'gamma', weight: 3 } },
+      ],
+      localBranch: [{ kind: 'add', id: 'op3', op: { kind: 'rename', id: 'bbbb-1', name: 'beta2' } }],
+    };
+    render(
+      <I18nProvider lang="en">
+        <ConflictPage
+          conflict={rewritten}
+          client={makeClient(async () => undefined)}
+          display={display}
+        />
+      </I18nProvider>,
+    );
+    const serverView = screen.getAllByTestId('tree-view')[0]!;
+    const localView = screen.getAllByTestId('tree-view')[1]!;
+    // Server: only the rewritten history (base is gone there).
+    expect(serverView.textContent).toContain('gamma');
+    expect(serverView.textContent).not.toContain('alpha');
+    // Local: the pre-rewrite base plus the pending rename.
+    expect(localView.textContent).toContain('alpha');
+    expect(localView.textContent).toContain('beta2');
   });
 
   it('resolves with the server branch', async () => {
