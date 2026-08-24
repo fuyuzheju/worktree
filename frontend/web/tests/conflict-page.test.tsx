@@ -76,6 +76,49 @@ describe('ConflictPage', () => {
     expect(serverView.textContent).toContain('gamma');
     expect(localView.textContent).not.toContain('beta');
     expect(localView.textContent).toContain('alpha');
+    // Nodes that exist only on the server side are highlighted there.
+    expect(serverView.querySelector('[data-node-id="bbbb-1"]')?.className).toContain('bg-rose-100');
+    expect(serverView.querySelector('[data-node-id="cccc-1"]')?.className).toContain('bg-rose-100');
+    // The shared alpha is not highlighted on either side.
+    expect(serverView.querySelector('[data-node-id="aaaa-1"]')?.className).not.toContain('bg-rose-100');
+    expect(localView.querySelector('[data-node-id="aaaa-1"]')?.className).not.toContain('bg-rose-100');
+  });
+
+  it('highlights nodes that differ on both sides', () => {
+    const changed: Conflict = {
+      base: [{ id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } }],
+      baseId: 'op1',
+      cursorFound: true,
+      serverBranch: [{ id: 'op2', op: { kind: 'rename', id: 'aaaa-1', name: 'alphaX' } }],
+      localBranch: [{ kind: 'add', id: 'op3', op: { kind: 'rename', id: 'aaaa-1', name: 'alphaY' } }],
+    };
+    render(
+      <I18nProvider lang="en">
+        <ConflictPage conflict={changed} client={makeClient(async () => undefined)} display={display} />
+      </I18nProvider>,
+    );
+    const serverView = screen.getAllByTestId('tree-view')[0]!;
+    const localView = screen.getAllByTestId('tree-view')[1]!;
+    expect(serverView.textContent).toContain('alphaX');
+    expect(localView.textContent).toContain('alphaY');
+    expect(serverView.querySelector('[data-node-id="aaaa-1"]')?.className).toContain('bg-amber-100');
+    expect(localView.querySelector('[data-node-id="aaaa-1"]')?.className).toContain('bg-amber-100');
+  });
+
+  it('says so when both versions are identical', () => {
+    const identical: Conflict = {
+      base: [{ id: 'op1', op: { kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 } }],
+      baseId: 'op1',
+      cursorFound: true,
+      serverBranch: [],
+      localBranch: [],
+    };
+    render(
+      <I18nProvider lang="en">
+        <ConflictPage conflict={identical} client={makeClient(async () => undefined)} display={display} />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('Both versions are identical.')).toBeTruthy();
   });
 
   it('shows the whole server history when the cursor is gone (rewrite)', () => {

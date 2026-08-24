@@ -3,6 +3,7 @@ import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
 import { rootLine } from '../render';
 import { TreeNode } from './TreeNode';
+import type { DiffStyle } from './TreeNode';
 
 export interface TreeViewProps {
   root: FilteredNode;
@@ -15,6 +16,8 @@ export interface TreeViewProps {
   readOnly?: boolean;
   /** Whether a filter constrains the view (drives dim/highlight styling and the empty state). */
   filterActive?: boolean;
+  /** Conflict page: nodes differing from the other version, by style. */
+  highlight?: ReadonlyMap<string, DiffStyle>;
 }
 
 export function TreeView(props: TreeViewProps) {
@@ -56,6 +59,7 @@ export function TreeView(props: TreeViewProps) {
           onSelect={onSelect}
           readOnly={readOnly}
           filterActive={filterActive}
+          highlight={props.highlight}
         />
       ))}
     </div>

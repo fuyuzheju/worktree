@@ -101,6 +101,9 @@ export const messages: Record<string, StringMap> = {
       explanation:
         'Your pending changes conflict with the server history. Choose which version to keep.',
       base: 'last agreed entry: {base}',
+      onlyHere: 'only on this side',
+      changedHere: 'differs from the other side',
+      identical: 'Both versions are identical.',
       serverVersion: 'Server version',
       yourVersion: 'Your version',
       newOps: '{n} new server op(s)',

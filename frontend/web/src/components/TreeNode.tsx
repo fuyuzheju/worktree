@@ -2,6 +2,9 @@ import type { FilteredNode } from '@worktree/core';
 import type { DisplayPrefs } from '../config';
 import { connectors, formatNode } from '../render';
 
+/** How a node differs from the other side of a conflict. */
+export type DiffStyle = 'only' | 'changed';
+
 export interface TreeNodeProps {
   view: FilteredNode;
   ancestorIsLast: boolean[];
@@ -13,7 +16,14 @@ export interface TreeNodeProps {
   onSelect: (id: string) => void;
   readOnly?: boolean;
   filterActive?: boolean;
+  /** Conflict page: nodes differing from the other version, by style. */
+  highlight?: ReadonlyMap<string, DiffStyle>;
 }
+
+const HIGHLIGHT_CLASS: Record<DiffStyle, string> = {
+  only: ' bg-rose-100',
+  changed: ' bg-amber-100',
+};
 
 export function TreeNode(props: TreeNodeProps) {
   const { view, ancestorIsLast, isLast, expanded, selectedId, display, onToggle, onSelect, readOnly, filterActive } =
@@ -22,6 +32,7 @@ export function TreeNode(props: TreeNodeProps) {
   const hasChildren = view.children.length > 0;
   const isOpen = expanded.has(node.id);
   const isSelected = selectedId === node.id;
+  const highlight = props.highlight?.get(node.id);
 
   const bg = node.status
     ? 'bg-green-100 hover:bg-green-200'
@@ -40,7 +51,7 @@ export function TreeNode(props: TreeNodeProps) {
     <>
       <div
         data-node-id={node.id}
-        className={`flex py-1 whitespace-pre-wrap wrap-break-words select-none md:whitespace-pre`}
+        className={`flex py-1 whitespace-pre-wrap wrap-break-words select-none md:whitespace-pre${highlight ? HIGHLIGHT_CLASS[highlight] : ''}`}
     >
         <span>{connectors(ancestorIsLast, isLast)}</span>
         {hasChildren ? (
@@ -83,6 +94,7 @@ export function TreeNode(props: TreeNodeProps) {
             onSelect={onSelect}
             readOnly={readOnly}
             filterActive={filterActive}
+            highlight={props.highlight}
           />
         ))}
     </>

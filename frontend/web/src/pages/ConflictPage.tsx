@@ -5,7 +5,9 @@ import type { Conflict, WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
 import { TreeView } from '../components/TreeView';
+import type { DiffStyle } from '../components/TreeNode';
 import { formatHistoryNode, formatHistoryOp } from '../conflict-utils';
+import { formatNode } from '../render';
 
 function toggleIn(set: Set<string>, id: string): Set<string> {
   const next = new Set(set);
@@ -22,6 +24,46 @@ function replay(ops: TreeOperation[]): Node {
     // suffix. Fall back to an empty tree rather than crashing the page.
     return Tree.fromOps([]).getRoot();
   }
+}
+
+/** Node-level diff of the two conflict trees, keyed by node id. */
+interface TreeDiff {
+  serverOnly: Set<string>;
+  localOnly: Set<string>;
+  changed: Set<string>;
+}
+
+function collect(root: Node, byId: Map<string, Node>): void {
+  for (const child of root.children) {
+    byId.set(child.id, child);
+    collect(child, byId);
+  }
+}
+
+function treeDiff(server: Node, local: Node, display: DisplayPrefs): TreeDiff {
+  const serverById = new Map<string, Node>();
+  const localById = new Map<string, Node>();
+  collect(server, serverById);
+  collect(local, localById);
+  const serverOnly = new Set<string>();
+  const localOnly = new Set<string>();
+  const changed = new Set<string>();
+  for (const [id, sn] of serverById) {
+    const ln = localById.get(id);
+    if (!ln) serverOnly.add(id);
+    else if (formatNode(sn, display) !== formatNode(ln, display)) changed.add(id);
+  }
+  for (const id of localById.keys()) {
+    if (!serverById.has(id)) localOnly.add(id);
+  }
+  return { serverOnly, localOnly, changed };
+}
+
+function highlightMap(diff: TreeDiff, only: Set<string>): Map<string, DiffStyle> {
+  const map = new Map<string, DiffStyle>();
+  for (const id of only) map.set(id, 'only');
+  for (const id of diff.changed) map.set(id, 'changed');
+  return map;
 }
 
 /**
@@ -77,6 +119,11 @@ export function ConflictPage(props: {
     [conflict],
   );
 
+  const diff = useMemo(() => treeDiff(serverTree, localTree, display), [serverTree, localTree, display]);
+  const serverHighlight = useMemo(() => highlightMap(diff, diff.serverOnly), [diff]);
+  const localHighlight = useMemo(() => highlightMap(diff, diff.localOnly), [diff]);
+  const hasDiff = serverHighlight.size > 0 || localHighlight.size > 0;
+
   const resolve = async (choice: 'server' | 'local'): Promise<void> => {
     setResolving(choice);
     setError(null);
@@ -99,6 +146,20 @@ export function ConflictPage(props: {
         <p className="mt-1 font-mono text-xs text-gray-500">
           {t('conflict.base', { base: conflict.baseId ?? '∅' })}
         </p>
+        {hasDiff ? (
+          <p className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-sm bg-rose-100 ring-1 ring-rose-300" />
+              {t('conflict.onlyHere')}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded-sm bg-amber-100 ring-1 ring-amber-300" />
+              {t('conflict.changedHere')}
+            </span>
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-gray-500">{t('conflict.identical')}</p>
+        )}
 
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="rounded border border-gray-300 bg-white p-3">
@@ -124,6 +185,7 @@ export function ConflictPage(props: {
                 onToggle={(id) => setServerExpanded((s) => toggleIn(s, id))}
                 onSelect={() => undefined}
                 readOnly
+                highlight={serverHighlight}
               />
             </div>
           </div>
@@ -150,6 +212,7 @@ export function ConflictPage(props: {
                 onToggle={(id) => setLocalExpanded((s) => toggleIn(s, id))}
                 onSelect={() => undefined}
                 readOnly
+                highlight={localHighlight}
               />
             </div>
           </div>
