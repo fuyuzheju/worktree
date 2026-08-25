@@ -1,5 +1,6 @@
 User:
-name: string, /^[a-zA-Z0-9._-]{1,64}$/ — the identity (X-User header / ?user= WS param).
+name: string, /^[a-zA-Z0-9._-]{1,64}$/ — the identity; requests authenticate with
+a bearer token that resolves to this name (Authorization: Bearer / ?token=).
 "local" is a reserved client-side-only name: its data never leaves the device.
 
 Reminder:

@@ -93,3 +93,51 @@ export function writeCurrentUser(serverUrl: string, user: string): void {
     console.error(`failed to save current user: ${e instanceof Error ? e.message : e}`);
   }
 }
+
+/** A device token as issued by register/login. */
+export interface StoredToken {
+  token: string;
+  tokenId: number;
+  label?: string;
+}
+
+/** `~/.worktree/<server-host>/<userId>/token.json` — a credential, kept 0600. */
+export function tokenPath(serverUrl: string, userId: string): string {
+  const sanitized = userId.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return path.join(userStateRoot(serverUrl), sanitized, 'token.json');
+}
+
+export function readToken(serverUrl: string, userId: string): StoredToken | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(tokenPath(serverUrl, userId), 'utf8');
+  } catch {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredToken>;
+    if (typeof parsed.token !== 'string' || parsed.token.length === 0 || typeof parsed.tokenId !== 'number') {
+      return null;
+    }
+    return { token: parsed.token, tokenId: parsed.tokenId, label: parsed.label };
+  } catch {
+    return null;
+  }
+}
+
+/** Writes the token with mode 0600 — the tmp file is chmodded before the rename. */
+export function writeToken(serverUrl: string, userId: string, stored: StoredToken): void {
+  const filePath = tokenPath(serverUrl, userId);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmp = `${filePath}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(stored, null, 2), { mode: 0o600 });
+  fs.renameSync(tmp, filePath);
+}
+
+export function deleteToken(serverUrl: string, userId: string): void {
+  try {
+    fs.rmSync(tokenPath(serverUrl, userId), { force: true });
+  } catch (e) {
+    console.error(`failed to delete token: ${e instanceof Error ? e.message : e}`);
+  }
+}

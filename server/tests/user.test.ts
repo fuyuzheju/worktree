@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseUsername } from '../src/user';
+import { parseBearerToken, parseUsername } from '../src/user';
 
 describe('parseUsername', () => {
   it('accepts letters, digits, dots, underscores and dashes', () => {
@@ -17,5 +17,22 @@ describe('parseUsername', () => {
     expect(parseUsername('a/b')).toBeNull();
     expect(parseUsername('名字')).toBeNull();
     expect(parseUsername('x'.repeat(65))).toBeNull();
+  });
+});
+
+describe('parseBearerToken', () => {
+  it('extracts a bearer token', () => {
+    expect(parseBearerToken(`Bearer ${'a'.repeat(43)}`)).toBe('a'.repeat(43));
+  });
+
+  it('rejects missing or malformed headers', () => {
+    expect(parseBearerToken(undefined)).toBeNull();
+    expect(parseBearerToken('')).toBeNull();
+    expect(parseBearerToken('a'.repeat(43))).toBeNull(); // no scheme
+    expect(parseBearerToken('bearer aaa')).toBeNull(); // scheme is case-sensitive
+    expect(parseBearerToken('Bearer short')).toBeNull(); // too short
+    expect(parseBearerToken(`Bearer ${'a'.repeat(101)}`)).toBeNull(); // too long
+    expect(parseBearerToken('Bearer has spaces here!')).toBeNull(); // invalid chars
+    expect(parseBearerToken('Basic abc')).toBeNull();
   });
 });

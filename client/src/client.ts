@@ -1,6 +1,6 @@
 import { ROOT_ID, USER_RE, newId } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, Node, Stats, Timestamp, TreeOperation } from '@worktree/core';
-import { ServerAPI } from './api';
+import { ApiError, ServerAPI } from './api';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
 import { Syncer } from './syncer';
@@ -10,8 +10,10 @@ import type { ClientStorage } from './storage';
 export interface WorktreeClientOptions {
   /** e.g. http://localhost:3000 */
   serverUrl: string;
-  /** The identity sent as X-User / ?user=; the storage namespace key. */
+  /** The identity's display name and storage namespace key. */
   user: string;
+  /** Opaque bearer token from register/login; required unless `local` is true. */
+  token?: string;
   /** Offline-only: never talks to the server; ops go straight into the confirmed history. */
   local?: boolean;
   /** Defaults to ws(s)://<serverUrl host>/api/websocket. */
@@ -36,20 +38,24 @@ export class WorktreeClient {
   private online = false;
   private syncing = false;
   private local: boolean;
+  private authFailed = false;
 
   constructor(options: WorktreeClientOptions) {
     if (!USER_RE.test(options.user)) {
       throw new Error(`invalid username: ${options.user} (allowed: ${USER_RE.source})`);
     }
     this.local = options.local === true;
+    if (!this.local && options.token === undefined) {
+      throw new Error(`token required for user "${options.user}" (register or log in first)`);
+    }
     this.storage = options.storage ?? null;
     this.store = new ClientStore((state) => this.storage?.save(state));
     const saved = this.storage?.load();
     if (saved) this.store.restore(saved.confirmed, saved.pending);
 
     const base = options.serverUrl.replace(/\/+$/, '');
-    this.api = new ServerAPI(base, options.user);
-    this.socket = new ServerSocket(withUserParam(options.wsUrl ?? defaultWsUrl(base), options.user), {
+    this.api = new ServerAPI(base, options.token!);
+    this.socket = new ServerSocket(withTokenParam(options.wsUrl ?? defaultWsUrl(base), options.token!), {
       onOpen: () => {
         void this.resync();
       },
@@ -295,13 +301,23 @@ export class WorktreeClient {
     };
   }
 
+  /** True after the server rejected our credentials (401). Reconnecting stops; log in again. */
+  isAuthFailed(): boolean {
+    return this.authFailed;
+  }
+
   /** Push pending ops and catch up. Resolves to 'conflict' when the server rejected them. */
   async sync(): Promise<SyncResult> {
     if (this.local) return 'ok';
-    const result = await this.syncer.sync();
-    this.conflict = this.syncer.getConflict();
-    this.emit();
-    return result;
+    try {
+      const result = await this.syncer.sync();
+      this.conflict = this.syncer.getConflict();
+      this.emit();
+      return result;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) this.failAuth();
+      throw e;
+    }
   }
 
   /** After a conflict: keep the server's history, or force-rewrite it with ours. */
@@ -323,11 +339,20 @@ export class WorktreeClient {
       await this.syncer.sync();
       this.conflict = this.syncer.getConflict();
       this.setOnline(true);
-    } catch {
-      // Still unreachable; the socket keeps retrying.
+    } catch (e) {
+      // 401 means the token was revoked — stop everything, wait for re-login.
+      if (e instanceof ApiError && e.status === 401) this.failAuth();
+      // Otherwise: still unreachable; the socket keeps retrying.
     } finally {
       this.syncing = false;
     }
+    this.emit();
+  }
+
+  private failAuth(): void {
+    if (this.authFailed) return;
+    this.authFailed = true;
+    this.socket.close();
     this.emit();
   }
 
@@ -350,10 +375,10 @@ function defaultWsUrl(base: string): string {
   return url.toString();
 }
 
-/** Append the user identity to a WS URL, preserving existing query params. */
-function withUserParam(wsUrl: string, user: string): string {
+/** Append the bearer token to a WS URL, preserving existing query params. */
+function withTokenParam(wsUrl: string, token: string): string {
   const url = new URL(wsUrl);
-  url.searchParams.set('user', user);
+  url.searchParams.set('token', token);
   return url.toString();
 }
 

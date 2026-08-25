@@ -1,19 +1,19 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ROOT_ID } from '@worktree/core';
 import { WorktreeClient } from '@worktree/client';
 import { COMMANDS } from '../src/commands';
 import { createCommandIO, createDispatcher } from '../src/command';
 import type { Command, CommandIO } from '../src/command';
 import { DEFAULT_SERVER } from '../src/config';
-import { userStateRoot } from '../src/storage';
+import { readToken, tokenPath, userStateRoot, writeToken } from '../src/storage';
 
 const newIO = (user = 'alice') => {
   const lines: string[] = [];
   const ctx = {
-    client: new WorktreeClient({ serverUrl: 'http://localhost:1', user }),
+    client: new WorktreeClient({ serverUrl: 'http://localhost:1', user, token: 'test-token' }),
     out: (line: string | undefined) => lines.push(line ?? ''),
     cwdId: ROOT_ID,
     currentUser: user,
@@ -161,7 +161,7 @@ describe('command dispatcher', () => {
     await run(io, 'add alpha');
     expect(ctx.client.getTree().children.map((n) => n.name)).toEqual(['alpha']);
     const prev = ctx.client;
-    ctx.client = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'bob' });
+    ctx.client = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'bob', token: 'test-token' });
     lines.length = 0;
     await run(io, 'tree');
     expect(lines.join('\n')).not.toContain('alpha');
@@ -308,5 +308,105 @@ describe('command dispatcher', () => {
     await run(io, 'ls');
     expect(lines.length).toBe(1);
     expect(lines[0]).toContain('beta');
+  });
+});
+
+describe('auth commands', () => {
+  const withHome = async <T,>(fn: (home: string) => T | Promise<T>): Promise<T> => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
+    const prevHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      return await fn(home);
+    } finally {
+      process.env.HOME = prevHome;
+    }
+  };
+
+  const stubFetch = (handler: (url: string, init: RequestInit) => Response) => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, init });
+        return handler(url, init);
+      }),
+    );
+    return calls;
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.WORKTREE_PASSWORD;
+  });
+
+  it('register saves the token and the user preference', async () => {
+    await withHome(async () => {
+      process.env.WORKTREE_PASSWORD = 'hunter2222';
+      const calls = stubFetch(() =>
+        new Response(JSON.stringify({ username: 'alice', token: 'tok-1', tokenId: 3 }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const { io, lines } = newIO();
+      await expect(run(io, 'register alice')).resolves.toBe('ok');
+      expect(calls[0]!.url).toBe(`${DEFAULT_SERVER}/api/register`);
+      expect(lines).toContain('registered and logged in as alice');
+      expect(readToken(DEFAULT_SERVER, 'alice')).toEqual({ token: 'tok-1', tokenId: 3 });
+    });
+  });
+
+  it('register rejects a short password before calling the server', async () => {
+    await withHome(async () => {
+      process.env.WORKTREE_PASSWORD = 'short';
+      const calls = stubFetch(() => new Response('{}', { status: 500 }));
+      const { io, lines } = newIO();
+      await expect(run(io, 'register alice')).resolves.toBe('ok');
+      expect(calls).toHaveLength(0);
+      expect(lines).toContain('password must be at least 8 characters');
+    });
+  });
+
+  it('login reports invalid credentials on 401', async () => {
+    await withHome(async () => {
+      process.env.WORKTREE_PASSWORD = 'wrong-password';
+      stubFetch(() => new Response(JSON.stringify({ error: 'invalid username or password' }), { status: 401 }));
+      const { io, lines } = newIO();
+      await expect(run(io, 'login alice')).resolves.toBe('ok');
+      expect(lines).toContain('invalid username or password');
+    });
+  });
+
+  it('logout revokes the token server-side and deletes it locally', async () => {
+    await withHome(async () => {
+      writeToken(DEFAULT_SERVER, 'alice', { token: 'tok-1', tokenId: 3 });
+      const calls = stubFetch(() => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      const { io, lines } = newIO();
+      await expect(run(io, 'logout alice')).resolves.toBe('ok');
+      expect(calls[0]!.url).toBe(`${DEFAULT_SERVER}/api/logout`);
+      expect(calls[0]!.init.headers).toMatchObject({ Authorization: 'Bearer tok-1' });
+      expect(readToken(DEFAULT_SERVER, 'alice')).toBeNull();
+      expect(lines).toContain('logged out of alice');
+    });
+  });
+
+  it('logout still deletes the local token when the server is unreachable', async () => {
+    await withHome(async () => {
+      writeToken(DEFAULT_SERVER, 'alice', { token: 'tok-1', tokenId: 3 });
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
+      const { io, lines } = newIO();
+      await expect(run(io, 'logout alice')).resolves.toBe('ok');
+      expect(readToken(DEFAULT_SERVER, 'alice')).toBeNull();
+      expect(lines.some((l) => l.includes('server unreachable'))).toBe(true);
+    });
+  });
+
+  it('logout reports when there is nothing to revoke', async () => {
+    await withHome(async () => {
+      const { io, lines } = newIO();
+      await expect(run(io, 'logout alice')).resolves.toBe('ok');
+      expect(lines).toContain('not logged in as alice on this device');
+    });
   });
 });

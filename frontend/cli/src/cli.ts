@@ -3,22 +3,73 @@ import { ROOT_ID } from '@worktree/core';
 import { WorktreeClient } from '@worktree/client';
 import { renderFiltered } from './render';
 import { findNode, pathOf } from './resolve';
-import { defaultStatePath, FileStorage } from './storage';
+import { defaultStatePath, FileStorage, readToken } from './storage';
 import { DEFAULT_SERVER, LOCAL_USER, loadCurrentUser, saveCurrentUser } from './config';
 import { completeLine } from './completion';
 import { COMMANDS } from './commands';
-import { createCommandIO, createDispatcher, errMsg, isSuppressingUpdates, printConflict } from './command';
+import { createCommandIO, createDispatcher, errMsg, findCommand, isSuppressingUpdates, printConflict } from './command';
 import type { CommandContext, CommandIO, CommandResult } from './command';
 
 const dispatch = createDispatcher(COMMANDS);
 
+const AUTH_ONE_SHOT = new Set(['register', 'login', 'logout']);
+
+/** Minimal IO for one-shot auth commands — they never touch the tree. */
+function authStubIO(cmd: string): CommandIO {
+  return {
+    get client(): WorktreeClient {
+      throw new Error('no client for auth commands');
+    },
+    out: (line?: string) => console.log(line ?? ''),
+    get cwdId(): string {
+      return ROOT_ID;
+    },
+    set cwdId(_value: string) {},
+    get currentUser(): string {
+      return loadCurrentUser();
+    },
+    set currentUser(_value: string) {},
+    get filter() {
+      return {};
+    },
+    set filter(_value) {},
+    get filterMode() {
+      return 'hide' as const;
+    },
+    set filterMode(_value) {},
+    switchUser: async (name: string): Promise<void> => {
+      saveCurrentUser(name);
+    },
+    usage: (text?: string): 'ok' => {
+      console.log(`usage: ${text ?? cmd}`);
+      return 'ok';
+    },
+    refNode: () => null,
+    cwdNode: () => {
+      throw new Error('no client for auth commands');
+    },
+  };
+}
+
 function newClient(user: string): WorktreeClient {
+  const local = user === LOCAL_USER;
+  const token = local ? undefined : readToken(DEFAULT_SERVER, user)?.token;
+  if (!local && token === undefined) {
+    throw new Error(`"${user}" is not logged in on this device — run "worktree login ${user}" first`);
+  }
   return new WorktreeClient({
     serverUrl: DEFAULT_SERVER,
     user,
-    local: user === LOCAL_USER,
+    token,
+    local,
     storage: new FileStorage(defaultStatePath(DEFAULT_SERVER, user)),
   });
+}
+
+function printAuthFailure(client: WorktreeClient, user: string): void {
+  if (client.isAuthFailed()) {
+    console.log(`error: login expired — run "worktree login ${user}" to log in again`);
+  }
 }
 
 const EXIT_FLUSH_BUDGET_MS = 2000;
@@ -56,12 +107,20 @@ async function runCommand(io: CommandIO, line: string): Promise<CommandResult> {
 }
 
 async function repl(): Promise<void> {
-  let client = newClient(loadCurrentUser());
+  const startUser = loadCurrentUser();
+  let client: WorktreeClient;
+  try {
+    client = newClient(startUser);
+  } catch (e) {
+    console.error(`error: ${errMsg(e)}`);
+    exitAfterFlush(1);
+    return;
+  }
   const ctx: CommandContext = {
     client,
     out: (line) => console.log(line ?? ''),
     cwdId: ROOT_ID,
-    currentUser: loadCurrentUser(),
+    currentUser: startUser,
     filter: {},
     filterMode: 'hide',
   };
@@ -102,6 +161,7 @@ async function repl(): Promise<void> {
         // server may be down; the socket keeps retrying
       }
     }
+    printAuthFailure(client, name);
     console.log(`user: ${name}${client.isLocal() ? ' (local — offline only)' : ''}`);
     console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
   };
@@ -114,6 +174,7 @@ async function repl(): Promise<void> {
       // server may be down; the socket keeps retrying
     }
   }
+  printAuthFailure(client, ctx.currentUser);
   console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
 
   if (process.stdin.isTTY) {
@@ -160,9 +221,23 @@ async function main(): Promise<void> {
     await repl();
     return;
   }
+  const [cmd, ...rest] = args;
+  // Auth commands run before any client exists (there is no token yet).
+  if (AUTH_ONE_SHOT.has(cmd!)) {
+    await dispatch(authStubIO(cmd!), cmd!, rest);
+    exitAfterFlush(Number(process.exitCode ?? 0));
+    return;
+  }
   // One-shot mode: run a single command and exit (for scripts and quick tests).
   const user = loadCurrentUser();
-  const client = newClient(user);
+  let client: WorktreeClient;
+  try {
+    client = newClient(user);
+  } catch (e) {
+    console.error(`error: ${errMsg(e)}`);
+    exitAfterFlush(1);
+    return;
+  }
   const ctx: CommandContext = {
     client,
     out: (line) => console.log(line ?? ''),
@@ -189,13 +264,22 @@ async function main(): Promise<void> {
     for (let i = 0; i < 20 && !client.isOnline(); i++) {
       await new Promise((r) => setTimeout(r, 100));
     }
+    if (client.isAuthFailed()) {
+      console.error(`error: login expired — run "worktree login ${user}" to log in again`);
+      process.exitCode = 1;
+    }
   }
-  const [cmd, ...rest] = args;
+  const command = findCommand(COMMANDS, cmd!);
+  let ran = false;
   try {
     await dispatch(io, cmd!, rest);
+    ran = true;
   } catch (e) {
     console.error(`error: ${errMsg(e)}`);
     process.exitCode = 1;
+  }
+  if (ran && command?.mutatesTree) {
+    console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
   }
   await shutdown(client);
   if (client.getConflict()) printConflict(io);

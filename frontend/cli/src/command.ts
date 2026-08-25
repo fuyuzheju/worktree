@@ -52,6 +52,8 @@ export interface Command {
   name: string;
   /** Extra names, e.g. `quit` for `exit`. */
   aliases?: string[];
+  /** Whether a successful run changes the rendered tree (one-shot mode re-prints it). */
+  mutatesTree?: boolean;
   /** One-line description shown by `help`. */
   summary: string;
   /** Canonical usage text, shown by `help` and usage errors. */
@@ -108,6 +110,11 @@ export function createCommandIO(ctx: CommandContext): CommandIO {
     },
     cwdNode,
   };
+}
+
+/** Find a command by name or alias (one-shot mode uses this to know what ran). */
+export function findCommand(commands: Command[], name: string): Command | undefined {
+  return commands.find((c) => c.name === name || (c.aliases ?? []).includes(name));
 }
 
 /** Look up a command by name (or alias) and run it. */

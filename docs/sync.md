@@ -2,10 +2,45 @@
 Users:
 
 Every user has their own history. The identity is a username (`/^[a-zA-Z0-9._-]{1,64}$/`),
-passed as the `X-User` header on every REST request and as `?user=<name>` on the
-WebSocket URL. There is no authentication yet — the server trusts the header and
-creates the user row lazily on first use. When auth is added, only the identity
-resolution changes (token → username); the protocol stays the same.
+created via `POST /api/register` (open registration — no lazily-created users).
+REST requests authenticate with `Authorization: Bearer <token>`; the WebSocket
+URL carries `?token=<token>` (browsers cannot set WS headers). A token resolves
+to its username; the username is never trusted from the client.
+
+Tokens are per device: every register/login issues a new token with an optional
+device label. The server stores only the SHA-256 hash of each token (the raw
+token is returned exactly once). Tokens can be listed and revoked individually;
+revoking a token does not close its already-open WebSocket — the next REST
+request 401s and the client stops.
+
+401 semantics: 401 means the credentials are missing, invalid or revoked. It is
+neither a conflict (400) nor offline (503): the client marks itself
+"auth failed", stops reconnecting, and the UI prompts for a new login.
+
+Authentication endpoints:
+
+/api/register
+body: {username, password, inviteCode?}
+- creates the user (password hashed with scrypt, stored self-describing:
+  scrypt$N=16384,r=8,p=1$<salt>$<key>) and issues a token
+- 201 {username, token, tokenId}; 400 invalid username/password
+  (password: 8-1024 chars); 409 {error: 'username taken'}
+- inviteCode is reserved for a future invite-only registration mode
+  (REGISTRATION_MODE=invite); it is validated for shape but ignored while
+  registration is open
+
+/api/login
+body: {username, password, label?}   (label = device name, ≤100 chars)
+- 200 {username, token, tokenId}; 401 {error: 'invalid username or password'}
+  for a wrong password and an unknown user alike (no username enumeration;
+  unknown users burn the same scrypt time)
+
+/api/logout         (authed)  revokes the presented token → {ok: true}
+/api/tokens         (authed)  GET: {tokens: [{id, label, createdAt, lastUsedAt, current}]}
+                              DELETE /api/tokens/:id: revokes one device token;
+                              404 when the id is unknown or belongs to another user
+
+Server logic:
 
 Server logic:
 
@@ -23,7 +58,7 @@ other users are unaffected.
 
 /api/submit
 body: {htrop: HistoryOperation[]}
-header: X-User
+header: Authorization: Bearer <token>
 
 process ops in order, atomically:
   - id already in the user's History → skip (idempotent retry); same id with a different op → reject
@@ -53,10 +88,13 @@ allowed: append in order, return 200, broadcast to that user's connections.
 
 --
 
-/api/websocket?user=<name>
+/api/websocket?token=<token>
 
-build websocket connection, broadcast that user's appended ops to that user's
-connections. that user's connections are closed when that user's history is rewritten.
+build websocket connection (the token is resolved to the user during the upgrade;
+an unknown/revoked token is answered with a raw HTTP 401 at upgrade time, which
+browsers see as an abnormal close — the authoritative signal is the next REST
+401). broadcast that user's appended ops to that user's connections. that
+user's connections are closed when that user's history is rewritten.
 
 messages (server → client):
   {type: 'op', node: HistoryNode}          a history entry was appended
@@ -67,7 +105,7 @@ messages (server → client):
 --
 
 /api/stats
-header: X-User
+header: Authorization: Bearer <token>
 
 get statistics for that user (op count, node count, reminder count, that user's state)
 
@@ -78,11 +116,12 @@ get statistics for that user (op count, node count, reminder count, that user's 
                              when the id is unknown — or belongs to another user — the user's
                              full history is returned with cursorFound=false (the history was rewritten)
 /api/history                     {cursorFound: true, nodes}: the user's full history
+header: Authorization: Bearer <token>
 
 --
 
 /api/rewrite
-header: X-User
+header: Authorization: Bearer <token>
 body: {base: <id of the last entry the client has seen>, history: History}
 
 force rewrite the user's history. rejected with 400 if the submitted history does not
@@ -125,6 +164,8 @@ when network recovers, resync:
      - the rewritten history must replay cleanly (400 otherwise); a 409 retries the
        rewrite against the same agreed base
    503: that user is offline (maintenance or another of their clients rewriting) — keep the queue and retry, do NOT branch
+   401: the token is invalid or revoked — stop syncing and reconnecting, mark the
+       client "auth failed" and prompt for a new login (the pending queue is kept)
 
 undo:
 

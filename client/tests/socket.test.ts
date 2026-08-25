@@ -78,21 +78,22 @@ describe('ServerSocket', () => {
     expect(h.onState).toHaveBeenCalledWith('offline');
   });
 
-  it('the client appends the user param to the derived WS URL', () => {
-    const client = new WorktreeClient({ serverUrl: 'http://localhost:3000', user: 'alice' });
+  it('the client appends the token param to the derived WS URL', () => {
+    const client = new WorktreeClient({ serverUrl: 'http://localhost:3000', user: 'alice', token: 'tok-1' });
     client.connect();
-    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:3000/api/websocket?user=alice');
+    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:3000/api/websocket?token=tok-1');
     client.disconnect();
   });
 
-  it('the client merges the user param into a custom wsUrl', () => {
+  it('the client merges the token param into a custom wsUrl', () => {
     const client = new WorktreeClient({
       serverUrl: 'http://localhost:3000',
       wsUrl: 'ws://localhost:9999/socket?foo=1',
       user: 'alice',
+      token: 'tok-1',
     });
     client.connect();
-    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:9999/socket?foo=1&user=alice');
+    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:9999/socket?foo=1&token=tok-1');
     client.disconnect();
   });
 

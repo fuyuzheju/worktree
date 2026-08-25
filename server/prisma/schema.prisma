@@ -8,11 +8,25 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  headOpId  String?
-  createdAt DateTime @default(now())
-  nodes     HistoryNode[]
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  passwordHash String?
+  headOpId     String?
+  createdAt    DateTime @default(now())
+  nodes        HistoryNode[]
+  tokens       Token[]
+}
+
+// One row per issued device token. Only the SHA-256 hash of the token is
+// stored; the raw token is returned to the client exactly once.
+model Token {
+  id         Int       @id @default(autoincrement())
+  tokenHash  String    @unique
+  label      String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // One row per confirmed history operation. `id` is the server insertion

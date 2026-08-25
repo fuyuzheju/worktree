@@ -19,9 +19,9 @@ afterEach(() => {
 });
 
 describe('ServerAPI', () => {
-  it('sends the X-User header on every request', async () => {
+  it('sends the Authorization bearer header on every request', async () => {
     const calls = stubFetch();
-    const api = new ServerAPI('http://localhost:3000', 'alice');
+    const api = new ServerAPI('http://localhost:3000', 'token-abc');
     await api.submit([{ kind: 'add', id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }]);
     await api.history(null);
     await api.stats();
@@ -33,16 +33,16 @@ describe('ServerAPI', () => {
       'http://localhost:3000/api/rewrite',
     ]);
     for (const call of calls) {
-      expect(call.init?.headers).toMatchObject({ 'X-User': 'alice' });
+      expect(call.init?.headers).toMatchObject({ Authorization: 'Bearer token-abc' });
     }
   });
 
   it('sends Content-Type only when there is a body', async () => {
     const calls = stubFetch();
-    const api = new ServerAPI('http://localhost:3000', 'alice');
+    const api = new ServerAPI('http://localhost:3000', 'token-abc');
     await api.history(null);
-    expect(calls[0]!.init?.headers).toEqual({ 'X-User': 'alice' });
+    expect(calls[0]!.init?.headers).toEqual({ Authorization: 'Bearer token-abc' });
     await api.submit([]);
-    expect(calls[1]!.init?.headers).toMatchObject({ 'X-User': 'alice', 'Content-Type': 'application/json' });
+    expect(calls[1]!.init?.headers).toMatchObject({ Authorization: 'Bearer token-abc', 'Content-Type': 'application/json' });
   });
 });

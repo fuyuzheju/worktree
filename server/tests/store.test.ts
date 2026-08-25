@@ -1,160 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TreeOperation } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
-
-interface UserRow {
-  id: number;
-  name: string;
-  headOpId: string | null;
-}
-
-interface Row {
-  id: number;
-  userId: number;
-  opId: string;
-  parentOpId: string | null;
-  op: unknown;
-}
-
-interface Tx {
-  user: {
-    findUnique: (args: { where: { id: number } }) => Promise<UserRow | null>;
-    findMany: () => Promise<UserRow[]>;
-    upsert: (args: { where: { name: string }; update: object; create: { name: string } }) => Promise<UserRow>;
-    update: (args: { where: { id: number }; data: { headOpId: string | null } }) => Promise<UserRow>;
-  };
-  historyNode: {
-    findMany: (args: { where?: { userId?: number; id?: { gt: number } }; orderBy: { id: 'asc' } }) => Promise<Row[]>;
-    findUnique: (args: { where: { userId_opId: { userId: number; opId: string } } }) => Promise<Row | null>;
-    create: (args: { data: { userId: number; opId: string; parentOpId: string | null; op: unknown } }) => Promise<Row>;
-    delete: (args: { where: { userId_opId: { userId: number; opId: string } } }) => Promise<Row>;
-    deleteMany: (args: { where: { userId: number } }) => Promise<{ count: number }>;
-  };
-}
-
-const { prismaMock, resetDb } = vi.hoisted(() => {
-  const rows = new Map<number, Row>();
-  const users = new Map<number, UserRow>();
-  const usersByName = new Map<string, number>();
-  let nextId = 1;
-  let nextUserId = 1;
-
-  const resetDb = () => {
-    rows.clear();
-    users.clear();
-    usersByName.clear();
-    nextId = 1;
-    nextUserId = 1;
-  };
-
-  const mustGetUser = (id: number): UserRow => {
-    const user = users.get(id);
-    if (!user) throw new Error(`user ${id} not found`);
-    return user;
-  };
-
-  const tx: Tx = {
-    user: {
-      async findUnique({ where }) {
-        return users.get(where.id) ?? null;
-      },
-      async findMany() {
-        return [...users.values()];
-      },
-      async upsert({ where, create }) {
-        const id = usersByName.get(where.name);
-        if (id !== undefined) return mustGetUser(id);
-        const row: UserRow = { id: nextUserId++, name: create.name, headOpId: null };
-        users.set(row.id, row);
-        usersByName.set(row.name, row.id);
-        return row;
-      },
-      async update({ where, data }) {
-        const row = mustGetUser(where.id);
-        row.headOpId = data.headOpId;
-        return row;
-      },
-    },
-    historyNode: {
-      async findMany(args) {
-        const uid = args.where?.userId;
-        const gt = args.where?.id?.gt;
-        return [...rows.values()]
-          .filter((r) => (uid === undefined || r.userId === uid) && (gt === undefined || r.id > gt))
-          .sort((a, b) => a.id - b.id);
-      },
-      async findUnique({ where }) {
-        for (const row of rows.values()) {
-          if (row.userId === where.userId_opId.userId && row.opId === where.userId_opId.opId) return row;
-        }
-        return null;
-      },
-      async create({ data }) {
-        const row: Row = {
-          id: nextId++,
-          userId: data.userId,
-          opId: data.opId,
-          parentOpId: data.parentOpId,
-          op: data.op,
-        };
-        rows.set(row.id, row);
-        return row;
-      },
-      async delete({ where }) {
-        for (const [id, row] of rows) {
-          if (row.userId === where.userId_opId.userId && row.opId === where.userId_opId.opId) {
-            rows.delete(id);
-            return row;
-          }
-        }
-        throw new Error('row not found');
-      },
-      async deleteMany({ where }) {
-        let n = 0;
-        for (const [id, row] of [...rows]) {
-          if (row.userId === where.userId) {
-            rows.delete(id);
-            n++;
-          }
-        }
-        return { count: n };
-      },
-    },
-  };
-
-  const prismaMock = {
-    user: tx.user,
-    historyNode: tx.historyNode,
-    async $transaction<T>(fn: (t: Tx) => Promise<T>): Promise<T> {
-      const snapshot = {
-        rows: new Map(rows),
-        users: new Map(users),
-        usersByName: new Map(usersByName),
-        nextId,
-        nextUserId,
-      };
-      try {
-        return await fn(tx);
-      } catch (e) {
-        rows.clear();
-        for (const [k, v] of snapshot.rows) rows.set(k, v);
-        users.clear();
-        for (const [k, v] of snapshot.users) users.set(k, v);
-        usersByName.clear();
-        for (const [k, v] of snapshot.usersByName) usersByName.set(k, v);
-        nextId = snapshot.nextId;
-        nextUserId = snapshot.nextUserId;
-        throw e;
-      }
-    },
-  };
-
-  return { prismaMock, resetDb };
-});
+import { prismaMock, resetDb, seedUser } from './helpers/prismaMock';
 
 vi.mock('../src/db', () => ({ prisma: prismaMock }));
 
-import { BaseMismatchError, DuplicateOpError, HeadUndoError, HistoryStore, ValidationError } from '../src/store';
+import {
+  BaseMismatchError,
+  DuplicateOpError,
+  HeadUndoError,
+  HistoryStore,
+  UnknownUserError,
+  ValidationError,
+} from '../src/store';
 
 const op = (id: string): TreeOperation => ({ kind: 'add', parentId: ROOT_ID, id, name: id, weight: 1 });
 const node = (id: string): { id: string; op: TreeOperation } => ({ id, op: op(id) });
@@ -164,7 +22,11 @@ const ALICE = 'alice';
 const BOB = 'bob';
 
 describe('HistoryStore', () => {
-  beforeEach(() => resetDb());
+  beforeEach(async () => {
+    resetDb();
+    await seedUser(ALICE);
+    await seedUser(BOB);
+  });
 
   it('appendBatch appends in order and updates the tree', async () => {
     const store = new HistoryStore();
@@ -425,12 +287,8 @@ describe('HistoryStore', () => {
     expect((await store.all(BOB)).map((n) => n.id)).toEqual(['x1']);
   });
 
-  it('creates a new user lazily on first use', async () => {
+  it('rejects an unknown user (users are only created via /api/register)', async () => {
     const store = new HistoryStore();
-    await store.appendBatch('carol', [add('c', 'h1')]);
-    // a fresh store (fresh caches) can load and read carol's data
-    const reloaded = new HistoryStore();
-    await reloaded.load();
-    expect((await reloaded.all('carol')).map((n) => n.id)).toEqual(['h1']);
+    await expect(store.appendBatch('carol', [add('c', 'h1')])).rejects.toBeInstanceOf(UnknownUserError);
   });
 });

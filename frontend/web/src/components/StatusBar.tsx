@@ -6,9 +6,11 @@ export function StatusBar(props: {
   online: boolean;
   pendingCount: number;
   client: WorktreeClient;
+  authFailed?: boolean;
+  onRelogin?: () => void;
 }) {
   const { t } = useI18n();
-  const { online, pendingCount, client } = props;
+  const { online, pendingCount, client, authFailed = false, onRelogin } = props;
   const [syncing, setSyncing] = useState(false);
 
   const pending = client.getPending();
@@ -34,6 +36,27 @@ export function StatusBar(props: {
       console.error('undo failed:', e);
     }
   };
+
+  if (authFailed) {
+    return (
+      <div className="flex items-center gap-3 text-sm">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden />
+          <span className="text-amber-800">{t('status.unauthorized')}</span>
+        </span>
+        {onRelogin !== undefined && (
+          <button
+            type="button"
+            onClick={onRelogin}
+            data-testid="status-relogin"
+            className="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50"
+          >
+            {t('status.loginAgain')}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-3 text-sm">

@@ -2,7 +2,17 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { FileStorage, currentUserPath, defaultStatePath, readCurrentUser, writeCurrentUser } from '../src/storage';
+import {
+  FileStorage,
+  currentUserPath,
+  defaultStatePath,
+  deleteToken,
+  readCurrentUser,
+  readToken,
+  tokenPath,
+  writeCurrentUser,
+  writeToken,
+} from '../src/storage';
 import type { SavedState } from '@worktree/client';
 
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-storage-'));
@@ -114,5 +124,56 @@ describe('currentUser', () => {
     } finally {
       process.env.HOME = prevHome;
     }
+  });
+});
+
+describe('token storage', () => {
+  const withHome = <T>(fn: (home: string) => T): T => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
+    const prevHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      return fn(home);
+    } finally {
+      process.env.HOME = prevHome;
+    }
+  };
+
+  it('round-trips tokens and keeps them per server/user', () => {
+    withHome(() => {
+      const stored = { token: 'tok-1', tokenId: 7, label: 'mac (cli)' };
+      writeToken('http://localhost:3000', 'alice', stored);
+      expect(readToken('http://localhost:3000', 'alice')).toEqual(stored);
+      expect(readToken('http://localhost:3000', 'bob')).toBeNull();
+      expect(readToken('https://other.example.com', 'alice')).toBeNull();
+      deleteToken('http://localhost:3000', 'alice');
+      expect(readToken('http://localhost:3000', 'alice')).toBeNull();
+    });
+  });
+
+  it('writes token files with mode 0600', () => {
+    withHome(() => {
+      writeToken('http://localhost:3000', 'alice', { token: 'tok-1', tokenId: 1 });
+      const file = tokenPath('http://localhost:3000', 'alice');
+      expect(fs.statSync(file).mode & 0o777).toBe(0o600);
+    });
+  });
+
+  it('namespaces the token path like the state path', () => {
+    const home = process.env.HOME!;
+    expect(tokenPath('http://localhost:3000', 'alice')).toBe(
+      path.join(home, '.worktree', 'localhost_3000', 'alice', 'token.json'),
+    );
+  });
+
+  it('ignores corrupt or invalid token files', () => {
+    withHome((home) => {
+      const dir = path.join(home, '.worktree', 'localhost_3000', 'alice');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'token.json'), '{not json');
+      expect(readToken('http://localhost:3000', 'alice')).toBeNull();
+      fs.writeFileSync(path.join(dir, 'token.json'), JSON.stringify({ token: 'tok' }));
+      expect(readToken('http://localhost:3000', 'alice')).toBeNull();
+    });
   });
 });

@@ -2,8 +2,9 @@ import { ROOT_ID, USER_RE, matchesFilter } from '@worktree/core';
 import { formatNode, renderFiltered, renderTree, shortId } from './render';
 import { pathOf } from './resolve';
 import { DEFAULT_SERVER } from './config';
-import { defaultStatePath } from './storage';
+import { defaultStatePath, deleteToken, readToken, writeToken } from './storage';
 import { listUsers } from './users';
+import { AuthError, defaultLabel, loginOnServer, promptPassword, registerOnServer, revokeOnServer } from './auth';
 import { afterCommand, errMsg, mutate, parseTimestamp, printConflict } from './command';
 import type { Command, CommandIO, CommandResult } from './command';
 
@@ -19,6 +20,7 @@ function parseWeight(io: CommandIO, raw: string): number | undefined {
 
 const treeCommand: Command = {
   name: 'tree',
+  aliases: ['t'],
   summary: 'print the tree (defaults to cwd; "tree /" for the whole tree)',
   usage: 'tree [ref]',
   run: (io, args) => {
@@ -129,6 +131,7 @@ const pwdCommand: Command = {
 
 const addCommand: Command = {
   name: 'add',
+  mutatesTree: true,
   summary: 'add a node (parent defaults to the cwd)',
   usage: 'add <name> [parentRef] [weight]',
   run: async (io, args): Promise<CommandResult> => {
@@ -154,6 +157,7 @@ const addCommand: Command = {
 
 const rmCommand: Command = {
   name: 'rm',
+  mutatesTree: true,
   summary: 'remove a node (-r required when it has children)',
   usage: 'rm [-r] <ref>',
   run: async (io, args): Promise<CommandResult> => {
@@ -179,6 +183,7 @@ const rmCommand: Command = {
 
 const undoCommand: Command = {
   name: 'undo',
+  mutatesTree: true,
   summary: 'undo the last operation',
   usage: 'undo',
   run: async (io): Promise<CommandResult> => {
@@ -196,6 +201,7 @@ const undoCommand: Command = {
 
 const renameCommand: Command = {
   name: 'rename',
+  mutatesTree: true,
   summary: 'rename a node',
   usage: 'rename <ref> <name>',
   run: async (io, args): Promise<CommandResult> => {
@@ -211,6 +217,7 @@ const renameCommand: Command = {
 
 const editCommand: Command = {
   name: 'edit',
+  mutatesTree: true,
   summary: 'edit node fields: name= weight= status=true|false note= deadline= (deadline=null clears)',
   usage: 'edit <ref> name=... weight=... status=... note=... deadline=...',
   run: async (io, args): Promise<CommandResult> => {
@@ -272,6 +279,7 @@ const editCommand: Command = {
 
 const mvCommand: Command = {
   name: 'mv',
+  mutatesTree: true,
   summary: 'move a node (keeps its weight without w)',
   usage: 'mv <ref> <parentRef> [weight]',
   run: async (io, args): Promise<CommandResult> => {
@@ -293,6 +301,7 @@ const mvCommand: Command = {
 
 const cpCommand: Command = {
   name: 'cp',
+  mutatesTree: true,
   summary: 'shallow-copy a node (auto-renames on name collision)',
   usage: 'cp <ref> <parentRef> [weight]',
   run: async (io, args): Promise<CommandResult> => {
@@ -314,6 +323,7 @@ const cpCommand: Command = {
 
 const cplCommand: Command = {
   name: 'cpl',
+  mutatesTree: true,
   summary: 'complete a node',
   usage: 'cpl <ref>',
   run: async (io, args): Promise<CommandResult> => {
@@ -329,6 +339,7 @@ const cplCommand: Command = {
 
 const uncplCommand: Command = {
   name: 'uncpl',
+  mutatesTree: true,
   summary: 'uncomplete a node',
   usage: 'uncpl <ref>',
   run: async (io, args): Promise<CommandResult> => {
@@ -344,6 +355,7 @@ const uncplCommand: Command = {
 
 const reminderCommand: Command = {
   name: 'reminder',
+  mutatesTree: true,
   summary: 'manage reminders (add / rm / edit)',
   usage: 'reminder add|rm|edit ...',
   run: async (io, args): Promise<CommandResult> => {
@@ -504,6 +516,100 @@ const userCommand: Command = {
   },
 };
 
+const registerCommand: Command = {
+  name: 'register',
+  summary: 'create a server account and log in on this device',
+  usage: 'register <user> [--label <name>]',
+  run: async (io, args): Promise<CommandResult> => {
+    const user = args[0];
+    if (user === undefined || !USER_RE.test(user)) return io.usage('register <user>');
+    if (user === 'local') {
+      io.out('"local" is the reserved offline-only user and needs no registration');
+      return 'ok';
+    }
+    const labelIdx = args.indexOf('--label');
+    const label = labelIdx !== -1 ? args[labelIdx + 1] : undefined;
+    if (labelIdx !== -1 && label === undefined) return io.usage('register <user> [--label <name>]');
+    try {
+      const password = await promptPassword('password: ');
+      if (password.length < 8) {
+        io.out('password must be at least 8 characters');
+        return 'ok';
+      }
+      const confirm = await promptPassword('confirm password: ');
+      if (confirm !== password) {
+        io.out('passwords do not match');
+        return 'ok';
+      }
+      const stored = await registerOnServer(DEFAULT_SERVER, user, password);
+      writeToken(DEFAULT_SERVER, user, stored);
+      await io.switchUser?.(user);
+      io.out(`registered and logged in as ${user}`);
+    } catch (e) {
+      io.out(`register failed: ${errMsg(e)}`);
+    }
+    return 'ok';
+  },
+};
+
+const loginCommand: Command = {
+  name: 'login',
+  summary: 'log this device in as an existing server user',
+  usage: 'login <user> [--label <name>]',
+  run: async (io, args): Promise<CommandResult> => {
+    const user = args[0];
+    if (user === undefined || !USER_RE.test(user)) return io.usage('login <user>');
+    if (user === 'local') {
+      io.out('"local" is offline-only and needs no login');
+      return 'ok';
+    }
+    const labelIdx = args.indexOf('--label');
+    const label = labelIdx !== -1 ? args[labelIdx + 1] : undefined;
+    if (labelIdx !== -1 && label === undefined) return io.usage('login <user> [--label <name>]');
+    try {
+      const password = await promptPassword('password: ');
+      const stored = await loginOnServer(DEFAULT_SERVER, user, password, label ?? defaultLabel());
+      writeToken(DEFAULT_SERVER, user, stored);
+      await io.switchUser?.(user);
+      io.out(`logged in as ${user}`);
+    } catch (e) {
+      if (e instanceof AuthError && e.status === 401) {
+        io.out('invalid username or password');
+      } else {
+        io.out(`login failed: ${errMsg(e)}`);
+      }
+    }
+    return 'ok';
+  },
+};
+
+const logoutCommand: Command = {
+  name: 'logout',
+  summary: 'revoke this device\'s token and log out (local user has no token)',
+  usage: 'logout [user]',
+  run: async (io, args): Promise<CommandResult> => {
+    const user = args[0] ?? io.currentUser;
+    if (user === 'local') {
+      io.out('"local" is offline-only and never logged in');
+      return 'ok';
+    }
+    if (!USER_RE.test(user)) return io.usage('logout [user]');
+    const stored = readToken(DEFAULT_SERVER, user);
+    if (!stored) {
+      io.out(`not logged in as ${user} on this device`);
+      return 'ok';
+    }
+    try {
+      await revokeOnServer(DEFAULT_SERVER, stored.token);
+    } catch {
+      io.out('warning: server unreachable — the token may still be active server-side');
+    }
+    deleteToken(DEFAULT_SERVER, user);
+    io.out(`logged out of ${user}`);
+    return 'ok';
+  },
+};
+
 const resolveCommand: Command = {
   name: 'resolve',
   summary: 'resolve a sync conflict',
@@ -566,6 +672,9 @@ export const COMMANDS: Command[] = [
   statsCommand,
   statusCommand,
   userCommand,
+  registerCommand,
+  loginCommand,
+  logoutCommand,
   resolveCommand,
   helpCommand,
   exitCommand,

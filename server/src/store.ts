@@ -40,6 +40,12 @@ export class ValidationError extends Error {
   }
 }
 
+export class UnknownUserError extends Error {
+  constructor(public name: string) {
+    super(`unknown user: ${name}`);
+  }
+}
+
 /** What an appendBatch actually appended (duplicates are skipped). */
 export interface AppendResult {
   added: HistoryNode[];
@@ -70,13 +76,14 @@ export class HistoryStore {
   }
 
   /**
-   * Resolve a username to its row id, creating the user on first use.
-   * Upsert is atomic, so concurrent first-seen requests are race-safe.
+   * Resolve a username to its row id. Users are only created via
+   * /api/register — the auth middleware guarantees the caller exists.
    */
   private async resolveUserId(name: string): Promise<number> {
     const cached = this.userIds.get(name);
     if (cached !== undefined) return cached;
-    const user = await prisma.user.upsert({ where: { name }, update: {}, create: { name } });
+    const user = await prisma.user.findUnique({ where: { name } });
+    if (!user) throw new UnknownUserError(name);
     this.userIds.set(name, user.id);
     return user.id;
   }

@@ -13,7 +13,7 @@ export class ApiError extends Error {
 export class ServerAPI {
   constructor(
     private baseUrl: string,
-    private user: string,
+    private token: string,
   ) {}
 
   async submit(ops: HistoryOperation[]): Promise<void> {
@@ -38,7 +38,7 @@ export class ServerAPI {
     const res = await fetch(this.baseUrl + path, {
       method: init?.method ?? 'GET',
       headers: {
-        'X-User': this.user,
+        Authorization: `Bearer ${this.token}`,
         ...(init?.body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       body: init?.body === undefined ? undefined : JSON.stringify(init.body),

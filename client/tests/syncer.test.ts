@@ -130,6 +130,18 @@ describe('Syncer', () => {
     expect(store.getPending()).toHaveLength(1);
   });
 
+  it('propagates a 401 (auth failure is neither a conflict nor offline)', async () => {
+    const store = new ClientStore();
+    const api = new FakeAPI();
+    api.failSubmitWith = new ApiError(401, 'unauthorized');
+    const syncer = new Syncer(store, api);
+    store.applyLocal(addOp('a'));
+    const err = await syncer.sync().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(401);
+    expect(store.getPending()).toHaveLength(1);
+  });
+
   it('catch-up appends the delta instead of replacing history (regression)', async () => {
     const store = new ClientStore();
     store.applyLocal(addOp('a'));

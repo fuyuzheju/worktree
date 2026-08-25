@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROOT_ID } from '@worktree/core';
+import { ApiError } from '../src/api';
 import { WorktreeClient } from '../src/client';
 import type { ClientStorage, SavedState } from '../src/storage';
 
-const newClient = () => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice' });
+const newClient = () => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token' });
 
 class MemoryStorage implements ClientStorage {
   state: SavedState | null = null;
@@ -184,14 +185,14 @@ describe('WorktreeClient semantic operations', () => {
       confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
       pending: [{ kind: 'add', id: 'h2', op: { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 } }],
     };
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
     expect(c.getTree().children.map((n) => n.name)).toEqual(['A', 'B']);
     expect(c.getPendingCount()).toBe(1);
   });
 
   it('persists every mutation through the storage', () => {
     const storage = new MemoryStorage();
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
     c.addNode(ROOT_ID, 'A');
     expect(storage.state?.pending).toHaveLength(1);
     expect(storage.state?.confirmed).toHaveLength(0);
@@ -278,7 +279,7 @@ describe('WorktreeClient undo', () => {
       confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
       pending: [],
     };
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
     c.undo();
     expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h1' }]);
     expect(c.getTree().children).toHaveLength(0);
@@ -294,7 +295,7 @@ describe('WorktreeClient undo', () => {
       ],
       pending: [],
     };
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
     c.undo();
     expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h2' }]);
     expect(c.getTree().children.map((n) => n.id)).toEqual(['a']);
@@ -314,7 +315,7 @@ describe('WorktreeClient undo', () => {
       confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
       pending: [{ kind: 'remove', id: 'h1' }],
     };
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
     expect(() => c.undo()).toThrow(/nothing to undo/);
     expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h1' }]);
   });
@@ -330,12 +331,76 @@ describe('WorktreeClient undo', () => {
       confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
       pending: [{ kind: 'add', id: 'h2', op: { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 } }],
     };
-    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', storage });
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
     c.undo();
     expect(c.getPending()).toEqual([]);
     expect(c.getTree().children.map((n) => n.id)).toEqual(['a']);
     c.undo();
     expect(c.getPending()).toEqual([{ kind: 'remove', id: 'h1' }]);
     expect(c.getTree().children).toHaveLength(0);
+  });
+});
+
+describe('WorktreeClient auth', () => {
+  class FakeWebSocket {
+    static instances: FakeWebSocket[] = [];
+    onopen: (() => void) | null = null;
+    onmessage: ((event: { data: string }) => void) | null = null;
+    onclose: (() => void) | null = null;
+
+    constructor(public url: string) {
+      FakeWebSocket.instances.push(this);
+    }
+
+    close(): void {}
+
+    serverClose(): void {
+      this.onclose?.();
+    }
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    FakeWebSocket.instances = [];
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('requires a token for server users', () => {
+    expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice' })).toThrow(/token required/);
+  });
+
+  it('needs no token in local mode', () => {
+    expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true })).not.toThrow();
+  });
+
+  it('a 401 during sync marks the client as auth-failed and stops reconnecting', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 })),
+    );
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'revoked' });
+    c.connect();
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(c.isAuthFailed()).toBe(false);
+
+    await expect(c.sync()).rejects.toBeInstanceOf(ApiError);
+    expect(c.isAuthFailed()).toBe(true);
+
+    // the closed socket must not reconnect
+    FakeWebSocket.instances[0]!.serverClose();
+    vi.advanceTimersByTime(120_000);
+    expect(FakeWebSocket.instances).toHaveLength(1);
+  });
+
+  it('network errors do not mark the client as auth-failed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'tok' });
+    await expect(c.sync()).rejects.toThrow('fetch failed');
+    expect(c.isAuthFailed()).toBe(false);
   });
 });

@@ -82,3 +82,24 @@ describe('StatusBar undo button', () => {
     expect(client.undo).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('StatusBar auth failure', () => {
+  it('shows the unauthorized state with a relogin button', () => {
+    const onRelogin = vi.fn();
+    render(
+      <I18nProvider lang="en">
+        <StatusBar
+          online={false}
+          pendingCount={0}
+          client={makeClient()}
+          authFailed
+          onRelogin={onRelogin}
+        />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('session expired')).toBeDefined();
+    expect(screen.queryByTestId('status-sync')).toBeNull();
+    fireEvent.click(screen.getByTestId('status-relogin'));
+    expect(onRelogin).toHaveBeenCalledTimes(1);
+  });
+});
