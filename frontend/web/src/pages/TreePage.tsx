@@ -90,8 +90,8 @@ export function TreePage(props: {
 
   return (
     <div ref={rootRef} className={`flex w-full flex-1 min-h-0 ${isMobile ? 'flex-col' : ''}`}>
-      <div className="relative flex min-w-0 flex-1">
-        <div className="flex min-w-0 flex-1 overflow-auto bg-gray-100">
+      <div className="relative flex min-w-0 flex-1 overflow-auto">
+        <div className="flex min-w-0 flex-1 bg-gray-100">
           <TreeView
             root={view}
             expanded={expanded}
@@ -113,7 +113,7 @@ export function TreePage(props: {
       </div>
       {isMobile ? (
         selected !== undefined && (
-          <div className="max-h-[55vh] w-full overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl">
+          <div className="max-h-[55vh] min-h-[55vh] w-full overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl">
             <NodeDetailPanel bare node={selected} client={client} onClose={close} />
           </div>
         )

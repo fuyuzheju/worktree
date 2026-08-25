@@ -147,7 +147,7 @@ function Shell(props: {
   return (
     <div className="flex flex-col min-h-screen max-h-screen bg-gray-100 text-gray-900">
       <header className="border-b border-gray-300 bg-white px-4 py-3 md:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap max-md:flex-col items-start justify-between gap-2">
           <h1 className="text-xl font-bold tracking-wide">{t('app.title')}</h1>
           <StatusBar
             online={online}
