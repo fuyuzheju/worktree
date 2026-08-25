@@ -17,7 +17,9 @@
     "@prisma/client": "^6.0.0",
     "@worktree/core": "*",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^5.1.0",
+    "web-push": "^3.6.7",
     "ws": "^8.18.0"
   },
   "devDependencies": {
@@ -25,6 +27,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/supertest": "^7.2.1",
+    "@types/web-push": "^3.6.4",
     "@types/ws": "^8.5.10",
     "prisma": "^6.0.0",
     "supertest": "^7.2.2",

@@ -132,6 +132,21 @@ otherwise: toggle that user to "offline", replace their history, then back to
 
 --
 
+Reminder notifications are delivered out-of-band via the browser push
+service (Web Push), not the websocket: the app does not need to be open.
+The server holds one PushSubscription row per browser (endpoint unique;
+re-subscribing from the same browser reassigns the row to the subscribing
+user). VAPID keys come from VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY /
+VAPID_SUBJECT; without them push is disabled (503 on subscribe).
+
+/api/push/vapid-key          (authed)  GET: {pushEnabled, publicKey?}
+/api/push/subscribe          (authed)  POST: {endpoint, keys: {p256dh, auth}} → {ok: true}
+                                      DELETE: {endpoint} → {ok: true} (idempotent)
+available while the user is offline. firing semantics: see "Reminder
+notifications" in data_structure.md.
+
+--
+
 Client logic:
 
 user add ops to PendingQueue, each op gets a client UUID

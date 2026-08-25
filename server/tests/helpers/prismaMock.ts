@@ -25,6 +25,24 @@ export interface TokenRow {
   userId: number;
 }
 
+export interface PushSubscriptionRow {
+  id: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+  userId: number;
+}
+
+export interface ReminderFireRow {
+  id: number;
+  rmdId: string;
+  occurrence: bigint;
+  createdAt: Date;
+  userId: number;
+}
+
 interface Tx {
   user: {
     findUnique: (args: { where: { id: number } | { name: string } }) => Promise<UserRow | null>;
@@ -46,6 +64,21 @@ interface Tx {
     deleteMany: (args: { where: { id: number; userId: number } }) => Promise<{ count: number }>;
     update: (args: { where: { id: number }; data: { lastUsedAt: Date } }) => Promise<TokenRow>;
   };
+  pushSubscription: {
+    create: (args: { data: { endpoint: string; p256dh: string; auth: string; userId: number } }) => Promise<PushSubscriptionRow>;
+    findMany: (args: { where: { userId?: number } }) => Promise<PushSubscriptionRow[]>;
+    upsert: (args: {
+      where: { endpoint: string };
+      create: { endpoint: string; p256dh: string; auth: string; userId: number };
+      update: { p256dh: string; auth: string; userId: number; lastUsedAt: Date };
+    }) => Promise<PushSubscriptionRow>;
+    delete: (args: { where: { id: number } }) => Promise<PushSubscriptionRow>;
+    deleteMany: (args: { where: { endpoint?: string; userId?: number } }) => Promise<{ count: number }>;
+  };
+  reminderFire: {
+    create: (args: { data: { userId: number; rmdId: string; occurrence: number | bigint } }) => Promise<ReminderFireRow>;
+    deleteMany: (args: { where: { userId: number; rmdId: string; occurrence: number | bigint } }) => Promise<{ count: number }>;
+  };
 }
 
 const hoisted = vi.hoisted(() => {
@@ -54,9 +87,14 @@ const hoisted = vi.hoisted(() => {
   const usersByName = new Map<string, number>();
   const tokens = new Map<number, TokenRow>();
   const tokensByHash = new Map<string, number>();
+  const pushSubs = new Map<number, PushSubscriptionRow>();
+  const pushSubsByEndpoint = new Map<string, number>();
+  const reminderFires = new Map<number, ReminderFireRow>();
   let nextId = 1;
   let nextUserId = 1;
   let nextTokenId = 1;
+  let nextPushSubId = 1;
+  let nextReminderFireId = 1;
 
   const resetDb = () => {
     historyRows.clear();
@@ -64,9 +102,14 @@ const hoisted = vi.hoisted(() => {
     usersByName.clear();
     tokens.clear();
     tokensByHash.clear();
+    pushSubs.clear();
+    pushSubsByEndpoint.clear();
+    reminderFires.clear();
     nextId = 1;
     nextUserId = 1;
     nextTokenId = 1;
+    nextPushSubId = 1;
+    nextReminderFireId = 1;
   };
 
   const mustGetUser = (id: number): UserRow => {
@@ -190,12 +233,101 @@ const hoisted = vi.hoisted(() => {
         return row;
       },
     },
+    pushSubscription: {
+      async create({ data }) {
+        if (pushSubsByEndpoint.has(data.endpoint)) {
+          throw new Prisma.PrismaClientKnownRequestError(
+            'Unique constraint failed on the fields: (`endpoint`)',
+            { code: 'P2002', clientVersion: 'test' },
+          );
+        }
+        const row: PushSubscriptionRow = {
+          id: nextPushSubId++,
+          endpoint: data.endpoint,
+          p256dh: data.p256dh,
+          auth: data.auth,
+          createdAt: new Date(),
+          lastUsedAt: null,
+          userId: data.userId,
+        };
+        pushSubs.set(row.id, row);
+        pushSubsByEndpoint.set(row.endpoint, row.id);
+        return row;
+      },
+      async findMany({ where }) {
+        return [...pushSubs.values()].filter((s) => where.userId === undefined || s.userId === where.userId);
+      },
+      async upsert({ where, create, update }) {
+        const existingId = pushSubsByEndpoint.get(where.endpoint);
+        if (existingId === undefined) return this.create({ data: create });
+        const row = pushSubs.get(existingId)!;
+        row.p256dh = update.p256dh;
+        row.auth = update.auth;
+        row.userId = update.userId;
+        row.lastUsedAt = update.lastUsedAt;
+        return row;
+      },
+      async delete({ where }) {
+        const row = pushSubs.get(where.id);
+        if (!row) throw new Error('row not found');
+        pushSubs.delete(row.id);
+        pushSubsByEndpoint.delete(row.endpoint);
+        return row;
+      },
+      async deleteMany({ where }) {
+        let count = 0;
+        for (const [id, row] of [...pushSubs]) {
+          if ((where.endpoint === undefined || row.endpoint === where.endpoint) &&
+              (where.userId === undefined || row.userId === where.userId)) {
+            pushSubs.delete(id);
+            pushSubsByEndpoint.delete(row.endpoint);
+            count++;
+          }
+        }
+        return { count };
+      },
+    },
+    reminderFire: {
+      async create({ data }) {
+        const occurrence = BigInt(data.occurrence);
+        for (const row of reminderFires.values()) {
+          if (row.userId === data.userId && row.rmdId === data.rmdId && row.occurrence === occurrence) {
+            throw new Prisma.PrismaClientKnownRequestError(
+              'Unique constraint failed on the fields: (`userId`,`rmdId`,`occurrence`)',
+              { code: 'P2002', clientVersion: 'test' },
+            );
+          }
+        }
+        const row: ReminderFireRow = {
+          id: nextReminderFireId++,
+          rmdId: data.rmdId,
+          occurrence,
+          createdAt: new Date(),
+          userId: data.userId,
+        };
+        reminderFires.set(row.id, row);
+        return row;
+      },
+      async deleteMany({ where }) {
+        const occurrence = BigInt(where.occurrence);
+        let count = 0;
+        for (const [id, row] of [...reminderFires]) {
+          if (row.userId === where.userId && row.rmdId === where.rmdId && row.occurrence === occurrence) {
+            reminderFires.delete(id);
+            count++;
+          }
+        }
+        return { count };
+      },
+    },
   };
 
   const prismaMock = {
     user: tx.user,
     historyNode: tx.historyNode,
     token: tx.token,
+    pushSubscription: tx.pushSubscription,
+    reminderFire: tx.reminderFire,
     async $transaction<T>(fn: (t: Tx) => Promise<T>): Promise<T> {
       const snapshot = {
         historyRows: new Map(historyRows),
@@ -203,9 +335,14 @@ const hoisted = vi.hoisted(() => {
         usersByName: new Map(usersByName),
         tokens: new Map(tokens),
         tokensByHash: new Map(tokensByHash),
+        pushSubs: new Map(pushSubs),
+        pushSubsByEndpoint: new Map(pushSubsByEndpoint),
+        reminderFires: new Map(reminderFires),
         nextId,
         nextUserId,
         nextTokenId,
+        nextPushSubId,
+        nextReminderFireId,
       };
       try {
         return await fn(tx);
@@ -220,9 +357,17 @@ const hoisted = vi.hoisted(() => {
         for (const [k, v] of snapshot.tokens) tokens.set(k, v);
         tokensByHash.clear();
         for (const [k, v] of snapshot.tokensByHash) tokensByHash.set(k, v);
+        pushSubs.clear();
+        for (const [k, v] of snapshot.pushSubs) pushSubs.set(k, v);
+        pushSubsByEndpoint.clear();
+        for (const [k, v] of snapshot.pushSubsByEndpoint) pushSubsByEndpoint.set(k, v);
+        reminderFires.clear();
+        for (const [k, v] of snapshot.reminderFires) reminderFires.set(k, v);
         nextId = snapshot.nextId;
         nextUserId = snapshot.nextUserId;
         nextTokenId = snapshot.nextTokenId;
+        nextPushSubId = snapshot.nextPushSubId;
+        nextReminderFireId = snapshot.nextReminderFireId;
         throw e;
       }
     },

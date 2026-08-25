@@ -5,7 +5,7 @@ import type { WorktreeClient } from '@worktree/client';
 import type { AppConfig, DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
 import { useIsMobile } from '../hooks/useMediaQuery';
-import { findNode } from '../tree-utils';
+import { ancestorIds, findNode } from '../tree-utils';
 import { TreeView } from '../components/TreeView';
 import { FilterBar } from '../components/FilterBar';
 import { NodeDetailPanel } from '../components/NodeDetailPanel';
@@ -16,12 +16,18 @@ export function TreePage(props: {
   client: WorktreeClient;
   display: DisplayPrefs;
   updateConfig: (patch: Partial<AppConfig>) => void;
+  /** Deep link: select this node when the page first mounts. */
+  initialNodeId?: string;
+  /** Deep link while mounted (e.g. from a service-worker message); nonce forces re-focus. */
+  focusNode?: { id: string; nonce: number } | null;
 }) {
   const { t } = useI18n();
-  const { tree, client, display, updateConfig } = props;
+  const { tree, client, display, updateConfig, initialNodeId, focusNode } = props;
   const isMobile = useIsMobile();
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => (initialNodeId === undefined ? new Set() : new Set(ancestorIds(tree, initialNodeId))),
+  );
+  const [selectedId, setSelectedId] = useState<string | null>(initialNodeId ?? null);
   const [filter, setFilter] = useState<NodeFilter>({});
 
   const mode = display.filterMode;
@@ -48,6 +54,18 @@ export function TreePage(props: {
   useEffect(() => {
     if (selectedId !== null && findNode(tree, selectedId) === undefined) setSelectedId(null);
   }, [tree, selectedId]);
+
+  useEffect(() => {
+    if (focusNode === null || focusNode === undefined) return;
+    if (findNode(tree, focusNode.id) === undefined) return;
+    setSelectedId(focusNode.id);
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const id of ancestorIds(tree, focusNode.id)) next.add(id);
+      next.add(focusNode.id);
+      return next;
+    });
+  }, [focusNode, tree]);
 
   // Clicking blank space (anything that is not a node row or the detail
   // panel) clears the selection.

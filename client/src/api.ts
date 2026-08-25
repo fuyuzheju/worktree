@@ -9,6 +9,17 @@ export class ApiError extends Error {
   }
 }
 
+/** Browser push subscription as the server stores it. */
+export interface PushSubscriptionInfo {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export interface VapidKeyResponse {
+  pushEnabled: boolean;
+  publicKey?: string;
+}
+
 /** Thin HTTP transport for the server's REST endpoints. */
 export class ServerAPI {
   constructor(
@@ -32,6 +43,18 @@ export class ServerAPI {
 
   async rewrite(base: string | null, history: HistoryNode[]): Promise<void> {
     await this.request('/api/rewrite', { method: 'POST', body: { base, history } satisfies RewriteRequest });
+  }
+
+  async vapidKey(): Promise<VapidKeyResponse> {
+    return this.request('/api/push/vapid-key');
+  }
+
+  async pushSubscribe(sub: PushSubscriptionInfo): Promise<void> {
+    await this.request('/api/push/subscribe', { method: 'POST', body: sub });
+  }
+
+  async pushUnsubscribe(endpoint: string): Promise<void> {
+    await this.request('/api/push/subscribe', { method: 'DELETE', body: { endpoint } });
   }
 
   private async request<T>(path: string, init?: { method?: string; body?: object }): Promise<T> {

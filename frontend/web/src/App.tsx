@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppConfig, LOCAL_USER, clearToken, loadConfig, loadToken, saveConfig, saveToken, stateKey } from './config';
 import type { StoredToken } from './config';
 import { useWorktreeClient } from './hooks/useWorktreeClient';
@@ -124,6 +124,26 @@ function Shell(props: {
   const { config, tab, setTab, snap, updateConfig, clearCache, onLogout, onLoginOther } = props;
   const { client, tree, online, pendingCount, authFailed } = snap;
 
+  // Deep link from a notification click: ?node=<id> on first load, or a
+  // worktree-open-node message from the service worker while running.
+  const [initialNodeId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('node'),
+  );
+  const [focusNode, setFocusNode] = useState<{ id: string; nonce: number } | null>(null);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent): void => {
+      const data = event.data as { type?: string; url?: string } | undefined;
+      if (data?.type !== 'worktree-open-node' || typeof data.url !== 'string') return;
+      const node = new URL(data.url, window.location.origin).searchParams.get('node');
+      if (node === null) return;
+      setTab('tree');
+      setFocusNode({ id: node, nonce: Date.now() });
+    };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+  }, [setTab]);
+
   return (
     <div className="flex flex-col min-h-screen max-h-screen bg-gray-100 text-gray-900">
       <header className="border-b border-gray-300 bg-white px-4 py-3 md:px-6">
@@ -141,7 +161,14 @@ function Shell(props: {
       </header>
       <main className="py-4 md:px-6 flex-1 flex w-full min-h-0 overflow-y-auto">
         {tab === 'tree' && (
-          <TreePage tree={tree} client={client} display={config.display} updateConfig={updateConfig} />
+          <TreePage
+            tree={tree}
+            client={client}
+            display={config.display}
+            updateConfig={updateConfig}
+            initialNodeId={initialNodeId ?? undefined}
+            focusNode={focusNode}
+          />
         )}
         {tab === 'stats' && <StatsPage client={client} />}
         {tab === 'settings' && (

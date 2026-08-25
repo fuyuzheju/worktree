@@ -11,6 +11,7 @@ import { historyRouter } from './routes/history';
 import { statsRouter } from './routes/stats';
 import { rewriteRouter } from './routes/rewrite';
 import { authedAuthRouter, publicAuthRouter } from './routes/auth';
+import { pushRouter } from './routes/push';
 import { userMiddleware } from './user';
 
 export interface AppContext {
@@ -31,6 +32,8 @@ export function createApp(ctx: AppContext): express.Express {
   // /api/rewrite is mounted before the offline guard: it triggers offline mode
   // itself while it edits the database.
   app.use('/api/rewrite', rewriteRouter(ctx.store));
+  // Push subscription management also works while the user is offline.
+  app.use('/api/push', pushRouter());
 
   app.use(offlineGuard);
   app.use('/api', authedAuthRouter());

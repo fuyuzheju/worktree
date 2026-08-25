@@ -40,3 +40,20 @@ export function findNode(root: Node, id: string): Node | undefined {
   }
   return undefined;
 }
+
+/** All ancestors of `id`, from the root down to its parent. */
+export function ancestorIds(root: Node, id: string): string[] {
+  const out: string[] = [];
+  const walk = (node: Node, path: string[]): boolean => {
+    if (node.id === id) {
+      out.push(...path);
+      return true;
+    }
+    for (const child of node.children) {
+      if (walk(child, [...path, node.id])) return true;
+    }
+    return false;
+  };
+  walk(root, []);
+  return out;
+}

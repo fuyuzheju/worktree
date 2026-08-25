@@ -7,8 +7,24 @@ Reminder:
 id: string,
 name: string,
 deadline: timestamp,
-repeat: time | undefined,
-active: boolean,
+repeat: time | undefined,   // recurrence interval in ms; undefined = one-shot
+active: boolean,            // false disables firing without deleting
+
+Reminder notifications (server-side, Web Push):
+- The server sweeps all users' trees every 30s (REMINDER_SWEEP_MS) and fires
+  reminders whose latest occurrence T just became due: T = deadline for
+  one-shot reminders; T = deadline + k*repeat (largest k with T <= now) for
+  recurring ones. REMINDER_SWEEP_MS must be smaller than the 60s fire window
+  (the server refuses to start otherwise — a larger interval lets occurrences
+  fall between ticks and never fire).
+- An occurrence fires only within a 60s window of becoming due
+  (now - T < 60s). Occurrences that pass while nothing can deliver are
+  skipped permanently — missed reminders are never backfilled.
+- Inactive reminders (active: false) and reminders on completed nodes never
+  fire.
+- Delivery is out-of-band (browser push service), so the app does not need
+  to be open. Occurrences are deduped server-side, so restarts cannot
+  double-fire.
 
 Node:
 id: string,

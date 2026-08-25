@@ -337,6 +337,7 @@ export function NodeDetailPanel(props: {
           <div className="mt-1 flex flex-wrap gap-2">
             <input
               type="datetime-local"
+              step="1"
               value={deadlineValue}
               onChange={(e) => setDeadlineValue(e.target.value)}
               data-testid="detail-deadline"
@@ -626,6 +627,7 @@ function ReminderForm(props: {
         />
         <input
           type="datetime-local"
+          step="1"
           value={deadline}
           onChange={(e) => setDeadline(e.target.value)}
           data-testid="reminder-deadline"

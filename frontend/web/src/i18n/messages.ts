@@ -162,6 +162,18 @@ export const messages: Record<string, StringMap> = {
         'Clear the locally stored history for "{user}" on {server}? Server-side data is not affected.',
       cleared: 'Local cache cleared.',
       statsFailed: 'Stats unavailable: {message}',
+      notifications: {
+        title: 'Notifications',
+        hint: 'Receive a browser notification when a reminder is due — even when this page is closed.',
+        enabled: 'Notifications are enabled.',
+        disabled: 'Notifications are disabled.',
+        denied: 'Notifications are blocked in the browser. Allow them in the site settings first.',
+        unsupported: 'This browser does not support notifications.',
+        serverDisabled: 'The server has push notifications disabled.',
+        enable: 'Enable notifications',
+        disable: 'Disable notifications',
+        error: 'Failed: {message}',
+      },
     },
     stats: {
       title: 'Statistics',

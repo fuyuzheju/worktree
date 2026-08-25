@@ -54,3 +54,48 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) return;
   event.respondWith(networkFirst(request));
 });
+
+/* Web Push reminder notifications. Payload: {title, body, tag, icon, url} —
+   see server/src/reminders.ts. Bump CACHE above when the shell changes. */
+self.addEventListener('push', (event) => {
+  let data;
+  let raw = '';
+  try {
+    raw = event.data ? event.data.text() : '';
+    data = JSON.parse(raw);
+  } catch {
+    data = {};
+  }
+  console.log('[sw] push event received, raw payload:', raw);
+  const title = data.title || 'WORKTREE';
+  const options = {
+    body: data.body || '',
+    tag: data.tag || 'worktree-reminder',
+    icon: data.icon || '/icons/icon-192.png',
+    data: { url: data.url || '/' },
+  };
+  event.waitUntil(
+    self.registration
+      .showNotification(title, options)
+      .then(() => console.log('[sw] showNotification called:', title))
+      .catch((err) => console.error('[sw] showNotification failed:', err)),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of windows) {
+        if ('focus' in client) {
+          await client.focus();
+          client.postMessage({ type: 'worktree-open-node', url });
+          return;
+        }
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
+});

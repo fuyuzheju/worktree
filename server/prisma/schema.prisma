@@ -8,13 +8,15 @@ datasource db {
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique
-  passwordHash String?
-  headOpId     String?
-  createdAt    DateTime @default(now())
-  nodes        HistoryNode[]
-  tokens       Token[]
+  id               Int                @id @default(autoincrement())
+  name             String             @unique
+  passwordHash     String?
+  headOpId         String?
+  createdAt        DateTime           @default(now())
+  nodes            HistoryNode[]
+  tokens           Token[]
+  pushSubscriptions PushSubscription[]
+  reminderFires    ReminderFire[]
 }
 
 // One row per issued device token. Only the SHA-256 hash of the token is
@@ -42,4 +44,31 @@ model HistoryNode {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, opId])
+}
+
+// One row per browser push subscription (Web Push). `endpoint` is unique
+// globally: re-subscribing from the same browser reassigns the row to the
+// subscribing user.
+model PushSubscription {
+  id         Int       @id @default(autoincrement())
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// One row per delivered reminder occurrence; the unique key makes firing
+// idempotent across sweeps and server restarts.
+model ReminderFire {
+  id         Int      @id @default(autoincrement())
+  rmdId      String
+  occurrence BigInt // ms timestamp: exceeds Int32
+  createdAt  DateTime @default(now())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, rmdId, occurrence])
 }

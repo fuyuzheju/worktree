@@ -2,6 +2,8 @@ import http from 'node:http';
 import type { RequestListener } from 'node:http';
 import { createApp } from './app';
 import { config } from './config';
+import { pushEnabled } from './config';
+import { startReminderSweeper } from './reminders';
 import { onStateChange } from './state';
 import { HistoryStore } from './store';
 import { WsHub } from './ws';
@@ -10,6 +12,7 @@ import { prisma } from './db';
 async function main(): Promise<void> {
   const store = new HistoryStore();
   await store.load();
+  const stopSweeper = pushEnabled ? startReminderSweeper({ store }) : null;
 
   // The hub needs the http server, the app needs the hub: wire them lazily.
   let handler: RequestListener = (_req, res) => {
@@ -34,6 +37,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`${signal} received — shutting down`);
+    stopSweeper?.();
     hub.closeAll(); // clients reconnect when the server returns
     server.close();
     server.closeAllConnections();

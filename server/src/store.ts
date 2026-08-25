@@ -101,6 +101,11 @@ export class HistoryStore {
     return this.getTree(await this.resolveUserId(user));
   }
 
+  /** Snapshot of every loaded user's tree, for the reminder sweeper. */
+  allUserTrees(): Array<{ userId: number; tree: Tree }> {
+    return [...this.trees.entries()].map(([userId, tree]) => ({ userId, tree }));
+  }
+
   /**
    * Serialize history mutations so validate → append is atomic per batch
    * even across concurrent requests.
