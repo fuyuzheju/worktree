@@ -16,6 +16,8 @@ export interface TreeNodeProps {
   onSelect: (id: string) => void;
   readOnly?: boolean;
   filterActive?: boolean;
+  /** Highlight-mode only: matched rows get the blue outline; hide mode leaves them unstyled. */
+  highlightMatches?: boolean;
   /** Conflict page: nodes differing from the other version, by style. */
   highlight?: ReadonlyMap<string, DiffStyle>;
 }
@@ -26,8 +28,19 @@ const HIGHLIGHT_CLASS: Record<DiffStyle, string> = {
 };
 
 export function TreeNode(props: TreeNodeProps) {
-  const { view, ancestorIsLast, isLast, expanded, selectedId, display, onToggle, onSelect, readOnly, filterActive } =
-    props;
+  const {
+    view,
+    ancestorIsLast,
+    isLast,
+    expanded,
+    selectedId,
+    display,
+    onToggle,
+    onSelect,
+    readOnly,
+    filterActive,
+    highlightMatches,
+  } = props;
   const node = view.node;
   const hasChildren = view.children.length > 0;
   const isOpen = expanded.has(node.id);
@@ -38,12 +51,15 @@ export function TreeNode(props: TreeNodeProps) {
     ? 'bg-green-100 hover:bg-green-200'
     : 'bg-yellow-100 hover:bg-yellow-200';
   const ring = isSelected ? ' ring-2 ring-inset ring-blue-400' : '';
-  // An active filter styles the row: hide mode dims context ancestors,
-  // highlight mode outlines matches.
+  // An active filter styles the row: matched rows get the blue outline only
+  // in highlight mode; non-matching rows (context ancestors in hide mode)
+  // are dimmed in both modes.
   const filterStyle =
     filterActive === true
       ? view.matched
-        ? ' outline outline-2 outline-blue-400'
+        ? highlightMatches
+          ? ' outline outline-2 outline-blue-400'
+          : ''
         : ' opacity-50'
       : '';
 
@@ -94,6 +110,7 @@ export function TreeNode(props: TreeNodeProps) {
             onSelect={onSelect}
             readOnly={readOnly}
             filterActive={filterActive}
+            highlightMatches={highlightMatches}
             highlight={props.highlight}
           />
         ))}

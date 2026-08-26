@@ -16,13 +16,15 @@ export interface TreeViewProps {
   readOnly?: boolean;
   /** Whether a filter constrains the view (drives dim/highlight styling and the empty state). */
   filterActive?: boolean;
+  /** Highlight-mode only: matched rows get the blue outline; hide mode leaves them unstyled. */
+  highlightMatches?: boolean;
   /** Conflict page: nodes differing from the other version, by style. */
   highlight?: ReadonlyMap<string, DiffStyle>;
 }
 
 export function TreeView(props: TreeViewProps) {
   const { t } = useI18n();
-  const { root, expanded, selectedId, display, onToggle, onSelect, readOnly, filterActive } = props;
+  const { root, expanded, selectedId, display, onToggle, onSelect, readOnly, filterActive, highlightMatches } = props;
   const node = root.node;
 
   return (
@@ -59,6 +61,7 @@ export function TreeView(props: TreeViewProps) {
           onSelect={onSelect}
           readOnly={readOnly}
           filterActive={filterActive}
+          highlightMatches={highlightMatches}
           highlight={props.highlight}
         />
       ))}

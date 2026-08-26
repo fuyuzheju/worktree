@@ -100,6 +100,7 @@ export function TreePage(props: {
             onToggle={toggle}
             onSelect={select}
             filterActive={filterActive}
+            highlightMatches={mode === 'highlight'}
           />
         </div>
         <div className="absolute right-2 top-0 z-10">

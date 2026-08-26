@@ -21,10 +21,12 @@ function Harness({
   onSelect,
   filter,
   filterActive,
+  highlightMatches,
 }: {
   onSelect: (id: string) => void;
   filter?: NodeFilter;
   filterActive?: boolean;
+  highlightMatches?: boolean;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['aaaa-1']));
   const view: FilteredNode = filter !== undefined ? filterTree(tree, filter) : filterTree(tree, {});
@@ -45,6 +47,7 @@ function Harness({
         }
         onSelect={onSelect}
         filterActive={filterActive}
+        highlightMatches={highlightMatches}
       />
     </I18nProvider>
   );
@@ -112,8 +115,16 @@ describe('TreeView', () => {
     expect(screen.getByText('No nodes match the filter.')).toBeTruthy();
   });
 
-  it('highlights matched rows when filterActive is set', () => {
+  it('does not outline matched rows in hide mode even when a filter is active', () => {
     render(<Harness onSelect={() => undefined} filter={{ keyword: 'beta' }} filterActive />);
+    const betaBtn = screen.getByRole('button', { name: /beta \[bbbb\]/ });
+    expect(betaBtn.className).not.toContain('outline-blue-400');
+  });
+
+  it('outlines matched rows only in highlight mode', () => {
+    render(
+      <Harness onSelect={() => undefined} filter={{ keyword: 'beta' }} filterActive highlightMatches />,
+    );
     const betaBtn = screen.getByRole('button', { name: /beta \[bbbb\]/ });
     expect(betaBtn.className).toContain('outline-blue-400');
   });
