@@ -11,21 +11,21 @@ export function StatusBar(props: {
 }) {
   const { t } = useI18n();
   const { online, pendingCount, client, authFailed = false, onRelogin } = props;
-  const [syncing, setSyncing] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
   const pending = client.getPending();
   const removeCount = pending.filter((p) => p.kind === 'remove').length;
   const canUndo = pending.some((p) => p.kind === 'add') || client.getConfirmed().length > removeCount;
 
-  const onSync = async (): Promise<void> => {
-    if (syncing) return;
-    setSyncing(true);
+  const onReconnect = async (): Promise<void> => {
+    if (reconnecting) return;
+    setReconnecting(true);
     try {
-      await client.sync();
+      await client.reconnect();
     } catch (e) {
-      console.error('sync failed:', e);
+      console.error('reconnect failed:', e);
     } finally {
-      setSyncing(false);
+      setReconnecting(false);
     }
   };
 
@@ -79,15 +79,17 @@ export function StatusBar(props: {
       >
         {t('status.undo')}
       </button>
-      <button
-        type="button"
-        onClick={() => void onSync()}
-        disabled={syncing || client.isLocal()}
-        data-testid="status-sync"
-        className="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-40"
-      >
-        {syncing ? t('status.syncing') : t('status.sync')}
-      </button>
+      {!online && !client.isLocal() && (
+        <button
+          type="button"
+          onClick={() => void onReconnect()}
+          disabled={reconnecting}
+          data-testid="status-reconnect"
+          className="rounded border border-gray-300 bg-white px-2 py-0.5 hover:bg-gray-50 disabled:opacity-40"
+        >
+          {reconnecting ? t('status.reconnecting') : t('status.reconnect')}
+        </button>
+      )}
     </div>
   );
 }

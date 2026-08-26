@@ -17,7 +17,7 @@ function makeClient(opts: { pending?: HistoryOperation[]; confirmed?: HistoryNod
     getPending: () => opts.pending ?? [],
     getConfirmed: () => opts.confirmed ?? [],
     undo: vi.fn(),
-    sync: vi.fn().mockResolvedValue('ok'),
+    reconnect: vi.fn().mockResolvedValue(true),
     isLocal: () => false,
   } as unknown as WorktreeClient;
 }
@@ -98,8 +98,29 @@ describe('StatusBar auth failure', () => {
       </I18nProvider>,
     );
     expect(screen.getByText('session expired')).toBeDefined();
-    expect(screen.queryByTestId('status-sync')).toBeNull();
+    expect(screen.queryByTestId('status-reconnect')).toBeNull();
     fireEvent.click(screen.getByTestId('status-relogin'));
     expect(onRelogin).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('StatusBar reconnect button', () => {
+  it('is hidden while online', () => {
+    const client = makeClient();
+    renderBar(client, true);
+    expect(screen.queryByTestId('status-reconnect')).toBeNull();
+  });
+
+  it('shows while offline and calls reconnect on click', () => {
+    const client = makeClient();
+    renderBar(client, false);
+    fireEvent.click(screen.getByTestId('status-reconnect'));
+    expect(client.reconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('is hidden for the local user even when offline', () => {
+    const client = { ...makeClient(), isLocal: () => true } as unknown as WorktreeClient;
+    renderBar(client, false);
+    expect(screen.queryByTestId('status-reconnect')).toBeNull();
   });
 });

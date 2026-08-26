@@ -43,27 +43,27 @@ afterEach(() => {
 });
 
 describe('ServerSocket', () => {
-  it('reconnects with exponential backoff after an unexpected close', () => {
+  it('reconnects with exponential backoff after an unexpected close', async () => {
     const socket = new ServerSocket('ws://localhost:1', handlers());
     socket.connect();
     expect(FakeWebSocket.instances).toHaveLength(1);
     FakeWebSocket.instances[0]!.serverClose();
-    vi.advanceTimersByTime(1000);
+    await vi.advanceTimersByTimeAsync(1000);
     expect(FakeWebSocket.instances).toHaveLength(2);
     FakeWebSocket.instances[1]!.serverClose();
-    vi.advanceTimersByTime(2000);
+    await vi.advanceTimersByTimeAsync(2000);
     expect(FakeWebSocket.instances).toHaveLength(3);
     FakeWebSocket.instances[2]!.serverClose();
-    vi.advanceTimersByTime(4000);
+    await vi.advanceTimersByTimeAsync(4000);
     expect(FakeWebSocket.instances).toHaveLength(4);
   });
 
-  it('close() cancels a pending reconnect so nothing keeps the process alive', () => {
+  it('close() cancels a pending reconnect so nothing keeps the process alive', async () => {
     const socket = new ServerSocket('ws://localhost:1', handlers());
     socket.connect();
     FakeWebSocket.instances[0]!.serverClose();
     socket.close();
-    vi.advanceTimersByTime(120_000);
+    await vi.advanceTimersByTimeAsync(120_000);
     expect(FakeWebSocket.instances).toHaveLength(1); // no further attempts
   });
 

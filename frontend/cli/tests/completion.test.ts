@@ -27,9 +27,9 @@ describe('completeLine — commands', () => {
   });
 
   it('completes an unambiguous command with a trailing space', () => {
-    const [hits, replacement] = completeLine(build().getRoot(), ROOT_ID, 'syn');
-    expect(hits).toEqual(['sync ']);
-    expect(replacement).toBe('syn');
+    const [hits, replacement] = completeLine(build().getRoot(), ROOT_ID, 'reco');
+    expect(hits).toEqual(['reconnect ']);
+    expect(replacement).toBe('reco');
   });
 });
 

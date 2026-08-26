@@ -5,7 +5,7 @@ all state, syncing and op construction live in the kernel.
 
 - `client.getTree()` + `client.subscribe(...)` for rendering
 - `client.addNode/removeNode/...` semantic methods for mutations
-- `client.sync()` / `client.resolveConflict(...)` for sync and conflicts
+- `client.reconnect()` / `client.resolveConflict(...)` for reconnecting and conflicts
 
 ## Run
 

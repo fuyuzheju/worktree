@@ -231,11 +231,11 @@ describe('WorktreeClient local mode', () => {
     expect(restored.getTree().children.map((n) => n.name)).toEqual(['A']);
   });
 
-  it('connect and sync are no-ops that never touch the network', async () => {
+  it('connect and reconnect are no-ops that never touch the network', async () => {
     const c = localClient();
     c.connect();
     expect(c.isOnline()).toBe(false);
-    await expect(c.sync()).resolves.toBe('ok');
+    await expect(c.reconnect()).resolves.toBe(false);
     c.disconnect();
   });
 
@@ -378,17 +378,19 @@ describe('WorktreeClient auth', () => {
     expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true })).not.toThrow();
   });
 
-  it('a 401 during sync marks the client as auth-failed and stops reconnecting', async () => {
+  it('a 401 during the automatic resync marks the client as auth-failed and stops reconnecting', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 })),
     );
     const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'revoked' });
-    c.connect();
+    const attempt = c.reconnect();
     expect(FakeWebSocket.instances).toHaveLength(1);
     expect(c.isAuthFailed()).toBe(false);
 
-    await expect(c.sync()).rejects.toBeInstanceOf(ApiError);
+    // The socket opens; the automatic resync gets a 401 from the REST API.
+    FakeWebSocket.instances[0]!.onopen?.();
+    await expect(attempt).resolves.toBe(false);
     expect(c.isAuthFailed()).toBe(true);
 
     // the closed socket must not reconnect
@@ -397,10 +399,12 @@ describe('WorktreeClient auth', () => {
     expect(FakeWebSocket.instances).toHaveLength(1);
   });
 
-  it('network errors do not mark the client as auth-failed', async () => {
+  it('a failed handshake plus network errors do not mark the client as auth-failed', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
     const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'tok' });
-    await expect(c.sync()).rejects.toThrow('fetch failed');
+    const attempt = c.reconnect();
+    FakeWebSocket.instances[0]!.onclose?.();
+    await expect(attempt).resolves.toBe(false);
     expect(c.isAuthFailed()).toBe(false);
   });
 });

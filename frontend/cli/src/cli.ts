@@ -72,21 +72,6 @@ function printAuthFailure(client: WorktreeClient, user: string): void {
   }
 }
 
-const EXIT_FLUSH_BUDGET_MS = 2000;
-
-/**
- * Best-effort final flush with a time budget. Every edit is already persisted
- * synchronously, so a bounded flush loses nothing durable — it only decides
- * whether the server saw the ops before we leave.
- */
-async function shutdown(client: WorktreeClient): Promise<void> {
-  await Promise.race([
-    client.sync().catch(() => undefined),
-    new Promise((resolve) => setTimeout(resolve, EXIT_FLUSH_BUDGET_MS)),
-  ]);
-  client.disconnect();
-}
-
 /** Drain pending stdout writes (pipes are async), then force-exit. */
 function exitAfterFlush(code: number): void {
   process.stdout.write('', () => process.exit(code));
@@ -143,7 +128,7 @@ async function repl(): Promise<void> {
   io.switchUser = async (name: string): Promise<void> => {
     const prev = client;
     const prevUser = ctx.currentUser;
-    await shutdown(prev);
+    prev.disconnect();
     unsubscribe();
     if (prev.getPendingCount() > 0) {
       console.log(`note: ${prev.getPendingCount()} op(s) of "${prevUser}" are still pending — kept in local storage`);
@@ -153,27 +138,15 @@ async function repl(): Promise<void> {
     ctx.client = client;
     ctx.currentUser = name;
     unsubscribe = client.subscribe(onTreeChange);
-    client.connect();
-    if (!client.isLocal()) {
-      try {
-        await client.sync();
-      } catch {
-        // server may be down; the socket keeps retrying
-      }
-    }
+    // One attempt; on failure the socket's backoff loop keeps trying.
+    if (!client.isLocal()) await client.reconnect();
     printAuthFailure(client, name);
     console.log(`user: ${name}${client.isLocal() ? ' (local — offline only)' : ''}`);
     console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
   };
 
-  client.connect();
-  if (!client.isLocal()) {
-    try {
-      await client.sync();
-    } catch {
-      // server may be down; the socket keeps retrying
-    }
-  }
+  // One attempt; on failure the socket's backoff loop keeps trying.
+  if (!client.isLocal()) await client.reconnect();
   printAuthFailure(client, ctx.currentUser);
   console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
 
@@ -202,7 +175,7 @@ async function repl(): Promise<void> {
     }
   }
 
-  await shutdown(client);
+  client.disconnect();
   exitAfterFlush(0);
 }
 
@@ -253,17 +226,9 @@ async function main(): Promise<void> {
     ctx.currentUser = name;
     console.log(`user: ${name}`);
   };
-  client.connect();
   if (!client.isLocal()) {
-    try {
-      await client.sync();
-    } catch {
-      // offline is fine for queued edits
-    }
-    // Give the websocket a moment to open so online status (and the auto-flush) is accurate.
-    for (let i = 0; i < 20 && !client.isOnline(); i++) {
-      await new Promise((r) => setTimeout(r, 100));
-    }
+    // One attempt; on failure the socket's backoff loop keeps trying.
+    await client.reconnect();
     if (client.isAuthFailed()) {
       console.error(`error: login expired — run "worktree login ${user}" to log in again`);
       process.exitCode = 1;
@@ -281,7 +246,7 @@ async function main(): Promise<void> {
   if (ran && command?.mutatesTree) {
     console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
   }
-  await shutdown(client);
+  client.disconnect();
   if (client.getConflict()) printConflict(io);
   exitAfterFlush(Number(process.exitCode ?? 0));
 }

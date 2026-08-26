@@ -4,7 +4,7 @@ import { ApiError, ServerAPI } from './api';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
 import { Syncer } from './syncer';
-import type { Conflict, SyncResult } from './syncer';
+import type { Conflict } from './syncer';
 import type { ClientStorage } from './storage';
 
 export interface WorktreeClientOptions {
@@ -25,7 +25,8 @@ export interface WorktreeClientOptions {
 /**
  * The client kernel: the only interface the frontend uses to read and
  * mutate worktree data. Edits are applied optimistically and queued;
- * sync() flushes them and catches up with the server.
+ * the automatic resync flushes them and catches up whenever a connection
+ * is established.
  */
 export class WorktreeClient {
   private store: ClientStore;
@@ -36,7 +37,7 @@ export class WorktreeClient {
   private listeners = new Set<(tree: Node) => void>();
   private conflict: Conflict | null = null;
   private online = false;
-  private syncing = false;
+  private resyncInFlight: Promise<void> | null = null;
   private local: boolean;
   private authFailed = false;
 
@@ -306,18 +307,28 @@ export class WorktreeClient {
     return this.authFailed;
   }
 
-  /** Push pending ops and catch up. Resolves to 'conflict' when the server rejected them. */
-  async sync(): Promise<SyncResult> {
-    if (this.local) return 'ok';
+  /**
+   * Manual reconnect, meant for when the client is offline: one fresh
+   * connection attempt. On success the automatic resync runs (flush +
+   * catch-up) before this resolves. Resolves true when the client ended
+   * up online.
+   */
+  async reconnect(): Promise<boolean> {
+    if (this.local || this.authFailed) return false;
+    if (this.online) return true;
+    const opened = await this.socket.reconnect();
+    if (opened) {
+      await this.resync();
+      return this.online;
+    }
+    // The socket failed to open: probe REST once so a revoked token (401)
+    // surfaces as auth-failed instead of endless offline retries.
     try {
-      const result = await this.syncer.sync();
-      this.conflict = this.syncer.getConflict();
-      this.emit();
-      return result;
+      await this.api.history(this.store.getConfirmed().at(-1)?.id ?? null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) this.failAuth();
-      throw e;
     }
+    return false;
   }
 
   /** After a conflict: keep the server's history, or force-rewrite it with ours. */
@@ -330,11 +341,18 @@ export class WorktreeClient {
   /**
    * The automatic resync: catch up, flush pending, catch up again.
    * Runs on connect/reconnect, when the server comes back online, and
-   * after every local edit while online. Manual sync() forces the same.
+   * after every local edit while online. Concurrent callers share the
+   * in-flight run.
    */
-  private async resync(): Promise<void> {
-    if (this.syncing) return;
-    this.syncing = true;
+  private resync(): Promise<void> {
+    if (this.resyncInFlight !== null) return this.resyncInFlight;
+    this.resyncInFlight = this.runResync().finally(() => {
+      this.resyncInFlight = null;
+    });
+    return this.resyncInFlight;
+  }
+
+  private async runResync(): Promise<void> {
     try {
       await this.syncer.sync();
       this.conflict = this.syncer.getConflict();
@@ -343,8 +361,6 @@ export class WorktreeClient {
       // 401 means the token was revoked — stop everything, wait for re-login.
       if (e instanceof ApiError && e.status === 401) this.failAuth();
       // Otherwise: still unreachable; the socket keeps retrying.
-    } finally {
-      this.syncing = false;
     }
     this.emit();
   }

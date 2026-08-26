@@ -425,25 +425,25 @@ const reminderCommand: Command = {
   },
 };
 
-const syncCommand: Command = {
-  name: 'sync',
-  summary: 'manual flush + catch-up (runs automatically while online)',
-  usage: 'sync',
+const reconnectCommand: Command = {
+  name: 'reconnect',
+  summary: 'manually reconnect to the server while offline (resyncs automatically)',
+  usage: 'reconnect',
   run: async (io): Promise<CommandResult> => {
-    try {
-      const result = await io.client.sync();
-      io.out(
-        result === 'conflict'
-          ? 'conflict — resolve with: resolve server|local'
-          : result === 'offline'
-            ? 'server offline — ops stay queued'
-            : 'ok',
-      );
-      if (result === 'conflict') printConflict(io);
-    } catch (e) {
-      io.out(`sync failed: ${errMsg(e)}`);
+    if (io.client.isLocal()) {
+      io.out('"local" is offline-only and never connects');
+      return 'ok';
     }
-    io.out(renderFiltered(io.client.getTree(), io.filter, io.filterMode));
+    if (io.client.isOnline()) {
+      io.out('already online');
+      return 'ok';
+    }
+    const ok = await io.client.reconnect();
+    io.out(ok ? 'connected — resynced' : 'reconnect failed — auto-retry continues');
+    if (ok) {
+      if (io.client.getConflict()) printConflict(io);
+      io.out(renderFiltered(io.client.getTree(), io.filter, io.filterMode));
+    }
     return 'ok';
   },
 };
@@ -668,7 +668,7 @@ export const COMMANDS: Command[] = [
   cplCommand,
   uncplCommand,
   reminderCommand,
-  syncCommand,
+  reconnectCommand,
   statsCommand,
   statusCommand,
   userCommand,
