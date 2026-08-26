@@ -85,6 +85,7 @@ export function FilterBar(props: FilterBarProps) {
               <span className="text-gray-600">{t('filter.deadlineBefore')}</span>
               <input
                 type="datetime-local"
+                step={1}
                 value={filter.deadlineBefore !== undefined ? epochToLocalInput(filter.deadlineBefore) : ''}
                 onChange={(e) => setDatetime('deadlineBefore', e.target.value)}
                 data-testid="filter-deadline-before"
@@ -95,6 +96,7 @@ export function FilterBar(props: FilterBarProps) {
               <span className="text-gray-600">{t('filter.createdAfter')}</span>
               <input
                 type="datetime-local"
+                step={1}
                 value={filter.createdAfter !== undefined ? epochToLocalInput(filter.createdAfter) : ''}
                 onChange={(e) => setDatetime('createdAfter', e.target.value)}
                 data-testid="filter-created-after"
@@ -105,6 +107,7 @@ export function FilterBar(props: FilterBarProps) {
               <span className="text-gray-600">{t('filter.createdBefore')}</span>
               <input
                 type="datetime-local"
+                step={1}
                 value={filter.createdBefore !== undefined ? epochToLocalInput(filter.createdBefore) : ''}
                 onChange={(e) => setDatetime('createdBefore', e.target.value)}
                 data-testid="filter-created-before"
