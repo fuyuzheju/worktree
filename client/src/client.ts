@@ -1,5 +1,5 @@
 import { ROOT_ID, USER_RE, newId } from '@worktree/core';
-import type { HistoryNode, HistoryOperation, Node, Stats, Timestamp, TreeOperation } from '@worktree/core';
+import type { Block, HistoryNode, HistoryOperation, Node, Operation, Stats, Timestamp } from '@worktree/core';
 import { ApiError, ServerAPI } from './api';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
@@ -101,6 +101,7 @@ export class WorktreeClient {
         opCount: this.store.getConfirmed().length,
         nodeCount: countNodes(tree),
         reminderCount: countReminders(tree),
+        blockCount: this.store.getBlocks().length,
         state: 'working',
       });
     }
@@ -135,7 +136,7 @@ export class WorktreeClient {
   }
 
   /** Optimistic local edit; flushed to the server automatically while online. */
-  apply(op: TreeOperation): void {
+  apply(op: Operation): void {
     if (this.local) {
       this.store.applyLocalConfirmed(op);
       this.emit();
@@ -247,6 +248,49 @@ export class WorktreeClient {
     this.apply({ kind: 'edit_reminder', rmdId, ...patch });
   }
 
+  /** All calendar blocks, in creation order. */
+  getBlocks(): Block[] {
+    return this.store.getBlocks();
+  }
+
+  /** Add a calendar block; `nodeId` links it to a worktree node (at most one
+   *  block per node). Returns the new block id. */
+  addBlock(fields: { name: string; start: number; end: number; note?: string; nodeId?: string }): string {
+    this.validateBlockFields(fields.name, fields.start, fields.end);
+    if (fields.nodeId !== undefined) {
+      if (!findNode(this.getTree(), fields.nodeId)) throw new Error(`unknown node id: ${fields.nodeId}`);
+      this.ensureNodeUnlinked(fields.nodeId);
+    }
+    const id = newId();
+    this.apply({ kind: 'add_block', id, ...fields });
+    return id;
+  }
+
+  /** Edit a calendar block; `nodeId: null` clears the link. */
+  editBlock(id: string, patch: { name?: string; start?: number; end?: number; note?: string; nodeId?: string | null }): void {
+    const block = this.getBlocks().find((b) => b.id === id);
+    if (!block) throw new Error(`unknown block id: ${id}`);
+    if (patch.name !== undefined) {
+      if (patch.name === '') throw new Error('block name must not be empty');
+    }
+    if (patch.start !== undefined || patch.end !== undefined) {
+      this.validateBlockFields(block.name, patch.start ?? block.start, patch.end ?? block.end);
+    }
+    if (patch.nodeId !== undefined && patch.nodeId !== null) {
+      if (!findNode(this.getTree(), patch.nodeId)) throw new Error(`unknown node id: ${patch.nodeId}`);
+      this.ensureNodeUnlinked(patch.nodeId, id);
+    }
+    this.apply({ kind: 'edit_block', id, ...patch });
+  }
+
+  removeBlock(id: string): void {
+    this.apply({ kind: 'remove_block', id });
+  }
+
+  setBlockCompleted(id: string, completed: boolean): void {
+    this.apply({ kind: completed ? 'complete_block' : 'uncomplete_block', id });
+  }
+
   /** Change a node's ordering weight in place (keeps its parent). */
   setWeight(id: string, weight: number): void {
     const found = findNodeWithParent(this.getTree(), id);
@@ -280,6 +324,19 @@ export class WorktreeClient {
   private ensureUniqueSiblingName(parent: Node, name: string, excludeId?: string): void {
     if (parent.children.some((c) => c.id !== excludeId && c.name === name)) {
       throw new Error(`a sibling named "${name}" already exists under "${parent.id === ROOT_ID ? '/' : parent.name}"`);
+    }
+  }
+
+  /** Local pre-checks mirroring the core Calendar rules, for clear synchronous errors. */
+  private validateBlockFields(name: string, start: number, end: number): void {
+    if (name === '') throw new Error('block name must not be empty');
+    if (start >= end) throw new Error(`block start must be before end: ${start} >= ${end}`);
+  }
+
+  /** At most one block may link a node; `excludeId` exempts the block itself. */
+  private ensureNodeUnlinked(nodeId: string, excludeId?: string): void {
+    if (this.getBlocks().some((b) => b.id !== excludeId && b.nodeId === nodeId)) {
+      throw new Error(`node already linked to a block: ${nodeId}`);
     }
   }
 

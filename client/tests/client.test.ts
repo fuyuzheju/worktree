@@ -205,6 +205,75 @@ describe('WorktreeClient semantic operations', () => {
     expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'a/b' })).toThrow(/invalid username/);
     expect(() => new WorktreeClient({ serverUrl: 'http://localhost:1', user: '' })).toThrow(/invalid username/);
   });
+
+  describe('calendar blocks', () => {
+    it('addBlock returns an id and renders optimistically', () => {
+      const c = newClient();
+      const id = c.addBlock({ name: 'Standup', start: 1000, end: 2000 });
+      expect(id).toBeTruthy();
+      const blocks = c.getBlocks();
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]).toMatchObject({ id, name: 'Standup', start: 1000, end: 2000, note: '', status: false });
+    });
+
+    it('addBlock accepts a note and a node link', () => {
+      const c = newClient();
+      const a = c.addNode(ROOT_ID, 'A');
+      const id = c.addBlock({ name: 'B', start: 0, end: 10, note: 'n', nodeId: a });
+      expect(c.getBlocks()[0]).toMatchObject({ id, note: 'n', nodeId: a });
+    });
+
+    it('addBlock pre-checks name, period and link validity', () => {
+      const c = newClient();
+      expect(() => c.addBlock({ name: '', start: 0, end: 10 })).toThrow(/name must not be empty/);
+      expect(() => c.addBlock({ name: 'B', start: 10, end: 10 })).toThrow(/start must be before end/);
+      expect(() => c.addBlock({ name: 'B', start: 0, end: 10, nodeId: 'missing' })).toThrow(/unknown node id/);
+    });
+
+    it('setBlockCompleted propagates to the linked node through the replay', () => {
+      const c = newClient();
+      const a = c.addNode(ROOT_ID, 'A');
+      const id = c.addBlock({ name: 'B', start: 0, end: 10, nodeId: a });
+      c.setBlockCompleted(id, true);
+      expect(c.getBlocks()[0]!.status).toBe(true);
+      expect(c.getTree().children[0]!.status).toBe(true);
+      c.setBlockCompleted(id, false);
+      expect(c.getTree().children[0]!.status).toBe(false);
+    });
+
+    it('setCompleted on the node completes its linked block', () => {
+      const c = newClient();
+      const a = c.addNode(ROOT_ID, 'A');
+      c.addBlock({ name: 'B', start: 0, end: 10, nodeId: a });
+      c.setCompleted(a, true);
+      expect(c.getBlocks()[0]!.status).toBe(true);
+    });
+
+    it('enforces one block per node locally', () => {
+      const c = newClient();
+      const a = c.addNode(ROOT_ID, 'A');
+      c.addBlock({ name: 'B', start: 0, end: 10, nodeId: a });
+      expect(() => c.addBlock({ name: 'C', start: 0, end: 10, nodeId: a })).toThrow(/node already linked to a block/);
+    });
+
+    it('editBlock and removeBlock apply optimistically', () => {
+      const c = newClient();
+      const id = c.addBlock({ name: 'B', start: 0, end: 10 });
+      c.editBlock(id, { name: 'B2', start: 5, end: 15, note: 'n' });
+      expect(c.getBlocks()[0]).toMatchObject({ name: 'B2', start: 5, end: 15, note: 'n' });
+      expect(() => c.editBlock(id, { start: 20 })).toThrow(/start must be before end/);
+      c.editBlock(id, { nodeId: null });
+      c.removeBlock(id);
+      expect(c.getBlocks()).toHaveLength(0);
+    });
+
+    it('getStats reports the local block count', async () => {
+      const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true });
+      c.addBlock({ name: 'B', start: 0, end: 10 });
+      const stats = await c.getStats();
+      expect(stats.blockCount).toBe(1);
+    });
+  });
 });
 
 describe('WorktreeClient local mode', () => {
@@ -244,7 +313,7 @@ describe('WorktreeClient local mode', () => {
     const a = c.addNode(ROOT_ID, 'A');
     c.addReminder(a, 'R', 1000);
     const stats = await c.getStats();
-    expect(stats).toEqual({ opCount: 2, nodeCount: 1, reminderCount: 1, state: 'working' });
+    expect(stats).toEqual({ opCount: 2, nodeCount: 1, reminderCount: 1, blockCount: 0, state: 'working' });
   });
 
   it('undo removes the confirmed head in local mode', () => {

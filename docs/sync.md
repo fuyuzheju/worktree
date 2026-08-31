@@ -76,6 +76,16 @@ process ops in order, atomically:
       add_reminder: node exists
       edit_reminder: reminder exists, patch has at least one field
       edit_node: node exists, patch has at least one field
+      add_block: new_id unused, name non-empty, start < end; node_id (when given)
+        references an existing node not already linked by another block
+      remove_block: no-op when the target is already gone (idempotent)
+      edit_block: block exists, patch has at least one field; merged start/end must
+        satisfy start < end; a relink must reference an existing, unlinked node
+      complete_block/uncomplete_block: block exists
+
+block↔node completion propagation (see data_structure.md) is derived state
+inside a single apply — it never appends history ops, so the broadcast
+{type:'op'} carries only the originating op and every replay agrees.
   - validation and append run under the same serialization lock, so the
     validate → append sequence is atomic across concurrent requests
   - any op invalid → 400 {conflict_id: op.id, reason}, nothing is appended
@@ -107,7 +117,7 @@ messages (server → client):
 /api/stats
 header: Authorization: Bearer <token>
 
-get statistics for that user (op count, node count, reminder count, that user's state)
+get statistics for that user (op count, node count, reminder count, block count, that user's state)
 
 --
 

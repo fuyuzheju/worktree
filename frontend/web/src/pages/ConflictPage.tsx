@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Tree, filterTree } from '@worktree/core';
-import type { HistoryNode, HistoryOperation, Node, TreeOperation } from '@worktree/core';
+import { WorktreeState, filterTree } from '@worktree/core';
+import type { HistoryNode, HistoryOperation, Node, Operation } from '@worktree/core';
 import type { Conflict, WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
@@ -16,13 +16,13 @@ function toggleIn(set: Set<string>, id: string): Set<string> {
   return next;
 }
 
-function replay(ops: TreeOperation[]): Node {
+function replay(ops: Operation[]): Node {
   try {
-    return Tree.fromOps(ops).getRoot();
+    return WorktreeState.fromOps(ops).tree.getRoot();
   } catch {
     // Should not happen: base is the shared prefix and serverBranch its
     // suffix. Fall back to an empty tree rather than crashing the page.
-    return Tree.fromOps([]).getRoot();
+    return WorktreeState.fromOps([]).tree.getRoot();
   }
 }
 
@@ -75,7 +75,7 @@ function replayBranch(base: HistoryNode[], pending: HistoryOperation[]): Node {
     const history = [...base];
     for (const p of pending) {
       if (p.kind === 'add') {
-        const probe = Tree.fromOps(history.map((n) => n.op));
+        const probe = WorktreeState.fromOps(history.map((n) => n.op));
         try {
           probe.apply(p.op);
         } catch {
@@ -86,9 +86,9 @@ function replayBranch(base: HistoryNode[], pending: HistoryOperation[]): Node {
         history.pop();
       }
     }
-    return Tree.fromOps(history.map((n) => n.op)).getRoot();
+    return WorktreeState.fromOps(history.map((n) => n.op)).tree.getRoot();
   } catch {
-    return Tree.fromOps([]).getRoot();
+    return WorktreeState.fromOps([]).tree.getRoot();
   }
 }
 

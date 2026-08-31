@@ -1,11 +1,11 @@
-import { Tree } from '@worktree/core';
-import type { HistoryNode, HistoryOperation, TreeOperation } from '@worktree/core';
+import { Tree, WorktreeState } from '@worktree/core';
+import type { HistoryNode, HistoryOperation, Operation } from '@worktree/core';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { validateOps } from './validation';
 import type { ValidationResult } from './validation';
 
-const asJson = (op: TreeOperation): Prisma.InputJsonValue => op as unknown as Prisma.InputJsonValue;
+const asJson = (op: Operation): Prisma.InputJsonValue => op as unknown as Prisma.InputJsonValue;
 
 export class BaseMismatchError extends Error {
   constructor(
@@ -52,9 +52,9 @@ export interface AppendResult {
   removed: string[];
 }
 
-/** Server-side history: per-user Prisma persistence + the derived trees. */
+/** Server-side history: per-user Prisma persistence + the derived states. */
 export class HistoryStore {
-  private trees = new Map<number, Tree>();
+  private states = new Map<number, WorktreeState>();
   private userIds = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -62,17 +62,17 @@ export class HistoryStore {
   async load(): Promise<void> {
     const users = await prisma.user.findMany();
     this.userIds = new Map(users.map((u) => [u.name, u.id]));
-    this.trees = new Map();
+    this.states = new Map();
     for (const u of users) {
-      this.trees.set(u.id, await this.loadUserTree(u.id));
+      this.states.set(u.id, await this.loadUserState(u.id));
     }
   }
 
-  private async loadUserTree(userId: number): Promise<Tree> {
+  private async loadUserState(userId: number): Promise<WorktreeState> {
     const rows = await prisma.historyNode.findMany({ where: { userId }, orderBy: { id: 'asc' } });
-    const tree = new Tree();
-    for (const row of rows) tree.apply(row.op as unknown as TreeOperation);
-    return tree;
+    const state = new WorktreeState();
+    for (const row of rows) state.apply(row.op as unknown as Operation);
+    return state;
   }
 
   /**
@@ -88,22 +88,22 @@ export class HistoryStore {
     return user.id;
   }
 
-  private getTree(userId: number): Tree {
-    let tree = this.trees.get(userId);
-    if (!tree) {
-      tree = new Tree();
-      this.trees.set(userId, tree);
+  private getState(userId: number): WorktreeState {
+    let state = this.states.get(userId);
+    if (!state) {
+      state = new WorktreeState();
+      this.states.set(userId, state);
     }
-    return tree;
+    return state;
   }
 
-  async getTreeForUser(user: string): Promise<Tree> {
-    return this.getTree(await this.resolveUserId(user));
+  async getTreeForUser(user: string): Promise<WorktreeState> {
+    return this.getState(await this.resolveUserId(user));
   }
 
-  /** Snapshot of every loaded user's tree, for the reminder sweeper. */
+  /** Snapshot of every loaded user's state, for the reminder sweeper. */
   allUserTrees(): Array<{ userId: number; tree: Tree }> {
-    return [...this.trees.entries()].map(([userId, tree]) => ({ userId, tree }));
+    return [...this.states.entries()].map(([userId, state]) => ({ userId, tree: state.tree }));
   }
 
   /**
@@ -187,10 +187,10 @@ export class HistoryStore {
         }
       });
       if (removed.length > 0) {
-        this.trees.set(userId, await this.loadUserTree(userId));
+        this.states.set(userId, await this.loadUserState(userId));
       } else {
-        const tree = this.getTree(userId);
-        for (const n of added) tree.apply(n.op);
+        const state = this.getState(userId);
+        for (const n of added) state.apply(n.op);
       }
       return { added, removed };
     });
@@ -204,11 +204,11 @@ export class HistoryStore {
    */
   private async validateBatch(userId: number, ops: HistoryOperation[]): Promise<ValidationResult> {
     if (!ops.some((op) => op.kind === 'remove')) {
-      return validateOps(ops, this.getTree(userId));
+      return validateOps(ops, this.getState(userId));
     }
     const remaining = await this.allByUserId(userId);
     let headId = remaining.at(-1)?.id ?? null;
-    let probe = Tree.fromOps(remaining.map((n) => n.op));
+    let probe = WorktreeState.fromOps(remaining.map((n) => n.op));
     for (const op of ops) {
       if (op.kind === 'remove') {
         const idx = remaining.findIndex((n) => n.id === op.id);
@@ -216,7 +216,7 @@ export class HistoryStore {
         if (idx !== remaining.length - 1) throw new HeadUndoError(op.id, headId);
         remaining.pop();
         headId = remaining.at(-1)?.id ?? null;
-        probe = Tree.fromOps(remaining.map((n) => n.op));
+        probe = WorktreeState.fromOps(remaining.map((n) => n.op));
         continue;
       }
       try {
@@ -251,7 +251,7 @@ export class HistoryStore {
     });
     return {
       cursorFound: true,
-      nodes: rows.map((row) => ({ id: row.opId, op: row.op as unknown as TreeOperation })),
+      nodes: rows.map((row) => ({ id: row.opId, op: row.op as unknown as Operation })),
     };
   }
 
@@ -261,7 +261,7 @@ export class HistoryStore {
       where: { userId_opId: { userId, opId: id } },
     });
     if (!row) return null;
-    return { id: row.opId, op: row.op as unknown as TreeOperation };
+    return { id: row.opId, op: row.op as unknown as Operation };
   }
 
   async all(user: string): Promise<HistoryNode[]> {
@@ -271,7 +271,7 @@ export class HistoryStore {
 
   private async allByUserId(userId: number): Promise<HistoryNode[]> {
     const rows = await prisma.historyNode.findMany({ where: { userId }, orderBy: { id: 'asc' } });
-    return rows.map((row) => ({ id: row.opId, op: row.op as unknown as TreeOperation }));
+    return rows.map((row) => ({ id: row.opId, op: row.op as unknown as Operation }));
   }
 
   /** Replace the user's whole history; rejected when `base` is not the current head. */
@@ -299,7 +299,7 @@ export class HistoryStore {
           data: { headOpId: nodes.at(-1)?.id ?? null },
         });
       });
-      this.trees.set(userId, Tree.fromOps(nodes.map((n) => n.op)));
+      this.states.set(userId, WorktreeState.fromOps(nodes.map((n) => n.op)));
     });
   }
 }

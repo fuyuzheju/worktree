@@ -1,4 +1,4 @@
-import { Tree } from '@worktree/core';
+import { WorktreeState } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, HistoryPage } from '@worktree/core';
 import { ApiError } from './api';
 import type { ClientStore } from './store';
@@ -104,7 +104,7 @@ export class Syncer {
         const history = this.conflict ? [...this.conflict.base] : [...serverHistory];
         for (const p of keep) {
           if (p.kind === 'add') {
-            const probe = Tree.fromOps(history.map((n) => n.op));
+            const probe = WorktreeState.fromOps(history.map((n) => n.op));
             try {
               probe.apply(p.op);
             } catch {

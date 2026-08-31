@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TreeOperation } from '@worktree/core';
+import type { CalendarOperation, TreeOperation } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 import { prismaMock, resetDb, seedUser } from './helpers/prismaMock';
 
@@ -34,7 +34,7 @@ describe('HistoryStore', () => {
     expect(result.added.map((n) => n.id)).toEqual(['h1', 'h2']);
     expect(result.removed).toEqual([]);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1', 'h2']);
-    expect((await store.getTreeForUser(ALICE)).nodeCount()).toBe(2);
+    expect((await store.getTreeForUser(ALICE)).tree.nodeCount()).toBe(2);
   });
 
   it('skips duplicate ids with the same op (idempotent retry)', async () => {
@@ -43,7 +43,7 @@ describe('HistoryStore', () => {
     const result = await store.appendBatch(ALICE, [add('a', 'h1')]);
     expect(result.added).toEqual([]);
     expect(await store.all(ALICE)).toHaveLength(1);
-    expect((await store.getTreeForUser(ALICE)).nodeCount()).toBe(1);
+    expect((await store.getTreeForUser(ALICE)).tree.nodeCount()).toBe(1);
   });
 
   it('rejects a duplicate id with a different op, atomically', async () => {
@@ -57,7 +57,7 @@ describe('HistoryStore', () => {
     ).rejects.toBeInstanceOf(DuplicateOpError);
     // the batch rolled back: h2 must not have been appended
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
-    expect((await store.getTreeForUser(ALICE)).getNode('b')).toBeUndefined();
+    expect((await store.getTreeForUser(ALICE)).tree.getNode('b')).toBeUndefined();
   });
 
   it('rejects a sibling name collision atomically with ValidationError', async () => {
@@ -71,7 +71,7 @@ describe('HistoryStore', () => {
     ).rejects.toBeInstanceOf(ValidationError);
     // nothing of the batch was appended
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
-    expect((await store.getTreeForUser(ALICE)).getNode('b')).toBeUndefined();
+    expect((await store.getTreeForUser(ALICE)).tree.getNode('b')).toBeUndefined();
   });
 
   it('remove undoes the head and rolls the tree back', async () => {
@@ -80,9 +80,9 @@ describe('HistoryStore', () => {
     const result = await store.appendBatch(ALICE, [{ kind: 'remove', id: 'h2' }]);
     expect(result.removed).toEqual(['h2']);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
-    const tree = await store.getTreeForUser(ALICE);
-    expect(tree.getNode('b')).toBeUndefined();
-    expect(tree.getNode('a')).toBeDefined();
+    const state = await store.getTreeForUser(ALICE);
+    expect(state.tree.getNode('b')).toBeUndefined();
+    expect(state.tree.getNode('a')).toBeDefined();
   });
 
   it('rejects removing a non-head entry', async () => {
@@ -115,7 +115,7 @@ describe('HistoryStore', () => {
     ).rejects.toBeInstanceOf(ValidationError);
     // the whole batch was rejected: nothing changed
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
-    expect((await store.getTreeForUser(ALICE)).getNode('a')).toBeDefined();
+    expect((await store.getTreeForUser(ALICE)).tree.getNode('a')).toBeDefined();
   });
 
   it('accepts an add after an undo when it does not depend on the removed entry', async () => {
@@ -125,7 +125,7 @@ describe('HistoryStore', () => {
     expect(result.removed).toEqual(['h2']);
     expect(result.added.map((n) => n.id)).toEqual(['h3']);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1', 'h3']);
-    expect((await store.getTreeForUser(ALICE)).getNode('c')).toBeDefined();
+    expect((await store.getTreeForUser(ALICE)).tree.getNode('c')).toBeDefined();
   });
 
   it('since returns entries after the cursor; unknown cursor returns the whole chain', async () => {
@@ -152,9 +152,9 @@ describe('HistoryStore', () => {
     await store.appendBatch(ALICE, [add('a', 'h1')]);
     await store.replace(ALICE, 'h1', [node('m1'), node('m2')]);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['m1', 'm2']);
-    const tree = await store.getTreeForUser(ALICE);
-    expect(tree.nodeCount()).toBe(2);
-    expect(tree.getNode('a')).toBeUndefined();
+    const state = await store.getTreeForUser(ALICE);
+    expect(state.tree.nodeCount()).toBe(2);
+    expect(state.tree.getNode('a')).toBeUndefined();
   });
 
   it('replace rejects a stale base with BaseMismatchError and keeps the history', async () => {
@@ -162,7 +162,7 @@ describe('HistoryStore', () => {
     await store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h2')]);
     await expect(store.replace(ALICE, 'h1', [node('m1')])).rejects.toBeInstanceOf(BaseMismatchError);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1', 'h2']);
-    expect((await store.getTreeForUser(ALICE)).getNode('b')).toBeDefined();
+    expect((await store.getTreeForUser(ALICE)).tree.getNode('b')).toBeDefined();
   });
 
   it('replace accepts a null base only when the history is empty', async () => {
@@ -187,10 +187,10 @@ describe('HistoryStore', () => {
     const reloaded = new HistoryStore();
     await reloaded.load();
     expect((await reloaded.all(ALICE)).map((n) => n.id)).toEqual(['h1', 'h2']);
-    expect((await reloaded.getTreeForUser(ALICE)).nodeCount()).toBe(2);
+    expect((await reloaded.getTreeForUser(ALICE)).tree.nodeCount()).toBe(2);
     // and the reloaded store keeps accepting appends
     await reloaded.appendBatch(ALICE, [add('c', 'h3')]);
-    expect((await reloaded.getTreeForUser(ALICE)).nodeCount()).toBe(3);
+    expect((await reloaded.getTreeForUser(ALICE)).tree.nodeCount()).toBe(3);
   });
 
   it('a batch can add and undo its own head', async () => {
@@ -200,19 +200,19 @@ describe('HistoryStore', () => {
     expect(result.added.map((n) => n.id)).toEqual(['h2']);
     expect(result.removed).toEqual(['h2']);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
-    expect((await store.getTreeForUser(ALICE)).getNode('b')).toBeUndefined();
+    expect((await store.getTreeForUser(ALICE)).tree.getNode('b')).toBeUndefined();
   });
 
   it('accepts tree-op removes of already-removed nodes (idempotent)', async () => {
     const store = new HistoryStore();
     await store.appendBatch(ALICE, [add('a', 'h1')]);
     await store.appendBatch(ALICE, [{ kind: 'add', id: 'h2', op: { kind: 'remove', id: 'a' } }]);
-    expect((await store.getTreeForUser(ALICE)).nodeCount()).toBe(0);
+    expect((await store.getTreeForUser(ALICE)).tree.nodeCount()).toBe(0);
     // a second client removing the same node must not fail
     await expect(
       store.appendBatch(ALICE, [{ kind: 'add', id: 'h3', op: { kind: 'remove', id: 'a' } }]),
     ).resolves.toBeDefined();
-    expect((await store.getTreeForUser(ALICE)).nodeCount()).toBe(0);
+    expect((await store.getTreeForUser(ALICE)).tree.nodeCount()).toBe(0);
   });
 
   it('drain waits for in-flight appends', async () => {
@@ -237,7 +237,7 @@ describe('HistoryStore', () => {
   it('drain resolves immediately when idle', async () => {
     const store = new HistoryStore();
     await store.drain();
-    expect((await store.getTreeForUser(ALICE)).nodeCount()).toBe(0);
+    expect((await store.getTreeForUser(ALICE)).tree.nodeCount()).toBe(0);
   });
 
   it('two users may use the same opId independently', async () => {
@@ -252,7 +252,7 @@ describe('HistoryStore', () => {
     const store = new HistoryStore();
     await store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h2')]);
     expect(await store.all(BOB)).toEqual([]);
-    expect((await store.getTreeForUser(BOB)).nodeCount()).toBe(0);
+    expect((await store.getTreeForUser(BOB)).tree.nodeCount()).toBe(0);
   });
 
   it('a cross-user cursor yields cursorFound=false with the own full history', async () => {
@@ -290,5 +290,61 @@ describe('HistoryStore', () => {
   it('rejects an unknown user (users are only created via /api/register)', async () => {
     const store = new HistoryStore();
     await expect(store.appendBatch('carol', [add('c', 'h1')])).rejects.toBeInstanceOf(UnknownUserError);
+  });
+
+  describe('calendar blocks', () => {
+    const addBlock = (id: string, opId: string, blockOp: CalendarOperation) =>
+      ({ kind: 'add' as const, id: opId, op: blockOp });
+    const block = (id: string, nodeId?: string) => ({ kind: 'add_block' as const, id, name: id, start: 0, end: 10, nodeId });
+
+    it('appends block ops and derives the calendar', async () => {
+      const store = new HistoryStore();
+      await store.appendBatch(ALICE, [add('a', 'h1'), addBlock('b1', 'h2', block('b1', 'a'))]);
+      const state = await store.getTreeForUser(ALICE);
+      expect(state.calendar.blockCount()).toBe(1);
+      expect(state.calendar.getBlocks()[0]).toMatchObject({ id: 'b1', nodeId: 'a' });
+    });
+
+    it('propagates completion through the stored state', async () => {
+      const store = new HistoryStore();
+      await store.appendBatch(ALICE, [add('a', 'h1'), addBlock('b1', 'h2', block('b1', 'a'))]);
+      await store.appendBatch(ALICE, [{ kind: 'add', id: 'h3', op: { kind: 'complete', id: 'a' } }]);
+      const state = await store.getTreeForUser(ALICE);
+      expect(state.tree.getNode('a')!.status).toBe(true);
+      expect(state.calendar.getBlocks()[0]!.status).toBe(true);
+    });
+
+    it('rejects an invalid block op and appends nothing', async () => {
+      const store = new HistoryStore();
+      await expect(
+        store.appendBatch(ALICE, [
+          add('a', 'h1'),
+          addBlock('b1', 'h2', { kind: 'add_block', id: 'b1', name: 'B', start: 10, end: 10 }),
+        ]),
+      ).rejects.toBeInstanceOf(ValidationError);
+      expect(await store.all(ALICE)).toHaveLength(0);
+    });
+
+    it('skips a duplicate block op with the same op (idempotent retry)', async () => {
+      const store = new HistoryStore();
+      const blockOp = block('b1');
+      await store.appendBatch(ALICE, [{ kind: 'add', id: 'h1', op: blockOp }]);
+      const result = await store.appendBatch(ALICE, [{ kind: 'add', id: 'h1', op: blockOp }]);
+      expect(result.added).toEqual([]);
+      expect(await store.all(ALICE)).toHaveLength(1);
+    });
+
+    it('rebuilds blocks on undo and rewrite', async () => {
+      const store = new HistoryStore();
+      await store.appendBatch(ALICE, [add('a', 'h1'), addBlock('b1', 'h2', block('b1', 'a'))]);
+      // undo the add_block: the block disappears
+      await store.appendBatch(ALICE, [{ kind: 'remove', id: 'h2' }]);
+      expect((await store.getTreeForUser(ALICE)).calendar.blockCount()).toBe(0);
+      // rewrite replaces the whole history: block comes back
+      await store.replace(ALICE, 'h1', [{ id: 'h1', op: op('a') }, { id: 'h2', op: block('b1', 'a') }]);
+      const state = await store.getTreeForUser(ALICE);
+      expect(state.calendar.blockCount()).toBe(1);
+      expect(state.calendar.getBlocks()[0]!.nodeId).toBe('a');
+    });
   });
 });

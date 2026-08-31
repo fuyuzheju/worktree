@@ -1,4 +1,4 @@
-import type { HistoryNode, TreeOperation } from './types';
+import type { HistoryNode, Operation } from './types';
 
 /**
  * Append-ordered chain of confirmed operations. `since` returns the entries
@@ -8,7 +8,7 @@ export class HistoryChain {
   private nodes = new Map<string, HistoryNode>();
   private order: string[] = [];
 
-  append(id: string, op: TreeOperation): HistoryNode {
+  append(id: string, op: Operation): HistoryNode {
     if (this.nodes.has(id)) throw new Error(`history node ${id} already exists`);
     const node: HistoryNode = { id, op };
     this.nodes.set(id, node);

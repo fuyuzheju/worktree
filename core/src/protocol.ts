@@ -44,6 +44,7 @@ export interface Stats {
   opCount: number;
   nodeCount: number;
   reminderCount: number;
+  blockCount: number;
   state: ServerState;
 }
 

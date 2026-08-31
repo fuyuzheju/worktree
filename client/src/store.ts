@@ -1,12 +1,12 @@
-import { HistoryChain, PendingQueue, Tree, newId } from '@worktree/core';
-import type { HistoryNode, HistoryOperation, Node, TreeOperation } from '@worktree/core';
+import { HistoryChain, PendingQueue, WorktreeState, newId } from '@worktree/core';
+import type { Block, HistoryNode, HistoryOperation, Node, Operation } from '@worktree/core';
 import type { SavedState } from './storage';
 
-/** Client-side state: confirmed history + pending queue, rendered as a tree. */
+/** Client-side state: confirmed history + pending queue, rendered as a tree and calendar. */
 export class ClientStore {
   private confirmed = new HistoryChain();
   private pending = new PendingQueue();
-  private tree = new Tree();
+  private state = new WorktreeState();
 
   constructor(private persist?: (state: SavedState) => void) {}
 
@@ -19,7 +19,11 @@ export class ClientStore {
   }
 
   getTree(): Node {
-    return this.tree.getRoot();
+    return this.state.tree.getRoot();
+  }
+
+  getBlocks(): Block[] {
+    return this.state.calendar.getBlocks();
   }
 
   getConfirmed(): HistoryNode[] {
@@ -31,7 +35,7 @@ export class ClientStore {
   }
 
   /** Local optimistic edit: wrap in a history op and queue it. */
-  applyLocal(op: TreeOperation): void {
+  applyLocal(op: Operation): void {
     const id = newId();
     this.pending.enqueue({ kind: 'add', id, op });
     this.rebuild();
@@ -61,7 +65,7 @@ export class ClientStore {
   }
 
   /** Offline-only edit (local user): go straight into the confirmed chain. */
-  applyLocalConfirmed(op: TreeOperation): void {
+  applyLocalConfirmed(op: Operation): void {
     this.confirmed.append(newId(), op);
     this.rebuild();
   }
@@ -116,18 +120,17 @@ export class ClientStore {
       if (p.kind !== 'remove') continue;
       if (confirmed.at(-1)?.id === p.id) confirmed.pop();
     }
-    const tree = new Tree();
-    for (const n of confirmed) tree.apply(n.op);
+    const state = WorktreeState.fromOps(confirmed.map((n) => n.op));
     for (const p of pending) {
       if (p.kind !== 'add') continue;
       try {
-        tree.apply(p.op);
+        state.apply(p.op);
       } catch {
         // Pending op no longer applies to the confirmed state (conflict):
         // render without it until the conflict is resolved.
       }
     }
-    this.tree = tree;
+    this.state = state;
     if (this.persist) {
       try {
         this.persist({ confirmed: this.confirmed.toArray(), pending: this.pending.getAll() });

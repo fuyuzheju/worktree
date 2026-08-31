@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { Tree } from '@worktree/core';
+import { WorktreeState } from '@worktree/core';
 import type { RewriteRequest } from '@worktree/core';
 import { setState } from '../state';
 import { BaseMismatchError } from '../store';
@@ -20,7 +20,7 @@ export function rewriteRouter(store: HistoryStore): Router {
       return;
     }
     try {
-      Tree.fromOps(history.map((n) => n.op));
+      WorktreeState.fromOps(history.map((n) => n.op));
     } catch (e) {
       res.status(400).json({ error: e instanceof Error ? e.message : String(e) });
       return;

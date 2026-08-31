@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROOT_ID, Tree } from '@worktree/core';
+import { ROOT_ID, WorktreeState } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, HistoryPage, Node, TreeOperation } from '@worktree/core';
 import { ApiError } from '../src/api';
 import type { SyncAPI } from '../src/syncer';
@@ -267,12 +267,12 @@ describe('Syncer', () => {
     expect(conflict.serverBranch.map((n) => n.id)).toEqual(['h2']);
     expect(conflict.localBranch).toHaveLength(1);
     // Server version: alpha removed. Local version: alpha with its child.
-    const serverTree = Tree.fromOps([...conflict.base, ...conflict.serverBranch].map((n) => n.op)).getRoot();
+    const serverTree = WorktreeState.fromOps([...conflict.base, ...conflict.serverBranch].map((n) => n.op)).tree.getRoot();
     expect(findNode(serverTree, 'alpha')).toBeUndefined();
     const localHistory = [...conflict.base];
     for (const p of conflict.localBranch) {
       if (p.kind === 'add') {
-        const probe = Tree.fromOps(localHistory.map((n) => n.op));
+        const probe = WorktreeState.fromOps(localHistory.map((n) => n.op));
         try {
           probe.apply(p.op);
         } catch {
@@ -283,7 +283,7 @@ describe('Syncer', () => {
         localHistory.pop();
       }
     }
-    const localTree = Tree.fromOps(localHistory.map((n) => n.op)).getRoot();
+    const localTree = WorktreeState.fromOps(localHistory.map((n) => n.op)).tree.getRoot();
     expect(findNode(localTree, 'alpha')).toBeDefined();
     expect(findNode(localTree, 'child')).toBeDefined();
   });

@@ -10,6 +10,22 @@ export interface Reminder {
   active: boolean;
 }
 
+export interface Block {
+  id: string;
+  /** Non-empty. */
+  name: string;
+  /** Period start in ms. */
+  start: Timestamp;
+  /** Period end in ms; start < end. */
+  end: Timestamp;
+  /** Detailed description; '' when unset. */
+  note: string;
+  /** true = completed */
+  status: boolean;
+  /** Linked worktree node; absent = standalone block. At most one block links a node. */
+  nodeId?: string;
+}
+
 export interface Node {
   id: string;
   /** Non-empty, must not contain '/'; unique among siblings (enforced by Tree). */
@@ -72,6 +88,28 @@ export type TreeOperation =
       deadline?: Timestamp | null;
     };
 
+/**
+ * Operations applied to the calendar. All ids are client-generated UUIDs.
+ * `edit_block.nodeId`: null clears the link; absent = unchanged.
+ */
+export type CalendarOperation =
+  | { kind: 'add_block'; id: string; name: string; start: Timestamp; end: Timestamp; note?: string; nodeId?: string }
+  | { kind: 'remove_block'; id: string }
+  | {
+      kind: 'edit_block';
+      id: string;
+      name?: string;
+      start?: Timestamp;
+      end?: Timestamp;
+      note?: string;
+      nodeId?: string | null;
+    }
+  | { kind: 'complete_block'; id: string }
+  | { kind: 'uncomplete_block'; id: string };
+
+/** Any operation the history may hold: tree domain or calendar domain. */
+export type Operation = TreeOperation | CalendarOperation;
+
 /** Display/selection criteria. All fields optional; undefined fields are unconstrained.
  *  Bounds are inclusive; keyword matching is case-insensitive. */
 export interface NodeFilter {
@@ -103,12 +141,12 @@ export interface FilteredNode {
 /** An entry of the history log. `id` is the op's client-generated UUID. */
 export interface HistoryNode {
   id: string;
-  op: TreeOperation;
+  op: Operation;
 }
 
 /** Operations on the history log. `remove` is an undo: it may only delete the head. */
 export type HistoryOperation =
-  | { kind: 'add'; id: string; op: TreeOperation }
+  | { kind: 'add'; id: string; op: Operation }
   | { kind: 'remove'; id: string };
 
 /** The history: an ordered list of HistoryNodes in server append order. */

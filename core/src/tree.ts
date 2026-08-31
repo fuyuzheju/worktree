@@ -169,6 +169,16 @@ export class Tree {
     }
   }
 
+  /**
+   * Derived status change (completion propagation): sets the node's status
+   * and re-sorts its siblings, without recording a history op.
+   */
+  setNodeStatus(id: string, status: boolean): void {
+    const node = this.mustGet(id);
+    node.status = status;
+    this.resortSiblings(id);
+  }
+
   getRoot(): Node {
     return this.root;
   }

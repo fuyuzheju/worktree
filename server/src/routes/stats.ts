@@ -7,11 +7,12 @@ export function statsRouter(store: HistoryStore): Router {
 
   router.get('/', async (req, res) => {
     const user = res.locals.user as string;
-    const tree = await store.getTreeForUser(user);
+    const state = await store.getTreeForUser(user);
     res.json({
       opCount: (await store.all(user)).length,
-      nodeCount: tree.nodeCount(),
-      reminderCount: tree.reminderCount(),
+      nodeCount: state.tree.nodeCount(),
+      reminderCount: state.tree.reminderCount(),
+      blockCount: state.calendar.blockCount(),
       state: getState(user),
     });
   });

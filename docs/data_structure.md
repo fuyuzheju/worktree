@@ -47,6 +47,28 @@ User weights are "small weights" (e.g. 1, 2, 3): completion status, not weight,
 decides which group a node lands in.
 sibling names: unique within a parent — names are the path segments clients address nodes by.
 
+Block:
+id: string,
+name: string, (non-empty)
+start: timestamp, (period start, ms)
+end: timestamp, (period end, ms; start < end)
+note: string, (detailed description; '' when unset)
+status: boolean, (true for completed, false for uncompleted)
+nodeId: string | undefined, (linked worktree node; absent = standalone block)
+
+At most one block may link a given node.
+
+Blocks and linked nodes propagate completion in both directions. Propagation
+is derived state inside a single apply — no extra history ops, so replay is
+deterministic and undo/rewrite revert it automatically:
+- completing/uncompleting a node completes/uncompletes its linked block
+- completing/uncompleting a block completes/uncompletes its linked node
+- a new or relinked block starts with its node's status
+- only direct links propagate: completing a parent node does not touch the
+  blocks of its descendants
+Removing a node keeps its linked blocks but clears their nodeId; undoing the
+removal restores the links via replay. copy/rename/move leave links intact.
+
 TreeOperation:
 add(id, new_name, new_id, weight[, note, deadline, created_at]) | 
 remove(id) | 
@@ -76,6 +98,24 @@ copy is shallow: copies name, status, reminders, note and deadline, not children
 new_name defaults to the source's name. The copy's createdAt is set at apply time
 (display-only — no validation depends on it, so replay divergence is harmless).
 
+CalendarOperation:
+add_block(id, name, start, end[, note, node_id]) |
+remove_block(id) |   // idempotent: removing an unknown block is a no-op
+edit_block(id, patch: {
+  name?: string,
+  start?: timestamp,
+  end?: timestamp,    // merged start/end must satisfy start < end
+  note?: string,
+  nodeId?: string | null,   // absent = unchanged; null = clear the link
+}) |
+complete_block(id) |
+uncomplete_block(id)
+
+add_block/edit_block reject a node_id that is already linked by another block
+(`node already linked to a block`) and a node_id that does not exist (`unknown
+node id`). Empty edit_block patches are rejected. Completing/uncompleting an
+unknown block is rejected (like complete).
+
 NodeFilter (client-side display criteria, not part of the persisted log):
 keyword?: string,           // name OR note contains it (case-insensitive)
 nameContains?: string,
@@ -90,7 +130,9 @@ status?: boolean,           // true = only completed; false = only uncompleted
 Filtering is a pure view concern: matchesFilter/filterTree in core compute it;
 the frontends only render the result. The root never matches a filter.
 
-HistoryNode: {id: string, op: TreeOperation}   // id = op UUID, unique
+Operation = TreeOperation | CalendarOperation
+
+HistoryNode: {id: string, op: Operation}   // id = op UUID, unique
 
 HistoryOperation:
 add(id, op) | 
