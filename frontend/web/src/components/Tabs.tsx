@@ -3,6 +3,7 @@ import { useI18n } from '../i18n';
 
 const TABS: { id: Tab; key: string }[] = [
   { id: 'tree', key: 'tabs.tree' },
+  { id: 'calendar', key: 'tabs.calendar' },
   { id: 'stats', key: 'tabs.stats' },
   { id: 'settings', key: 'tabs.settings' },
 ];

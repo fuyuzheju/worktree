@@ -6,12 +6,13 @@ import { I18nProvider, useI18n } from './i18n';
 import { StatusBar } from './components/StatusBar';
 import { Tabs } from './components/Tabs';
 import { TreePage } from './pages/TreePage';
+import { CalendarPage } from './pages/CalendarPage';
 import { StatsPage } from './pages/StatsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ConflictPage } from './pages/ConflictPage';
 import { AuthPage } from './pages/AuthPage';
 
-export type Tab = 'tree' | 'stats' | 'settings';
+export type Tab = 'tree' | 'calendar' | 'stats' | 'settings';
 
 export default function App() {
   const [config, setConfig] = useState<AppConfig>(loadConfig);
@@ -168,6 +169,14 @@ function Shell(props: {
             updateConfig={updateConfig}
             initialNodeId={initialNodeId ?? undefined}
             focusNode={focusNode}
+          />
+        )}
+        {tab === 'calendar' && (
+          <CalendarPage
+            client={client}
+            tree={tree}
+            display={config.display}
+            calendarDays={config.calendarDays}
           />
         )}
         {tab === 'stats' && <StatsPage client={client} />}

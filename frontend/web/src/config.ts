@@ -18,6 +18,8 @@ export interface AppConfig {
   user: string;
   display: DisplayPrefs;
   lang: string;
+  /** Day columns shown in the calendar grid (3–9). */
+  calendarDays: number;
 }
 
 const CONFIG_KEY = 'worktree.config';
@@ -27,6 +29,7 @@ const defaultConfig: AppConfig = {
   user: LOCAL_USER,
   display: { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' },
   lang: 'en',
+  calendarDays: 7,
 };
 
 export function loadConfig(): AppConfig {
