@@ -79,9 +79,20 @@ describe('CalendarPage grid', () => {
     expect(screen.getByTestId('block-b1').textContent).toContain('alpha');
   });
 
-  it('styles completed bars gray', () => {
-    renderPage(makeClient([blk('b1', day(15, 9), day(15, 10), true)]));
-    expect(screen.getByTestId('block-b1').className).toContain('bg-gray-400');
+  it('colors bars from the palette and dims completed ones', () => {
+    renderPage(
+      makeClient([
+        blk('b1', day(15, 9), day(15, 10), true),
+        blk('b2', day(15, 11), day(15, 12), false),
+      ]),
+    );
+    const done = screen.getByTestId('block-b1');
+    const open = screen.getByTestId('block-b2');
+    expect(done.style.opacity).toBe('0.5');
+    expect(done.style.backgroundColor).not.toBe('');
+    expect(done.className).not.toContain('bg-gray-400');
+    expect(open.style.opacity).toBe('');
+    expect(open.style.backgroundColor).not.toBe('');
   });
 
   it('highlights the today column header', () => {

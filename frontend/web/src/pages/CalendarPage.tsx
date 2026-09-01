@@ -9,6 +9,7 @@ import {
   DAY_MS,
   DEFAULT_PX_PER_HOUR,
   HOUR_GUTTER_PX,
+  blockColor,
   dayOffsetCalc,
   dayStartMs,
   dayWidthCalc,
@@ -161,15 +162,15 @@ export function CalendarPage(props: {
                   onClick={() => setEditing({ mode: 'edit', id: bar.id })}
                   title={bar.block.name + (linked ? ` · ${linked.name}` : '')}
                   className={`absolute overflow-hidden rounded p-1 text-left text-white min-h-[14px] ${
-                    bar.block.status
-                      ? 'bg-gray-400 opacity-70'
-                      : 'bg-blue-600 hover:bg-blue-700'
+                    bar.block.status ? '' : 'hover:brightness-95'
                   } ${
                     editing?.mode === 'edit' && editing.id === bar.id
                       ? 'ring-2 ring-inset ring-blue-300'
                       : ''
                   }`}
                   style={{
+                    backgroundColor: blockColor(bar.id),
+                    opacity: bar.block.status ? 0.5 : undefined,
                     top: `${(bar.topPx / DAY_PX) * 100}%`,
                     height: `${(bar.heightPx / DAY_PX) * 100}%`,
                     left: dayOffsetCalc((bar.dayIndex + bar.lane / bar.lanes) / calendarDays),

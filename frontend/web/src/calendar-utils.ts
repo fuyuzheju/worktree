@@ -9,6 +9,35 @@ export const MIN_BAR_PX = 14;
 /** Left gutter holding the hour labels. */
 export const HOUR_GUTTER_PX = 44;
 
+/** Built-in bar colors; dark enough for white text. */
+export const BLOCK_COLORS = [
+  '#2563eb', // blue
+  '#0d9488', // teal
+  '#7c3aed', // violet
+  '#db2777', // pink
+  '#ea580c', // orange
+  '#16a34a', // green
+  '#0891b2', // cyan
+  '#e11d48', // rose
+  '#ca8a04', // yellow
+  '#4f46e5', // indigo
+] as const;
+
+/** FNV-1a 32-bit; a UUID's hex chars hash to an even spread over the palette. */
+function fnv1a(str: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** Stable per-block color: hashing the id looks random but never changes. */
+export function blockColor(blockId: string): string {
+  return BLOCK_COLORS[fnv1a(blockId) % BLOCK_COLORS.length];
+}
+
 /**
  * CSS `calc` for a position inside the grid's day area (i.e. excluding the
  * gutter). `fraction` is 0..1 of the day area, e.g. a day-column boundary at

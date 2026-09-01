@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Block } from '@worktree/core';
 import {
+  BLOCK_COLORS,
   DEFAULT_PX_PER_HOUR,
   HOUR_GUTTER_PX,
   MIN_BAR_PX,
+  blockColor,
   dayOffsetCalc,
   dayStartMs,
   dayWidthCalc,
@@ -35,6 +37,25 @@ describe('dayStartMs / isToday', () => {
   it('isToday compares day starts', () => {
     expect(isToday(jan(15), jan(15, 23, 59))).toBe(true);
     expect(isToday(jan(15), jan(16))).toBe(false);
+  });
+});
+
+describe('blockColor', () => {
+  it('is stable across calls for the same id', () => {
+    expect(blockColor('uuid-1')).toBe(blockColor('uuid-1'));
+    expect(blockColor('uuid-2')).toBe(blockColor('uuid-2'));
+  });
+
+  it('always picks a palette color', () => {
+    const ids = ['a', 'b', 'c', '0', 'uuid-x', '12345678-1234-1234-1234-123456789abc'];
+    for (const id of ids) {
+      expect(BLOCK_COLORS).toContain(blockColor(id));
+    }
+  });
+
+  it('spreads ids across the palette', () => {
+    const ids = Array.from({ length: 40 }, (_, i) => `block-${i}`);
+    expect(new Set(ids.map(blockColor)).size).toBeGreaterThan(1);
   });
 });
 
