@@ -104,6 +104,7 @@ describe('NodeDetailPanel note and deadline editing', () => {
   it('shows createdAt and deadline in the metadata', () => {
     const node = nodeWithFields();
     renderPanel(node, makeClient(node));
+    fireEvent.click(screen.getByTestId('detail-tab-info'));
     expect(screen.getByTestId('detail-created').textContent).toContain('2025-06-');
     expect(screen.getByTestId('detail-deadline-value').textContent).toContain('2025-10-');
   });
@@ -114,8 +115,22 @@ describe('NodeDetailPanel note and deadline editing', () => {
       'aaaa-1',
     );
     renderPanel(node, makeClient(node));
+    fireEvent.click(screen.getByTestId('detail-tab-info'));
     expect(screen.getByTestId('detail-created').textContent).toBe('—');
     expect(screen.getByTestId('detail-deadline-value').textContent).toBe('—');
+  });
+
+  it('ignores Enter while an IME is composing, applies it otherwise', () => {
+    const node = makeNode(
+      [{ kind: 'add', parentId: ROOT_ID, id: 'aaaa-1', name: 'alpha', weight: 1 }],
+      'aaaa-1',
+    );
+    const client = makeClient(node);
+    renderPanel(node, client);
+    fireEvent.keyDown(screen.getByTestId('detail-rename-input'), { key: 'Enter', isComposing: true });
+    expect(client.renameNode).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByTestId('detail-rename-input'), { key: 'Enter' });
+    expect(client.renameNode).toHaveBeenCalled();
   });
 
   it('saves the note through client.setNote', () => {

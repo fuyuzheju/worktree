@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* iOS zooms the page when a focused input has font-size < 16px.
    Tailwind's text-sm class wins by specificity, hence !important. */
 @media (max-width: 767px) {

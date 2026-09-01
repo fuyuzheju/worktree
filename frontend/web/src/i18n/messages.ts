@@ -70,6 +70,9 @@ export const messages: Record<string, StringMap> = {
     },
     detail: {
       title: 'Node details',
+      tabOperation: 'Operation',
+      tabInfo: 'Info',
+      tabReminders: 'Reminders',
       rootTitle: 'Workspace root',
       name: 'Name',
       id: 'Id',
