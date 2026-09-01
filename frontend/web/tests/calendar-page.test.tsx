@@ -6,6 +6,7 @@ import type { Block, Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { I18nProvider } from '../src/i18n';
 import type { DisplayPrefs } from '../src/config';
+import { FilterProvider } from '../src/filter-context';
 import { DEFAULT_PX_PER_HOUR, dayWidthCalc } from '../src/calendar-utils';
 import { CalendarPage } from '../src/pages/CalendarPage';
 
@@ -56,7 +57,9 @@ function makeClient(blocks: Block[]): WorktreeClient & {
 function renderPage(client: WorktreeClient, calendarDays = 3) {
   render(
     <I18nProvider lang="en">
-      <CalendarPage client={client} tree={tree} display={display} calendarDays={calendarDays} nowMs={NOW} />
+      <FilterProvider filter={{}} mode="hide" setFilter={() => undefined} setMode={() => undefined}>
+        <CalendarPage client={client} tree={tree} display={display} calendarDays={calendarDays} nowMs={NOW} />
+      </FilterProvider>
     </I18nProvider>,
   );
 }

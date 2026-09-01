@@ -4,6 +4,7 @@ import { hasActiveFilter } from '@worktree/core';
 import type { FilterDisplayMode } from '../config';
 import { useI18n } from '../i18n';
 import { epochToLocalInput, localInputToEpoch } from '../time';
+import { ChevronDownIcon, ChevronUpIcon, FilterIcon } from './icons';
 
 export interface FilterBarProps {
   filter: NodeFilter;
@@ -36,12 +37,13 @@ export function FilterBar(props: FilterBarProps) {
         type="button"
         onClick={() => setOpen(!open)}
         data-testid="filter-toggle"
-        className={`rounded border px-2 py-1 font-mono text-xs hover:bg-gray-50 ${
+        className={`inline-flex items-center gap-1 rounded border px-2 py-1 font-mono text-xs hover:bg-gray-50 ${
           active ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-300 bg-white'
         }`}
       >
-        {active ? '● ' : ''}
-        {t('filter.title')} {open ? '▴' : '▾'}
+        <FilterIcon className="h-3.5 w-3.5" />
+        {t('filter.title')}
+        {open ? <ChevronUpIcon className="h-3 w-3" /> : <ChevronDownIcon className="h-3 w-3" />}
       </button>
       {open && (
         <div className="absolute right-0 top-full z-10 mt-1 w-72 rounded border border-gray-300 bg-white p-3 font-mono text-xs shadow-lg">

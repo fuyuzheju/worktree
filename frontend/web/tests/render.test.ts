@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Tree } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 import type { Node, TreeOperation } from '@worktree/core';
-import { connectors, formatNode, formatReminder, rootLine, shortId } from '../src/render';
+import { connectors, formatNode, formatReminder, shortId } from '../src/render';
 import type { DisplayPrefs } from '../src/config';
 
 const fullDisplay: DisplayPrefs = { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' };
@@ -86,14 +86,3 @@ describe('connectors', () => {
   });
 });
 
-describe('rootLine', () => {
-  it('renders the worktree root as a dot by default', () => {
-    const root = Tree.fromOps([]).getRoot();
-    expect(rootLine(root, fullDisplay)).toBe('.');
-  });
-
-  it('uses the given root name for the worktree root', () => {
-    const root = Tree.fromOps([]).getRoot();
-    expect(rootLine(root, fullDisplay, 'workroot')).toBe('workroot');
-  });
-});

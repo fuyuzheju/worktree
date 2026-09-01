@@ -43,8 +43,11 @@ describe('ConflictPage', () => {
     expect(screen.getByText('1 pending local op(s)')).toBeTruthy();
     // Server branch: alpha was removed → empty tree hint on the server side.
     expect(screen.getAllByText('(empty tree — select the root to add a node)').length).toBe(1);
-    // Local branch: the renamed node.
-    expect(screen.getByText(/alpha2 \[aaaa\] w:1/)).toBeTruthy();
+    // Local branch: the renamed node (row content is split into icon/text parts).
+    const row = screen.getByText(
+      (_, el) => el?.getAttribute('data-node-id') === 'aaaa-1' && el.textContent?.trim() === 'alpha2 [aaaa] w:1',
+    );
+    expect(row).toBeTruthy();
   });
 
   it('shows different trees for a stale-undo conflict', () => {

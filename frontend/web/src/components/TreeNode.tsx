@@ -1,6 +1,8 @@
 import type { FilteredNode } from '@worktree/core';
 import type { DisplayPrefs } from '../config';
-import { connectors, formatNode } from '../render';
+import { connectors } from '../render';
+import { ChevronDownIcon, ChevronRightIcon } from './icons';
+import { NodeLabel } from './NodeLabel';
 
 /** How a node differs from the other side of a conflict. */
 export type DiffStyle = 'only' | 'changed';
@@ -77,13 +79,17 @@ export function TreeNode(props: TreeNodeProps) {
             aria-label={isOpen ? 'collapse' : 'expand'}
             className="inline-block h-8 w-8 cursor-pointer select-none text-gray-600 hover:text-gray-900 md:h-auto md:w-5"
           >
-            {isOpen ? '▾' : '▸'}
+            {isOpen ? (
+              <ChevronDownIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+            ) : (
+              <ChevronRightIcon className="h-4 w-4 md:h-3.5 md:w-3.5" />
+            )}
           </button>
         ) : (
           <span className="inline-block h-8 w-8 md:h-auto md:w-5" />
         )}
         {readOnly ? (
-          <span data-node-id={node.id} className={filterStyle}>{formatNode(node, display)}</span>
+          <span data-node-id={node.id} className={filterStyle}><NodeLabel node={node} display={display} /></span>
         ) : (
           <button
             type="button"
@@ -91,7 +97,7 @@ export function TreeNode(props: TreeNodeProps) {
             className={`p-1 cursor-pointer rounded-lg max-md:flex-1 ${bg}${ring}${filterStyle} text-left`}
             onClick={() => onSelect(node.id)}
           >
-            {formatNode(node, display)}
+            <NodeLabel node={node} display={display} />
           </button>
         )}
       </div>

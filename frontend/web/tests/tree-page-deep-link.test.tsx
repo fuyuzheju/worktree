@@ -5,6 +5,7 @@ import { ROOT_ID } from '@worktree/core';
 import type { Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { I18nProvider } from '../src/i18n';
+import { FilterProvider } from '../src/filter-context';
 import { TreePage } from '../src/pages/TreePage';
 
 const DEFAULT_DISPLAY = { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' as const };
@@ -28,14 +29,16 @@ function renderPage(props: {
   const client = makeClient();
   return render(
     <I18nProvider lang="en">
-      <TreePage
-        tree={makeTree()}
-        client={client}
-        display={DEFAULT_DISPLAY}
-        updateConfig={vi.fn()}
-        initialNodeId={props.initialNodeId}
-        focusNode={props.focusNode}
-      />
+      <FilterProvider filter={{}} mode="hide" setFilter={() => undefined} setMode={() => undefined}>
+        <TreePage
+          tree={makeTree()}
+          client={client}
+          display={DEFAULT_DISPLAY}
+          updateConfig={vi.fn()}
+          initialNodeId={props.initialNodeId}
+          focusNode={props.focusNode}
+        />
+      </FilterProvider>
     </I18nProvider>,
   );
 }
@@ -43,13 +46,15 @@ function renderPage(props: {
 function treePageElement(props: { focusNode?: { id: string; nonce: number } | null }) {
   return (
     <I18nProvider lang="en">
-      <TreePage
-        tree={makeTree()}
-        client={makeClient()}
-        display={DEFAULT_DISPLAY}
-        updateConfig={vi.fn()}
-        focusNode={props.focusNode ?? null}
-      />
+      <FilterProvider filter={{}} mode="hide" setFilter={() => undefined} setMode={() => undefined}>
+        <TreePage
+          tree={makeTree()}
+          client={makeClient()}
+          display={DEFAULT_DISPLAY}
+          updateConfig={vi.fn()}
+          focusNode={props.focusNode ?? null}
+        />
+      </FilterProvider>
     </I18nProvider>
   );
 }

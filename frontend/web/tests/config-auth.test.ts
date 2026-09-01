@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearToken, listLoggedInUsers, loadToken, saveToken, tokenKey } from '../src/config';
+import { clearToken, listLoggedInUsers, loadConfig, loadToken, saveConfig, saveToken, tokenKey } from '../src/config';
 
 beforeEach(() => {
   localStorage.clear();
@@ -25,6 +25,21 @@ describe('token storage', () => {
 
   it('namespaces like the state key', () => {
     expect(tokenKey('http://localhost:3000', 'alice')).toBe('worktree.token.localhost_3000.alice');
+  });
+
+  it('round-trips the persisted filter', () => {
+    saveConfig({ ...loadConfig(), filter: { keyword: 'fix', status: false, deadlineBefore: 1000 } });
+    expect(loadConfig().filter).toEqual({ keyword: 'fix', status: false, deadlineBefore: 1000 });
+    saveConfig({ ...loadConfig(), filter: {} });
+    expect(loadConfig().filter).toEqual({});
+  });
+
+  it('drops invalid filter fields on load', () => {
+    localStorage.setItem(
+      'worktree.config',
+      JSON.stringify({ filter: { keyword: 'ok', status: 'yes', deadlineBefore: 'soon', createdAfter: 5, nope: 1 } }),
+    );
+    expect(loadConfig().filter).toEqual({ keyword: 'ok', createdAfter: 5 });
   });
 
   it('lists logged-in users for one server only, sorted', () => {

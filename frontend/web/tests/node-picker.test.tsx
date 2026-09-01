@@ -2,9 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Tree } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
-import type { Node } from '@worktree/core';
+import type { Node, NodeFilter } from '@worktree/core';
 import { I18nProvider } from '../src/i18n';
 import type { DisplayPrefs } from '../src/config';
+import { FilterProvider } from '../src/filter-context';
 import { NodePicker } from '../src/components/NodePicker';
 
 const display: DisplayPrefs = { showId: false, showWeight: false, showReminders: false, filterMode: 'hide' };
@@ -14,10 +15,23 @@ const tree: Node = Tree.fromOps([
   { kind: 'add', parentId: 'a', id: 'b', name: 'beta', weight: 1 },
 ]).getRoot();
 
-function renderPicker(currentId: string | null, onPick = vi.fn(), onClose = vi.fn()) {
+function renderPicker(
+  currentId: string | null,
+  options: { filter?: NodeFilter; mode?: DisplayPrefs['filterMode'] } = {},
+  onPick = vi.fn(),
+  onClose = vi.fn(),
+) {
+  const { filter = {}, mode = 'hide' } = options;
   render(
     <I18nProvider lang="en">
-      <NodePicker tree={tree} display={display} currentId={currentId} onPick={onPick} onClose={onClose} />
+      <FilterProvider
+        filter={filter}
+        mode={mode}
+        setFilter={() => undefined}
+        setMode={() => undefined}
+      >
+        <NodePicker tree={tree} display={display} currentId={currentId} onPick={onPick} onClose={onClose} />
+      </FilterProvider>
     </I18nProvider>,
   );
   return { onPick, onClose };
@@ -54,5 +68,23 @@ describe('NodePicker', () => {
     fireEvent.click(screen.getByTestId('node-picker'));
     expect(onPick).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('applies the active filter in hide mode', () => {
+    renderPicker(null, { filter: { keyword: 'alpha' } });
+    expect(screen.getByRole('button', { name: /alpha/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /beta/ })).toBeNull();
+  });
+
+  it('shows the empty hint when the filter matches nothing', () => {
+    renderPicker(null, { filter: { keyword: 'zzz' } });
+    expect(screen.getByText('No nodes match the filter.')).toBeTruthy();
+  });
+
+  it('keeps the whole tree in highlight mode and outlines matches', () => {
+    renderPicker(null, { filter: { keyword: 'alpha' }, mode: 'highlight' });
+    expect(screen.getByRole('button', { name: /alpha/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /beta/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /alpha/ }).className).toContain('outline-blue-400');
   });
 });

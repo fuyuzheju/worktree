@@ -1,7 +1,7 @@
 import type { FilteredNode } from '@worktree/core';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
-import { rootLine } from '../render';
+import { RootLabel } from './NodeLabel';
 import { TreeNode } from './TreeNode';
 import type { DiffStyle } from './TreeNode';
 
@@ -30,7 +30,7 @@ export function TreeView(props: TreeViewProps) {
   return (
     <div className="w-full px-4 font-mono text-sm leading-6" data-testid="tree-view">
       {readOnly ? (
-        <div className="text-gray-700">{rootLine(node, display, t('tree.rootName'))}</div>
+        <div className="text-gray-700"><RootLabel node={node} display={display} name={t('tree.rootName')} /></div>
       ) : (
         <button
           type="button"
@@ -40,7 +40,7 @@ export function TreeView(props: TreeViewProps) {
             selectedId === node.id ? ' ring-2 ring-inset ring-blue-400' : ''
           }`}
         >
-          {rootLine(node, display, t('tree.rootName'))}
+          <RootLabel node={node} display={display} name={t('tree.rootName')} />
         </button>
       )}
       {root.children.length === 0 && (

@@ -7,7 +7,7 @@ import { findNode } from '../tree-utils';
 import { epochToLocalInput, localInputToEpoch } from '../time';
 import { HOUR_MS } from '../calendar-utils';
 import { NodePicker } from './NodePicker';
-import { CheckIcon, ClockIcon, FlagIcon, LinkIcon, NoteIcon, PencilIcon, TrashIcon } from './icons';
+import { CheckIcon, ClockIcon, FlagIcon, LinkIcon, NoteIcon, PencilIcon, TrashIcon, XIcon } from './icons';
 
 /**
  * Edit (or create) a calendar block. `block === null` means "new block".
@@ -84,9 +84,9 @@ export function BlockDetailPanel(props: {
           type="button"
           data-testid="block-cancel"
           onClick={onClose}
-          className="rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
+          className="inline-flex items-center rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
         >
-          ✕
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
 

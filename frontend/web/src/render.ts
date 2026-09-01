@@ -1,4 +1,3 @@
-import { ROOT_ID } from '@worktree/core';
 import type { Node, Reminder } from '@worktree/core';
 import type { DisplayPrefs } from './config';
 
@@ -8,18 +7,56 @@ export function shortId(id: string): string {
   return id.slice(0, SHORT_ID_LEN);
 }
 
-/** One node row, same token order as the CLI: `name [id4] ✔ w:<weight> ⏰deadline ✎ note R(n):...` */
-export function formatNode(node: Node, display: DisplayPrefs): string {
-  const parts = [node.name];
-  if (display.showId) parts.push(`[${shortId(node.id)}]`);
-  if (node.status) parts.push('✔');
-  if (display.showWeight) parts.push(`w:${node.weight}`);
-  if (node.deadline !== undefined) parts.push(`⏰${new Date(node.deadline).toISOString()}`);
-  if (node.note !== '') parts.push(`✎ ${node.note}`);
+/** One token of a node row, in CLI order: `name [id4] ✔ w:<weight> ⏰deadline ✎ note R(n):...`. */
+export type NodeRowPart =
+  | { type: 'name'; text: string }
+  | { type: 'id'; id: string }
+  | { type: 'status' }
+  | { type: 'weight'; weight: number }
+  | { type: 'deadline'; ms: number }
+  | { type: 'note'; text: string }
+  | { type: 'reminders'; count: number; text: string };
+
+/** The token list behind a node row, shared by the CLI-style text and the icon-based web rendering. */
+export function nodeRowParts(node: Node, display: DisplayPrefs): NodeRowPart[] {
+  const parts: NodeRowPart[] = [{ type: 'name', text: node.name }];
+  if (display.showId) parts.push({ type: 'id', id: node.id });
+  if (node.status) parts.push({ type: 'status' });
+  if (display.showWeight) parts.push({ type: 'weight', weight: node.weight });
+  if (node.deadline !== undefined) parts.push({ type: 'deadline', ms: node.deadline });
+  if (node.note !== '') parts.push({ type: 'note', text: node.note });
   if (display.showReminders && node.reminders.length > 0) {
-    parts.push(`R(${node.reminders.length}):${node.reminders.map(formatReminder).join(', ')}`);
+    parts.push({
+      type: 'reminders',
+      count: node.reminders.length,
+      text: node.reminders.map(formatReminder).join(', '),
+    });
   }
-  return parts.join(' ');
+  return parts;
+}
+
+/** Same token order as the CLI: `name [id4] ✔ w:<weight> ⏰deadline ✎ note R(n):...` */
+export function formatNode(node: Node, display: DisplayPrefs): string {
+  return nodeRowParts(node, display)
+    .map((part) => {
+      switch (part.type) {
+        case 'name':
+          return part.text;
+        case 'id':
+          return `[${shortId(part.id)}]`;
+        case 'status':
+          return '✔';
+        case 'weight':
+          return `w:${part.weight}`;
+        case 'deadline':
+          return `⏰${new Date(part.ms).toISOString()}`;
+        case 'note':
+          return `✎ ${part.text}`;
+        case 'reminders':
+          return `R(${part.count}):${part.text}`;
+      }
+    })
+    .join(' ');
 }
 
 export function formatReminder(r: Reminder): string {
@@ -39,7 +76,3 @@ export function connectors(ancestorIsLast: boolean[], isLast: boolean): string {
   return prefix + (isLast ? '└── ' : '├── ');
 }
 
-/** The tree headline: `rootName` for the worktree root, the node itself otherwise. */
-export function rootLine(root: Node, display: DisplayPrefs, rootName = '.'): string {
-  return root.id === ROOT_ID ? rootName : formatNode(root, display);
-}

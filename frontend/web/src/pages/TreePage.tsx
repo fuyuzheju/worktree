@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { filterTree, hasActiveFilter } from '@worktree/core';
-import type { Node, NodeFilter } from '@worktree/core';
+import type { Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import type { AppConfig, DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
@@ -10,6 +10,7 @@ import { TreeView } from '../components/TreeView';
 import { FilterBar } from '../components/FilterBar';
 import { NodeDetailPanel } from '../components/NodeDetailPanel';
 import { highlightView } from '../filter-view';
+import { useFilter } from '../filter-context';
 
 export function TreePage(props: {
   tree: Node;
@@ -24,13 +25,12 @@ export function TreePage(props: {
   const { t } = useI18n();
   const { tree, client, display, updateConfig, initialNodeId, focusNode } = props;
   const isMobile = useIsMobile();
+  const { filter, mode, setFilter, setMode } = useFilter();
   const [expanded, setExpanded] = useState<Set<string>>(
     () => (initialNodeId === undefined ? new Set() : new Set(ancestorIds(tree, initialNodeId))),
   );
   const [selectedId, setSelectedId] = useState<string | null>(initialNodeId ?? null);
-  const [filter, setFilter] = useState<NodeFilter>({});
 
-  const mode = display.filterMode;
   const filterActive = hasActiveFilter(filter);
   const view = useMemo(
     () => (mode === 'hide' ? filterTree(tree, filter) : highlightView(tree, filter)),
@@ -104,12 +104,7 @@ export function TreePage(props: {
           />
         </div>
         <div className="absolute right-2 top-0 z-10">
-          <FilterBar
-            filter={filter}
-            mode={mode}
-            onFilterChange={setFilter}
-            onModeChange={(m) => updateConfig({ display: { ...display, filterMode: m } })}
-          />
+          <FilterBar filter={filter} mode={mode} onFilterChange={setFilter} onModeChange={setMode} />
         </div>
       </div>
       {isMobile ? (

@@ -16,6 +16,7 @@ function makeConfig(calendarDays: number): AppConfig {
     serverUrl: 'http://localhost:1',
     user: LOCAL_USER,
     display: { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' },
+    filter: {},
     lang: 'en',
     calendarDays,
   };
@@ -46,20 +47,12 @@ afterEach(() => {
 describe('SettingsPage calendar', () => {
   it('renders the configured day count', () => {
     renderSettings(5);
-    expect(screen.getByTestId<HTMLInputElement>('settings-calendar-days').value).toBe('5');
+    expect(screen.getByTestId<HTMLSelectElement>('settings-calendar-days').value).toBe('5');
   });
 
-  it('updates the day count within bounds', () => {
+  it('updates the day count', () => {
     const { updateConfig } = renderSettings(7);
     fireEvent.change(screen.getByTestId('settings-calendar-days'), { target: { value: '6' } });
     expect(updateConfig).toHaveBeenCalledWith({ calendarDays: 6 });
-  });
-
-  it('clamps out-of-range values to 3–9', () => {
-    const { updateConfig } = renderSettings(7);
-    fireEvent.change(screen.getByTestId('settings-calendar-days'), { target: { value: '12' } });
-    expect(updateConfig).toHaveBeenCalledWith({ calendarDays: 9 });
-    fireEvent.change(screen.getByTestId('settings-calendar-days'), { target: { value: '1' } });
-    expect(updateConfig).toHaveBeenCalledWith({ calendarDays: 3 });
   });
 });

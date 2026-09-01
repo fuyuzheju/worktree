@@ -107,6 +107,55 @@ export function CheckIcon({ className }: { className?: string }) {
   );
 }
 
+export function XIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </Icon>
+  );
+}
+
+export function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
+  );
+}
+
+export function ChevronUpIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m18 15-6-6-6 6" />
+    </Icon>
+  );
+}
+
+export function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m9 18 6-6-6-6" />
+    </Icon>
+  );
+}
+
+export function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <path d="m15 18-6-6 6-6" />
+    </Icon>
+  );
+}
+
+export function FilterIcon({ className }: { className?: string }) {
+  return (
+    <Icon className={className}>
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </Icon>
+  );
+}
+
 export function TrashIcon({ className }: { className?: string }) {
   return (
     <Icon className={className}>

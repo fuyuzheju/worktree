@@ -22,6 +22,7 @@ import {
   parseDateInput,
 } from '../calendar-utils';
 import { BlockDetailPanel } from '../components/BlockDetailPanel';
+import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
 
 /** Nominal canvas height used by layoutBlocks; the render normalizes to %. */
 const DAY_PX = 24 * DEFAULT_PX_PER_HOUR;
@@ -61,9 +62,10 @@ export function CalendarPage(props: {
             type="button"
             data-testid="calendar-prev"
             onClick={() => nav(-1)}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
           >
-            ‹ {isMobile ? '' : t('calendar.prev')}
+            <ChevronLeftIcon className="h-3.5 w-3.5" />
+            {isMobile ? '' : t('calendar.prev')}
           </button>
           <button
             type="button"
@@ -77,9 +79,10 @@ export function CalendarPage(props: {
             type="button"
             data-testid="calendar-next"
             onClick={() => nav(1)}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
           >
-            {isMobile ? '' : t('calendar.next')} ›
+            {isMobile ? '' : t('calendar.next')}
+            <ChevronRightIcon className="h-3.5 w-3.5" />
           </button>
           <input
             type="date"

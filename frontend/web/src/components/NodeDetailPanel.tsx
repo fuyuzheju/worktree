@@ -7,7 +7,7 @@ import { useI18n } from '../i18n';
 import { flattenTree, descendants } from '../tree-utils';
 import { formatReminder } from '../render';
 import { epochToLocalInput, formatDeadline, localInputToEpoch } from '../time';
-import { CheckIcon, ClockIcon, CopyIcon, MoveIcon, NoteIcon, PencilIcon, PlusIcon, TrashIcon } from './icons';
+import { CheckIcon, ClockIcon, CopyIcon, MoveIcon, NoteIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from './icons';
 
 const REPEAT_PRESETS: { key: string; ms: number | null }[] = [
   { key: 'detail.repeatPresets.none', ms: null },
@@ -162,9 +162,9 @@ export function NodeDetailPanel(props: {
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
+          className="inline-flex items-center rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
         >
-          ✕
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
 
@@ -513,9 +513,9 @@ function RootPanel({
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
+          className="inline-flex items-center rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
         >
-          ✕
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
       <div className="mt-3">

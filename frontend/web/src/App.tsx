@@ -3,6 +3,7 @@ import { AppConfig, LOCAL_USER, clearToken, loadConfig, loadToken, saveConfig, s
 import type { StoredToken } from './config';
 import { useWorktreeClient } from './hooks/useWorktreeClient';
 import { I18nProvider, useI18n } from './i18n';
+import { FilterProvider } from './filter-context';
 import { StatusBar } from './components/StatusBar';
 import { Tabs } from './components/Tabs';
 import { TreePage } from './pages/TreePage';
@@ -96,16 +97,23 @@ export default function App() {
       {snap.conflict !== null ? (
         <ConflictPage conflict={snap.conflict} client={snap.client} display={config.display} />
       ) : (
-        <Shell
-          config={config}
-          tab={tab}
-          setTab={setTab}
-          snap={snap}
-          updateConfig={updateConfig}
-          clearCache={clearCache}
-          onLogout={logout}
-          onLoginOther={() => setShowAuth(true)}
-        />
+        <FilterProvider
+          filter={config.filter}
+          mode={config.display.filterMode}
+          setFilter={(f) => updateConfig({ filter: f })}
+          setMode={(m) => updateConfig({ display: { ...config.display, filterMode: m } })}
+        >
+          <Shell
+            config={config}
+            tab={tab}
+            setTab={setTab}
+            snap={snap}
+            updateConfig={updateConfig}
+            clearCache={clearCache}
+            onLogout={logout}
+            onLoginOther={() => setShowAuth(true)}
+          />
+        </FilterProvider>
       )}
     </I18nProvider>
   );

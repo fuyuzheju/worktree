@@ -279,18 +279,16 @@ export function SettingsPage(props: {
         <h2 className="font-semibold">{t('settings.calendar')}</h2>
         <label className="mt-2 flex items-center gap-2">
           <span>{t('settings.calendarDays')}</span>
-          <input
-            type="number"
-            min={3}
-            max={9}
+          <select
             value={config.calendarDays}
-            onChange={(e) => {
-              const raw = Number(e.target.value);
-              updateConfig({ calendarDays: Math.min(9, Math.max(3, Number.isNaN(raw) ? 7 : raw)) });
-            }}
+            onChange={(e) => updateConfig({ calendarDays: Number(e.target.value) })}
             data-testid="settings-calendar-days"
-            className="w-16 rounded border border-gray-300 px-2 py-1"
-          />
+            className="rounded border border-gray-300 px-2 py-1"
+          >
+            {[3, 4, 5, 6, 7, 8, 9].map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </label>
       </section>
 

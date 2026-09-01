@@ -1,4 +1,5 @@
 import { USER_RE, isRecord } from '@worktree/core';
+import type { NodeFilter } from '@worktree/core';
 
 export const DEFAULT_SERVER = 'https://worktree.fuyuzheju.cn';
 export const LOCAL_USER = 'local';
@@ -17,6 +18,8 @@ export interface AppConfig {
   serverUrl: string;
   user: string;
   display: DisplayPrefs;
+  /** Tree filter criteria, persisted so they survive reloads. */
+  filter: NodeFilter;
   lang: string;
   /** Day columns shown in the calendar grid (3–9). */
   calendarDays: number;
@@ -28,9 +31,28 @@ const defaultConfig: AppConfig = {
   serverUrl: DEFAULT_SERVER,
   user: LOCAL_USER,
   display: { showId: true, showWeight: true, showReminders: true, filterMode: 'hide' },
+  filter: {},
   lang: 'en',
   calendarDays: 7,
 };
+
+function parseFilter(raw: unknown): NodeFilter {
+  if (!isRecord(raw)) return {};
+  const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+  const bool = (v: unknown): boolean | undefined => (typeof v === 'boolean' ? v : undefined);
+  const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+  return {
+    keyword: str(raw.keyword),
+    nameContains: str(raw.nameContains),
+    noteContains: str(raw.noteContains),
+    deadlineBefore: num(raw.deadlineBefore),
+    hasDeadline: bool(raw.hasDeadline),
+    overdue: bool(raw.overdue),
+    createdAfter: num(raw.createdAfter),
+    createdBefore: num(raw.createdBefore),
+    status: bool(raw.status),
+  };
+}
 
 export function loadConfig(): AppConfig {
   try {
@@ -51,6 +73,7 @@ export function loadConfig(): AppConfig {
             ? display.filterMode
             : defaultConfig.display.filterMode,
       },
+      filter: parseFilter(parsed.filter),
       lang: typeof parsed.lang === 'string' ? parsed.lang : defaultConfig.lang,
       calendarDays: typeof parsed.calendarDays === 'number' ? parsed.calendarDays : defaultConfig.calendarDays,
     };

@@ -60,7 +60,8 @@ describe('TreeView', () => {
     expect(view.textContent).toContain('workroot');
     // completed alpha sinks below uncompleted gamma
     expect(view.textContent).toContain('├── gamma [cccc] w:2');
-    expect(view.textContent).toContain('└── ▾alpha [aaaa] ✔ w:1');
+    // the double space is the check-mark SVG slot, which has no text content
+    expect(view.textContent).toContain('└── alpha [aaaa]  w:1');
     expect(view.textContent).toContain('    └── beta [bbbb] w:1');
   });
 
