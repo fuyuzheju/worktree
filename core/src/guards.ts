@@ -1,4 +1,4 @@
-import type { AuthResponse, HistoryPage, ServerMessage, Stats } from './protocol';
+import type { AuthResponse, HistoryPage, ServerMessage } from './protocol';
 import type { HistoryNode, HistoryOperation, ServerState } from './types';
 
 /** Runtime guards for untrusted JSON (network bodies, localStorage, files).
@@ -33,17 +33,6 @@ export function isAuthResponse(v: unknown): v is AuthResponse {
 
 export function isServerState(v: unknown): v is ServerState {
   return v === 'working' || v === 'offline';
-}
-
-export function isStats(v: unknown): v is Stats {
-  return (
-    isRecord(v) &&
-    typeof v.opCount === 'number' &&
-    typeof v.nodeCount === 'number' &&
-    typeof v.reminderCount === 'number' &&
-    typeof v.blockCount === 'number' &&
-    isServerState(v.state)
-  );
 }
 
 export function isServerMessage(v: unknown): v is ServerMessage {

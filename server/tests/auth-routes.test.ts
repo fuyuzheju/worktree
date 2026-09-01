@@ -101,7 +101,7 @@ describe('authenticated endpoints', () => {
   });
 
   it('401s without or with a bad token', async () => {
-    for (const path of ['/api/history', '/api/stats', '/api/rewrite']) {
+    for (const path of ['/api/history', '/api/rewrite']) {
       const missing = await request(app).get(path);
       expect(missing.status, path).toBe(401);
       const bad = await request(app).get(path).set('Authorization', 'Bearer bogus-token-value');

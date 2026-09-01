@@ -303,7 +303,7 @@ export function SettingsPage(props: {
         <h2 className="font-semibold">{t('settings.data')}</h2>
         <dl className="mt-2 flex gap-6 text-gray-600">
           <div>
-            <dt className="text-xs text-gray-500">{t('stats.nodeCount')}</dt>
+            <dt className="text-xs text-gray-500">{t('stats.nodesHeading')}</dt>
             <dd className="font-mono">{nodeCount}</dd>
           </div>
           <div>

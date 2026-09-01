@@ -345,6 +345,7 @@ describe('Tree', () => {
     expect(node?.note).toBe('');
     expect(node?.createdAt).toBe(0);
     expect(node?.deadline).toBeUndefined();
+    expect(node?.completedAt).toBe(0);
   });
 
   it('add carries note, deadline and createdAt when provided', () => {
@@ -355,6 +356,34 @@ describe('Tree', () => {
     expect(node?.note).toBe('hi');
     expect(node?.deadline).toBe(1000);
     expect(node?.createdAt).toBe(5);
+  });
+
+  it("add's createdAt falls back to the op timestamp, then to 0", () => {
+    const explicit = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, createdAt: 5, timestamp: 9 },
+    ]);
+    expect(explicit.getNode('a')?.createdAt).toBe(5);
+    const stamped = Tree.fromOps([{ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'b', weight: 1, timestamp: 9 }]);
+    expect(stamped.getNode('b')?.createdAt).toBe(9);
+    const bare = Tree.fromOps([{ kind: 'add', parentId: ROOT_ID, id: 'c', name: 'c', weight: 1 }]);
+    expect(bare.getNode('c')?.createdAt).toBe(0);
+  });
+
+  it('complete records the op timestamp as completedAt; uncomplete clears it', () => {
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, timestamp: 5 },
+    ]);
+    tree.apply({ kind: 'complete', id: 'a', timestamp: 100 });
+    expect(tree.getNode('a')).toMatchObject({ status: true, completedAt: 100 });
+    tree.apply({ kind: 'uncomplete', id: 'a', timestamp: 200 });
+    expect(tree.getNode('a')).toMatchObject({ status: false, completedAt: 0 });
+    tree.apply({ kind: 'complete', id: 'a', timestamp: 300 });
+    expect(tree.getNode('a')?.completedAt).toBe(300);
+  });
+
+  it('a legacy complete op (no timestamp) leaves completedAt at 0', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a'), { kind: 'complete', id: 'a' }]);
+    expect(tree.getNode('a')).toMatchObject({ status: true, completedAt: 0 });
   });
 
   it('edit_node applies partial patches, clears the deadline with null', () => {
@@ -404,11 +433,24 @@ describe('Tree', () => {
     expect(copyNode?.createdAt).not.toBe(7);
   });
 
-  it('clone preserves note, createdAt and deadline', () => {
+  it('copy inherits completedAt and uses the op timestamp when present', () => {
+    const tree = Tree.fromOps([
+      { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, timestamp: 5 },
+      { kind: 'complete', id: 'a', timestamp: 100 },
+    ]);
+    tree.apply({ kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy', timestamp: 150 });
+    const copyNode = tree.getNode('a2');
+    expect(copyNode?.status).toBe(true);
+    expect(copyNode?.completedAt).toBe(100);
+    expect(copyNode?.createdAt).toBe(150);
+  });
+
+  it('clone preserves note, createdAt, deadline and completedAt', () => {
     const tree = Tree.fromOps([
       { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, note: 'n', deadline: 50, createdAt: 7 },
+      { kind: 'complete', id: 'a', timestamp: 100 },
     ]);
     const clone = tree.clone();
-    expect(clone.getNode('a')).toMatchObject({ note: 'n', createdAt: 7, deadline: 50 });
+    expect(clone.getNode('a')).toMatchObject({ note: 'n', createdAt: 7, deadline: 50, completedAt: 100 });
   });
 });

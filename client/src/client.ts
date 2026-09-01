@@ -1,5 +1,5 @@
 import { ROOT_ID, USER_RE, newId } from '@worktree/core';
-import type { Block, HistoryNode, HistoryOperation, Node, Operation, Stats, Timestamp } from '@worktree/core';
+import type { Block, HistoryNode, HistoryOperation, Node, Operation, Timestamp } from '@worktree/core';
 import { ApiError, ServerAPI } from './api';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
@@ -94,20 +94,6 @@ export class WorktreeClient {
     return this.store.getTree();
   }
 
-  getStats(): Promise<Stats> {
-    if (this.local) {
-      const tree = this.getTree();
-      return Promise.resolve({
-        opCount: this.store.getConfirmed().length,
-        nodeCount: countNodes(tree),
-        reminderCount: countReminders(tree),
-        blockCount: this.store.getBlocks().length,
-        state: 'working',
-      });
-    }
-    return this.api.stats();
-  }
-
   /** Number of ops still waiting for server confirmation. */
   getPendingCount(): number {
     return this.store.getPending().length;
@@ -135,14 +121,17 @@ export class WorktreeClient {
     return this.local;
   }
 
-  /** Optimistic local edit; flushed to the server automatically while online. */
+  /** Optimistic local edit; flushed to the server automatically while online.
+   *  Every op is stamped with the local time — deterministic across replays
+   *  because the timestamp travels inside the op. */
   apply(op: Operation): void {
+    const stamped: Operation = { ...op, timestamp: Date.now() };
     if (this.local) {
-      this.store.applyLocalConfirmed(op);
+      this.store.applyLocalConfirmed(stamped);
       this.emit();
       return;
     }
-    this.store.applyLocal(op);
+    this.store.applyLocal(stamped);
     this.emit();
     if (this.online) void this.resync();
   }
@@ -165,7 +154,6 @@ export class WorktreeClient {
       weight: weight ?? this.nextWeight(parentId),
       note: fields?.note,
       deadline: fields?.deadline,
-      createdAt: Date.now(),
     });
     return id;
   }
@@ -454,14 +442,6 @@ function withTokenParam(wsUrl: string, token: string | undefined): string {
   const url = new URL(wsUrl);
   url.searchParams.set('token', token);
   return url.toString();
-}
-
-function countNodes(node: Node): number {
-  return node.children.reduce((sum, child) => sum + countNodes(child), node.id === ROOT_ID ? 0 : 1);
-}
-
-function countReminders(node: Node): number {
-  return node.reminders.length + node.children.reduce((sum, child) => sum + countReminders(child), 0);
 }
 
 function findNode(node: Node, id: string): Node | undefined {

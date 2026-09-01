@@ -274,11 +274,23 @@ describe('WorktreeClient semantic operations', () => {
       expect(c.getBlocks()).toHaveLength(0);
     });
 
-    it('getStats reports the local block count', async () => {
+    it('every applied op carries a timestamp and the node inherits it', () => {
       const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true });
-      c.addBlock({ name: 'B', start: 0, end: 10 });
-      const stats = await c.getStats();
-      expect(stats.blockCount).toBe(1);
+      const before = Date.now();
+      const a = c.addNode(ROOT_ID, 'A');
+      c.setCompleted(a, true);
+      expect(c.getTree().children[0]?.createdAt).toBeGreaterThanOrEqual(before);
+      expect(c.getTree().children[0]?.completedAt).toBeGreaterThanOrEqual(before);
+      const ops = c.getConfirmed();
+      for (const n of ops) {
+        expect(typeof n.op.timestamp).toBe('number');
+      }
+      const addOp = ops[0]?.op;
+      if (addOp !== undefined && addOp.kind === 'add') {
+        // createdAt is no longer sent; replay derives it from the timestamp.
+        expect(addOp.createdAt).toBeUndefined();
+        expect(c.getTree().children[0]?.createdAt).toBe(addOp.timestamp);
+      }
     });
   });
 });
@@ -313,14 +325,6 @@ describe('WorktreeClient local mode', () => {
     expect(c.isOnline()).toBe(false);
     await expect(c.reconnect()).resolves.toBe(false);
     c.disconnect();
-  });
-
-  it('getStats computes from the local tree', async () => {
-    const c = localClient();
-    const a = c.addNode(ROOT_ID, 'A');
-    c.addReminder(a, 'R', 1000);
-    const stats = await c.getStats();
-    expect(stats).toEqual({ opCount: 2, nodeCount: 1, reminderCount: 1, blockCount: 0, state: 'working' });
   });
 
   it('undo removes the confirmed head in local mode', () => {

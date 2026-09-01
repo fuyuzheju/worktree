@@ -187,7 +187,7 @@ function Shell(props: {
             calendarDays={config.calendarDays}
           />
         )}
-        {tab === 'stats' && <StatsPage client={client} />}
+        {tab === 'stats' && <StatsPage tree={tree} blocks={client.getBlocks()} />}
         {tab === 'settings' && (
           <SettingsPage
             config={config}

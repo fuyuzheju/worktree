@@ -5,6 +5,8 @@ import type { Operation } from './types';
 const timestamp = z.number().int().nonnegative();
 const id = z.string().min(1);
 
+const timestampField = timestamp.optional();
+
 const treeOperation = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('add'),
@@ -15,10 +17,11 @@ const treeOperation = z.discriminatedUnion('kind', [
     note: z.string().optional(),
     deadline: timestamp.optional(),
     createdAt: timestamp.optional(),
+    timestamp: timestampField,
   }),
-  z.object({ kind: z.literal('remove'), id }),
-  z.object({ kind: z.literal('rename'), id, name: z.string() }),
-  z.object({ kind: z.literal('move'), id, parentId: id, weight: z.number() }),
+  z.object({ kind: z.literal('remove'), id, timestamp: timestampField }),
+  z.object({ kind: z.literal('rename'), id, name: z.string(), timestamp: timestampField }),
+  z.object({ kind: z.literal('move'), id, parentId: id, weight: z.number(), timestamp: timestampField }),
   z.object({
     kind: z.literal('copy'),
     id,
@@ -26,9 +29,10 @@ const treeOperation = z.discriminatedUnion('kind', [
     newId: id,
     weight: z.number(),
     name: z.string().optional(),
+    timestamp: timestampField,
   }),
-  z.object({ kind: z.literal('complete'), id }),
-  z.object({ kind: z.literal('uncomplete'), id }),
+  z.object({ kind: z.literal('complete'), id, timestamp: timestampField }),
+  z.object({ kind: z.literal('uncomplete'), id, timestamp: timestampField }),
   z.object({
     kind: z.literal('add_reminder'),
     nodeId: id,
@@ -36,8 +40,9 @@ const treeOperation = z.discriminatedUnion('kind', [
     name: z.string().optional(),
     deadline: timestamp,
     repeat: timestamp.optional(),
+    timestamp: timestampField,
   }),
-  z.object({ kind: z.literal('remove_reminder'), rmdId: id }),
+  z.object({ kind: z.literal('remove_reminder'), rmdId: id, timestamp: timestampField }),
   z.object({
     kind: z.literal('edit_reminder'),
     rmdId: id,
@@ -45,12 +50,14 @@ const treeOperation = z.discriminatedUnion('kind', [
     deadline: timestamp.optional(),
     repeat: timestamp.nullable().optional(),
     active: z.boolean().optional(),
+    timestamp: timestampField,
   }),
   z.object({
     kind: z.literal('edit_node'),
     id,
     note: z.string().optional(),
     deadline: timestamp.nullable().optional(),
+    timestamp: timestampField,
   }),
 ]);
 
@@ -63,8 +70,9 @@ const calendarOperation = z.discriminatedUnion('kind', [
     end: timestamp,
     note: z.string().optional(),
     nodeId: id.optional(),
+    timestamp: timestampField,
   }),
-  z.object({ kind: z.literal('remove_block'), id }),
+  z.object({ kind: z.literal('remove_block'), id, timestamp: timestampField }),
   z.object({
     kind: z.literal('edit_block'),
     id,
@@ -73,9 +81,10 @@ const calendarOperation = z.discriminatedUnion('kind', [
     end: timestamp.optional(),
     note: z.string().optional(),
     nodeId: id.nullable().optional(),
+    timestamp: timestampField,
   }),
-  z.object({ kind: z.literal('complete_block'), id }),
-  z.object({ kind: z.literal('uncomplete_block'), id }),
+  z.object({ kind: z.literal('complete_block'), id, timestamp: timestampField }),
+  z.object({ kind: z.literal('uncomplete_block'), id, timestamp: timestampField }),
 ]);
 
 export const operationSchema: z.ZodType<Operation> = z.discriminatedUnion('kind', [

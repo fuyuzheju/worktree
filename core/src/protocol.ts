@@ -39,15 +39,6 @@ export interface TokensResponse {
   }>;
 }
 
-/** GET /stats response body. */
-export interface Stats {
-  opCount: number;
-  nodeCount: number;
-  reminderCount: number;
-  blockCount: number;
-  state: ServerState;
-}
-
 /** POST /rewrite request body. */
 export interface RewriteRequest {
   /** Id of the last history entry the client has seen; 409 when not the current head. */

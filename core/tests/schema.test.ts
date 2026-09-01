@@ -32,6 +32,30 @@ describe('operationSchema', () => {
     });
   });
 
+  it('parses and preserves a timestamp on every op kind', () => {
+    const ops = [
+      { kind: 'add', parentId: 'root', id: 'a', name: 'A', weight: 1 },
+      { kind: 'remove', id: 'a' },
+      { kind: 'rename', id: 'a', name: 'B' },
+      { kind: 'move', id: 'a', parentId: 'b', weight: 2 },
+      { kind: 'copy', id: 'a', parentId: 'root', newId: 'c', weight: 1 },
+      { kind: 'complete', id: 'a' },
+      { kind: 'uncomplete', id: 'a' },
+      { kind: 'add_reminder', nodeId: 'a', rmdId: 'r', name: 'R', deadline: 100 },
+      { kind: 'remove_reminder', rmdId: 'r' },
+      { kind: 'edit_reminder', rmdId: 'r', repeat: null },
+      { kind: 'edit_node', id: 'a', deadline: null },
+      { kind: 'add_block', id: 'b1', name: 'Block', start: 0, end: 10 },
+      { kind: 'remove_block', id: 'b1' },
+      { kind: 'edit_block', id: 'b1', nodeId: null },
+      { kind: 'complete_block', id: 'b1' },
+      { kind: 'uncomplete_block', id: 'b1' },
+    ];
+    for (const op of ops) {
+      expect(operationSchema.parse({ ...op, timestamp: 123 })).toEqual({ ...op, timestamp: 123 });
+    }
+  });
+
   it('rejects an unknown kind', () => {
     expect(operationSchema.safeParse({ kind: 'explode', id: 'a' }).success).toBe(false);
   });

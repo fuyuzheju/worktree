@@ -114,13 +114,6 @@ messages (server → client):
 
 --
 
-/api/stats
-header: Authorization: Bearer <token>
-
-get statistics for that user (op count, node count, reminder count, block count, that user's state)
-
---
-
 /api/history?id=<entry_id>       get one of the user's history entries (404 when missing)
 /api/history?after=<entry_id>    {cursorFound, nodes}: the user's entries after the id (catch-up);
                              when the id is unknown — or belongs to another user — the user's

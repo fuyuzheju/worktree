@@ -1,4 +1,4 @@
-import { ROOT_ID, USER_RE, matchesFilter } from '@worktree/core';
+import { ROOT_ID, USER_RE, computeStats, matchesFilter } from '@worktree/core';
 import { formatNode, renderFiltered, renderTree, shortId } from './render';
 import { pathOf } from './resolve';
 import { DEFAULT_SERVER } from './config';
@@ -450,15 +450,17 @@ const reconnectCommand: Command = {
 
 const statsCommand: Command = {
   name: 'stats',
-  summary: 'server statistics',
+  summary: 'local statistics',
   usage: 'stats',
-  run: async (io): Promise<CommandResult> => {
-    try {
-      const s = await io.client.getStats();
-      io.out(`ops=${s.opCount} nodes=${s.nodeCount} reminders=${s.reminderCount} server=${s.state}`);
-    } catch (e) {
-      io.out(`stats failed: ${errMsg(e)}`);
-    }
+  run: (io): CommandResult => {
+    const s = computeStats(io.client.getTree(), io.client.getBlocks(), Date.now());
+    const pct = (r: number | null): string => (r === null ? 'n/a' : `${Math.round(r * 100)}%`);
+    io.out(
+      `nodes=${s.nodes.total} (${s.nodes.completed} completed, ${pct(s.nodes.completionRatio)}) ` +
+        `reminders=${s.reminders.total} (${s.reminders.active} active, ${s.reminders.missed} missed) ` +
+        `blocks=${s.blocks.total} (${s.blocks.completed} completed, ${s.blocks.linked} linked) ` +
+        `overdue=${s.timing.overdueIncomplete} server=${io.client.isOnline() ? 'online' : 'offline'}`,
+    );
     return 'ok';
   },
 };

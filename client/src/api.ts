@@ -1,5 +1,5 @@
-import type { HistoryNode, HistoryOperation, HistoryPage, Stats, SubmitRequest, RewriteRequest } from '@worktree/core';
-import { isHistoryPage, isRecord, isStats } from '@worktree/core';
+import type { HistoryNode, HistoryOperation, HistoryPage, SubmitRequest, RewriteRequest } from '@worktree/core';
+import { isHistoryPage, isRecord } from '@worktree/core';
 
 export class ApiError extends Error {
   constructor(
@@ -56,10 +56,6 @@ export class ServerAPI {
   async history(after: string | null): Promise<HistoryPage> {
     const query = after === null ? '' : `?after=${encodeURIComponent(after)}`;
     return this.request(`/api/history${query}`, parseOrThrow(isHistoryPage));
-  }
-
-  async stats(): Promise<Stats> {
-    return this.request('/api/stats', parseOrThrow(isStats));
   }
 
   async rewrite(base: string | null, history: HistoryNode[]): Promise<void> {

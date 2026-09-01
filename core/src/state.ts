@@ -67,7 +67,7 @@ export class WorktreeState {
         if (block === undefined) throw new Error(`unknown block id: ${op.id}`);
         if (block.nodeId !== undefined) {
           // At most one block links a node, so no sibling sync is needed.
-          this.tree.setNodeStatus(block.nodeId, block.status);
+          this.tree.setNodeStatus(block.nodeId, block.status, op.timestamp);
         }
         return;
       }

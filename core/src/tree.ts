@@ -1,4 +1,4 @@
-import type { Node, Reminder, TreeOperation } from './types';
+import type { Node, Reminder, Timestamp, TreeOperation } from './types';
 
 export const ROOT_ID = 'root';
 
@@ -9,7 +9,7 @@ export class Tree {
   private parents = new Map<string, string>();
 
   constructor() {
-    this.root = { id: ROOT_ID, name: '', weight: 0, children: [], reminders: [], status: false, note: '', createdAt: 0 };
+    this.root = { id: ROOT_ID, name: '', weight: 0, children: [], reminders: [], status: false, note: '', createdAt: 0, completedAt: 0 };
     this.index.set(ROOT_ID, this.root);
   }
 
@@ -33,6 +33,7 @@ export class Tree {
         note: node.note,
         createdAt: node.createdAt,
         deadline: node.deadline,
+        completedAt: node.completedAt,
       };
       copy.index.set(c.id, c);
       c.children = node.children.map(cloneNode);
@@ -58,8 +59,9 @@ export class Tree {
           reminders: [],
           status: false,
           note: op.note ?? '',
-          createdAt: op.createdAt ?? 0,
+          createdAt: op.createdAt ?? op.timestamp ?? 0,
           deadline: op.deadline,
+          completedAt: 0,
         };
         parent.children.push(node);
         this.sortChildren(parent);
@@ -111,10 +113,9 @@ export class Tree {
           reminders: src.reminders.map((r: Reminder) => ({ ...r, id: `${op.newId}#${r.id}` })),
           status: src.status,
           note: src.note,
-          // Apply-time, not replayed from the op — display-only, no
-          // validation depends on it.
-          createdAt: Date.now(),
+          createdAt: op.timestamp ?? Date.now(),
           deadline: src.deadline,
+          completedAt: src.completedAt,
         };
         parent.children.push(clone);
         this.sortChildren(parent);
@@ -122,14 +123,20 @@ export class Tree {
         this.parents.set(clone.id, op.parentId);
         break;
       }
-      case 'complete':
-        this.mustGet(op.id).status = true;
+      case 'complete': {
+        const node = this.mustGet(op.id);
+        node.status = true;
+        node.completedAt = op.timestamp ?? 0;
         this.resortSiblings(op.id);
         break;
-      case 'uncomplete':
-        this.mustGet(op.id).status = false;
+      }
+      case 'uncomplete': {
+        const node = this.mustGet(op.id);
+        node.status = false;
+        node.completedAt = 0;
         this.resortSiblings(op.id);
         break;
+      }
       case 'add_reminder': {
         const node = this.mustGet(op.nodeId);
         if (node.reminders.some((r) => r.id === op.rmdId)) throw new Error(`duplicate reminder id: ${op.rmdId}`);
@@ -173,11 +180,14 @@ export class Tree {
 
   /**
    * Derived status change (completion propagation): sets the node's status
-   * and re-sorts its siblings, without recording a history op.
+   * and re-sorts its siblings, without recording a history op. The
+   * `timestamp` of the triggering op dates the completion (0 for legacy
+   * ops), keeping replay deterministic.
    */
-  setNodeStatus(id: string, status: boolean): void {
+  setNodeStatus(id: string, status: boolean, timestamp?: Timestamp): void {
     const node = this.mustGet(id);
     node.status = status;
+    node.completedAt = status ? (timestamp ?? 0) : 0;
     this.resortSiblings(id);
   }
 

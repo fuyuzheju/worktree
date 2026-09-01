@@ -43,12 +43,16 @@ export interface Node {
   createdAt: Timestamp;
   /** Task deadline; absent for nodes without one. */
   deadline?: Timestamp;
+  /** Completion time in ms; 0 when uncompleted or completed by a legacy op. */
+  completedAt: Timestamp;
 }
 
 /**
  * Operations applied to the Node tree. All ids are client-generated UUIDs.
  * `copy` is shallow: it copies name, status and reminders, not children.
  * `copy.name` defaults to the source name.
+ * Every op carries a client-generated `timestamp` (creation time of the op,
+ * in ms); it is absent only in ops persisted before the field existed.
  */
 export type TreeOperation =
   | {
@@ -61,17 +65,26 @@ export type TreeOperation =
       note?: string;
       /** Defaults to unset on replay (legacy ops lack it). */
       deadline?: Timestamp;
-      /** Defaults to 0 on replay (legacy ops lack it); clients set Date.now(). */
+      /** Defaults to `timestamp` on replay (legacy ops lack it). */
       createdAt?: Timestamp;
+      timestamp?: Timestamp;
     }
-  | { kind: 'remove'; id: string }
-  | { kind: 'rename'; id: string; name: string }
-  | { kind: 'move'; id: string; parentId: string; weight: number }
-  | { kind: 'copy'; id: string; parentId: string; newId: string; weight: number; name?: string }
-  | { kind: 'complete'; id: string }
-  | { kind: 'uncomplete'; id: string }
-  | { kind: 'add_reminder'; nodeId: string; rmdId: string; name?: string; deadline: Timestamp; repeat?: Timestamp }
-  | { kind: 'remove_reminder'; rmdId: string }
+  | { kind: 'remove'; id: string; timestamp?: Timestamp }
+  | { kind: 'rename'; id: string; name: string; timestamp?: Timestamp }
+  | { kind: 'move'; id: string; parentId: string; weight: number; timestamp?: Timestamp }
+  | { kind: 'copy'; id: string; parentId: string; newId: string; weight: number; name?: string; timestamp?: Timestamp }
+  | { kind: 'complete'; id: string; timestamp?: Timestamp }
+  | { kind: 'uncomplete'; id: string; timestamp?: Timestamp }
+  | {
+      kind: 'add_reminder';
+      nodeId: string;
+      rmdId: string;
+      name?: string;
+      deadline: Timestamp;
+      repeat?: Timestamp;
+      timestamp?: Timestamp;
+    }
+  | { kind: 'remove_reminder'; rmdId: string; timestamp?: Timestamp }
   | {
       kind: 'edit_reminder';
       rmdId: string;
@@ -80,6 +93,7 @@ export type TreeOperation =
       /** null clears the repeat; absent = unchanged. */
       repeat?: Timestamp | null;
       active?: boolean;
+      timestamp?: Timestamp;
     }
   | {
       kind: 'edit_node';
@@ -87,15 +101,17 @@ export type TreeOperation =
       note?: string;
       /** null clears the deadline; absent = unchanged. */
       deadline?: Timestamp | null;
+      timestamp?: Timestamp;
     };
 
 /**
  * Operations applied to the calendar. All ids are client-generated UUIDs.
  * `edit_block.nodeId`: null clears the link; absent = unchanged.
+ * Every op carries a client-generated `timestamp` (see TreeOperation).
  */
 export type CalendarOperation =
-  | { kind: 'add_block'; id: string; name: string; start: Timestamp; end: Timestamp; note?: string; nodeId?: string }
-  | { kind: 'remove_block'; id: string }
+  | { kind: 'add_block'; id: string; name: string; start: Timestamp; end: Timestamp; note?: string; nodeId?: string; timestamp?: Timestamp }
+  | { kind: 'remove_block'; id: string; timestamp?: Timestamp }
   | {
       kind: 'edit_block';
       id: string;
@@ -104,9 +120,10 @@ export type CalendarOperation =
       end?: Timestamp;
       note?: string;
       nodeId?: string | null;
+      timestamp?: Timestamp;
     }
-  | { kind: 'complete_block'; id: string }
-  | { kind: 'uncomplete_block'; id: string };
+  | { kind: 'complete_block'; id: string; timestamp?: Timestamp }
+  | { kind: 'uncomplete_block'; id: string; timestamp?: Timestamp };
 
 /** Any operation the history may hold: tree domain or calendar domain. */
 export type Operation = TreeOperation | CalendarOperation;

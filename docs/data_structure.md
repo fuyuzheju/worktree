@@ -36,9 +36,12 @@ status: boolean, (true for completed, false for uncompleted)
 note: string, (detailed description; '' when unset)
 createdAt: timestamp, (creation time in ms; 0 for nodes created by legacy ops)
 deadline: timestamp | undefined, (task deadline; absent when none)
+completedAt: timestamp, (completion time in ms; 0 while uncompleted or completed
+by a legacy op — only meaningful when status is true)
 
 Legacy default: ops persisted before these fields existed replay to
-note: '', createdAt: 0, no deadline — fixed defaults keep replay deterministic.
+note: '', createdAt: 0, completedAt: 0, no deadline — fixed defaults keep replay
+deterministic.
 
 sibling order: uncompleted siblings first, then completed; within each group ascending
 (weight, name). weight may collide; names are unique among siblings, so the order is
@@ -69,52 +72,62 @@ deterministic and undo/rewrite revert it automatically:
 Removing a node keeps its linked blocks but clears their nodeId; undoing the
 removal restores the links via replay. copy/rename/move leave links intact.
 
+Every operation (tree and calendar) carries an optional timestamp: the
+client-generated creation time of the op in ms. Clients stamp Date.now() on
+every op they issue; legacy ops predating the field replay without it.
+Timestamps travel inside the op, so replay stays deterministic.
+
 TreeOperation:
-add(id, new_name, new_id, weight[, note, deadline, created_at]) | 
-remove(id) | 
-rename(id, new_name) | 
-move(id, new_parent_id, new_weight) | 
-copy(id, new_parent_id, new_id, new_weight[, new_name]) | 
-complete(id) | 
-uncomplete(id) | 
-add_reminder(id, rmd_id[, rmd_name], deadline, repeat) | 
-remove_reminder(rmd_id) | 
+add(id, new_name, new_id, weight[, note, deadline, created_at][, timestamp]) | 
+remove(id[, timestamp]) | 
+rename(id, new_name[, timestamp]) | 
+move(id, new_parent_id, new_weight[, timestamp]) | 
+copy(id, new_parent_id, new_id, new_weight[, new_name][, timestamp]) | 
+complete(id[, timestamp]) | 
+uncomplete(id[, timestamp]) | 
+add_reminder(id, rmd_id[, rmd_name], deadline, repeat[, timestamp]) | 
+remove_reminder(rmd_id[, timestamp]) | 
 edit_reminder(rmd_id, patch: {
   name?: string,
   deadline?: timestamp,
   repeat?: time | null,   // absent = unchanged; null = clear repeat
   active?: boolean,
-}) | 
+}[, timestamp]) | 
 edit_node(id, patch: {
   note?: string,
   deadline?: timestamp | null,   // absent = unchanged; null = clear the deadline
-})
+}[, timestamp])
 
 add's note/deadline/created_at are optional: they default to '', unset and 0.
-Clients set created_at = Date.now() when creating a node.
+Clients no longer send created_at — replay derives it from the op timestamp
+(created_at wins when both are present, for legacy reads). A complete op
+records its timestamp as the node's completedAt; uncomplete clears it.
 An empty edit_node or edit_reminder patch (no fields at all) is rejected.
 
-copy is shallow: copies name, status, reminders, note and deadline, not children.
-new_name defaults to the source's name. The copy's createdAt is set at apply time
-(display-only — no validation depends on it, so replay divergence is harmless).
+copy is shallow: copies name, status, reminders, note, deadline and completedAt,
+not children. new_name defaults to the source's name. The copy's createdAt
+comes from the copy op's timestamp (falling back to apply time for legacy ops),
+so it is deterministic across replays.
 
 CalendarOperation:
-add_block(id, name, start, end[, note, node_id]) |
-remove_block(id) |   // idempotent: removing an unknown block is a no-op
+add_block(id, name, start, end[, note, node_id][, timestamp]) |
+remove_block(id[, timestamp]) |   // idempotent: removing an unknown block is a no-op
 edit_block(id, patch: {
   name?: string,
   start?: timestamp,
   end?: timestamp,    // merged start/end must satisfy start < end
   note?: string,
   nodeId?: string | null,   // absent = unchanged; null = clear the link
-}) |
-complete_block(id) |
-uncomplete_block(id)
+}[, timestamp]) |
+complete_block(id[, timestamp]) |
+uncomplete_block(id[, timestamp])
 
 add_block/edit_block reject a node_id that is already linked by another block
 (`node already linked to a block`) and a node_id that does not exist (`unknown
 node id`). Empty edit_block patches are rejected. Completing/uncompleting an
 unknown block is rejected (like complete).
+A complete_block stamps the linked node's completedAt with the op timestamp
+(via propagation); uncomplete_block clears it.
 
 NodeFilter (client-side display criteria, not part of the persisted log):
 keyword?: string,           // name OR note contains it (case-insensitive)

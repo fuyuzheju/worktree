@@ -10,3 +10,4 @@ export * from './id';
 export * from './user';
 export * from './guards';
 export * from './schema';
+export * from './stats';
