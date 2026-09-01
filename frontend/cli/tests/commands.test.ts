@@ -173,8 +173,8 @@ describe('command dispatcher', () => {
     await run(io, 'add alpha');
     await run(io, 'edit alpha note=hello');
     expect(io.client.getTree().children[0]?.note).toBe('hello');
-    await run(io, 'edit alpha deadline=1000');
-    expect(io.client.getTree().children[0]?.deadline).toBe(1000);
+    await run(io, 'edit alpha deadline=2026-09-01T10:00');
+    expect(io.client.getTree().children[0]?.deadline).toBe(Date.parse('2026-09-01T10:00'));
     await run(io, 'edit alpha deadline=null');
     expect(io.client.getTree().children[0]?.deadline).toBeUndefined();
     await run(io, 'edit alpha note=');
@@ -200,13 +200,13 @@ describe('command dispatcher', () => {
   it('edit applies several fields in one call', async () => {
     const { io } = newIO();
     await run(io, 'add alpha');
-    await run(io, 'edit alpha name=alpine weight=3 status=false note=hi deadline=500');
+    await run(io, 'edit alpha name=alpine weight=3 status=false note=hi deadline=2026-09-01T10:00');
     const node = io.client.getTree().children[0]!;
     expect(node.name).toBe('alpine');
     expect(node.weight).toBe(3);
     expect(node.status).toBe(false);
     expect(node.note).toBe('hi');
-    expect(node.deadline).toBe(500);
+    expect(node.deadline).toBe(Date.parse('2026-09-01T10:00'));
   });
 
   it('edit reports unknown fields (system fields included), invalid values and usage errors', async () => {

@@ -1,4 +1,4 @@
-import type { Node } from '@worktree/core';
+import type { Block, Node } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 
 export class AmbiguousRefError extends Error {
@@ -86,6 +86,23 @@ export function resolveRef(root: Node, ref: string, cwd?: Node): Node {
   if (byName.length === 1) return byName[0];
   if (byName.length > 1) throw new AmbiguousRefError(ref, byName);
   throw new Error(`unknown node reference: ${ref}`);
+}
+
+/** Resolve a block reference: exact id, unique id prefix, or unique name. */
+export function resolveBlock(blocks: Block[], ref: string): Block {
+  const exact = blocks.find((b) => b.id === ref);
+  if (exact) return exact;
+  const prefix = blocks.filter((b) => b.id.startsWith(ref));
+  if (prefix.length === 1) return prefix[0];
+  if (prefix.length > 1) {
+    throw new Error(`ambiguous block reference '${ref}': ${prefix.map((b) => `${b.name} [${b.id.slice(0, 4)}]`).join(', ')}`);
+  }
+  const byName = blocks.filter((b) => b.name === ref);
+  if (byName.length === 1) return byName[0];
+  if (byName.length > 1) {
+    throw new Error(`ambiguous block name '${ref}': ${byName.map((b) => b.id.slice(0, 4)).join(', ')}`);
+  }
+  throw new Error(`unknown block reference: ${ref}`);
 }
 
 export function resolvePath(root: Node, base: Node, path: string): Node {

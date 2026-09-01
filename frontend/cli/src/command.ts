@@ -1,6 +1,7 @@
 import { ROOT_ID } from '@worktree/core';
 import type { Node, NodeFilter } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
+import { parseTime } from './time';
 import { findNode, resolveRef } from './resolve';
 
 /** How a non-empty filter renders: hide non-matching nodes, or highlight matches. */
@@ -170,11 +171,11 @@ export function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-export function parseTimestamp(io: CommandIO, s: string): number | null {
-  if (/^\d+$/.test(s)) return Number(s);
-  const t = Date.parse(s);
-  if (!Number.isNaN(t)) return t;
-  io.out(`invalid timestamp: ${s} (use epoch ms or ISO like 2026-08-21T10:00)`);
+/** Parse a time argument, printing the shared error on failure. */
+export function parseTimeArg(io: CommandIO, raw: string): number | null {
+  const t = parseTime(raw);
+  if (t !== null) return t;
+  io.out(`invalid time: ${raw} (use ISO like 2026-09-01T10:00)`);
   return null;
 }
 

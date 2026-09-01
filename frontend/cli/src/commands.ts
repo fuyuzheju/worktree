@@ -1,11 +1,12 @@
 import { ROOT_ID, USER_RE, computeStats, matchesFilter } from '@worktree/core';
-import { formatNode, renderFiltered, renderTree, shortId } from './render';
-import { pathOf } from './resolve';
+import type { Block } from '@worktree/core';
+import { formatBlock, formatDayHeader, formatNode, renderFiltered, renderTree, shortId } from './render';
+import { pathOf, resolveBlock } from './resolve';
 import { DEFAULT_SERVER } from './config';
 import { defaultStatePath, deleteToken, readToken, writeToken } from './storage';
 import { listUsers } from './users';
 import { AuthError, defaultLabel, loginOnServer, promptPassword, registerOnServer, revokeOnServer } from './auth';
-import { afterCommand, errMsg, mutate, parseTimestamp, printConflict } from './command';
+import { afterCommand, errMsg, mutate, parseTimeArg, printConflict } from './command';
 import type { Command, CommandIO, CommandResult } from './command';
 
 /** Parse a weight argument; prints the error and returns undefined when invalid. */
@@ -16,6 +17,16 @@ function parseWeight(io: CommandIO, raw: string): number | undefined {
     return undefined;
   }
   return weight;
+}
+
+/** Resolve a block ref; prints the error and returns null when it fails. */
+function refBlock(io: CommandIO, ref: string): Block | null {
+  try {
+    return resolveBlock(io.client.getBlocks(), ref);
+  } catch (e) {
+    io.out(errMsg(e));
+    return null;
+  }
 }
 
 const treeCommand: Command = {
@@ -83,7 +94,7 @@ const filterCommand: Command = {
       } else if (key === 'overdue') io.filter = { ...io.filter, overdue: value === 'true' };
       else if (key === 'has-deadline') io.filter = { ...io.filter, hasDeadline: value === 'true' };
       else if (key === 'deadline-before' || key === 'created-after' || key === 'created-before') {
-        const t = parseTimestamp(io, value);
+        const t = parseTimeArg(io, value);
         if (t === null) return 'ok';
         if (key === 'deadline-before') io.filter = { ...io.filter, deadlineBefore: t };
         else if (key === 'created-after') io.filter = { ...io.filter, createdAfter: t };
@@ -257,7 +268,7 @@ const editCommand: Command = {
       else if (key === 'deadline') {
         if (value === 'null' || value === '') deadline = null;
         else {
-          const t = parseTimestamp(io, value);
+          const t = parseTimeArg(io, value);
           if (t === null) return 'ok';
           deadline = t;
         }
@@ -364,7 +375,7 @@ const reminderCommand: Command = {
       if (args.length < 4) return io.usage('reminder add <nodeRef> <name> <deadline> [repeatMs]');
       const node = io.refNode(args[1]);
       if (!node) return 'ok';
-      const deadline = parseTimestamp(io, args[3]);
+      const deadline = parseTimeArg(io, args[3]);
       if (deadline === null) return 'ok';
       let repeat: number | undefined;
       if (args[4] !== undefined) {
@@ -400,7 +411,7 @@ const reminderCommand: Command = {
         const value = kv.slice(eq + 1);
         if (key === 'name') patch.name = value;
         else if (key === 'deadline') {
-          const t = parseTimestamp(io, value);
+          const t = parseTimeArg(io, value);
           if (t === null) return 'ok';
           patch.deadline = t;
         } else if (key === 'repeat') {
@@ -422,6 +433,173 @@ const reminderCommand: Command = {
       return 'ok';
     }
     return io.usage('reminder add|rm|edit ...');
+  },
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const blkCommand: Command = {
+  name: 'blk',
+  mutatesTree: true,
+  summary: 'manage calendar blocks (add / ls / edit / rm / cpl / uncpl)',
+  usage: 'blk add|ls|edit|rm|cpl|uncpl ...',
+  run: async (io, args): Promise<CommandResult> => {
+    const sub = args[0];
+    if (sub === 'add') {
+      if (args.length < 4) return io.usage('blk add <name> <start> <end> [nodeRef]');
+      const start = parseTimeArg(io, args[2]);
+      if (start === null) return 'ok';
+      const end = parseTimeArg(io, args[3]);
+      if (end === null) return 'ok';
+      let nodeId: string | undefined;
+      if (args[4] !== undefined) {
+        const node = io.refNode(args[4]);
+        if (!node) return 'ok';
+        nodeId = node.id;
+      }
+      const id = mutate(() => io.client.addBlock({ name: args[1], start, end, nodeId }));
+      io.out(`added block [${shortId(id)}] ${args[1]}`);
+      await afterCommand(io);
+      return 'ok';
+    }
+    if (sub === 'ls') {
+      const tree = io.client.getTree();
+      for (const b of io.client.getBlocks()) io.out(formatBlock(b, tree));
+      return 'ok';
+    }
+    if (sub === 'edit') {
+      if (args.length < 2) return io.usage('blk edit <blkRef> name=X start=Y end=Z note=N node=ref|null');
+      const block = refBlock(io, args[1]);
+      if (!block) return 'ok';
+      const patch: { name?: string; start?: number; end?: number; note?: string; nodeId?: string | null } = {};
+      for (const kv of args.slice(2)) {
+        const eq = kv.indexOf('=');
+        if (eq <= 0) {
+          io.out(`invalid key=value: ${kv}`);
+          return 'ok';
+        }
+        const key = kv.slice(0, eq);
+        const value = kv.slice(eq + 1);
+        if (key === 'name') {
+          if (value === '') {
+            io.out('block name must not be empty');
+            return 'ok';
+          }
+          patch.name = value;
+        } else if (key === 'start' || key === 'end') {
+          const t = parseTimeArg(io, value);
+          if (t === null) return 'ok';
+          patch[key] = t;
+        } else if (key === 'note') patch.note = value;
+        else if (key === 'node') {
+          if (value === 'null' || value === '') patch.nodeId = null;
+          else {
+            const node = io.refNode(value);
+            if (!node) return 'ok';
+            patch.nodeId = node.id;
+          }
+        } else {
+          io.out(`unknown field: ${key}`);
+          return 'ok';
+        }
+      }
+      if (Object.keys(patch).length === 0) {
+        io.out('empty patch');
+        return 'ok';
+      }
+      mutate(() => io.client.editBlock(block.id, patch));
+      io.out('block updated');
+      await afterCommand(io);
+      return 'ok';
+    }
+    if (sub === 'rm') {
+      if (args.length < 2) return io.usage('blk rm <blkRef>');
+      const block = refBlock(io, args[1]);
+      if (!block) return 'ok';
+      mutate(() => io.client.removeBlock(block.id));
+      io.out('block removed');
+      await afterCommand(io);
+      return 'ok';
+    }
+    if (sub === 'cpl' || sub === 'uncpl') {
+      if (args.length < 2) return io.usage(`blk ${sub} <blkRef>`);
+      const block = refBlock(io, args[1]);
+      if (!block) return 'ok';
+      mutate(() => io.client.setBlockCompleted(block.id, sub === 'cpl'));
+      io.out(`block ${sub === 'cpl' ? 'completed' : 'uncompleted'}`);
+      await afterCommand(io);
+      return 'ok';
+    }
+    return io.usage('blk add|ls|edit|rm|cpl|uncpl ...');
+  },
+};
+
+const linkCommand: Command = {
+  name: 'link',
+  mutatesTree: true,
+  summary: 'link a block to a node (at most one block per node)',
+  usage: 'link <blkRef> <nodeRef>',
+  run: async (io, args): Promise<CommandResult> => {
+    if (args.length < 2) return io.usage();
+    const block = refBlock(io, args[0]);
+    if (!block) return 'ok';
+    const node = io.refNode(args[1]);
+    if (!node) return 'ok';
+    mutate(() => io.client.editBlock(block.id, { nodeId: node.id }));
+    io.out(`linked "${block.name}" to ${node.name}`);
+    await afterCommand(io);
+    return 'ok';
+  },
+};
+
+const unlinkCommand: Command = {
+  name: 'unlink',
+  mutatesTree: true,
+  summary: 'clear a block\'s node link',
+  usage: 'unlink <blkRef>',
+  run: async (io, args): Promise<CommandResult> => {
+    if (args.length < 1) return io.usage();
+    const block = refBlock(io, args[0]);
+    if (!block) return 'ok';
+    mutate(() => io.client.editBlock(block.id, { nodeId: null }));
+    io.out(`unlinked "${block.name}"`);
+    await afterCommand(io);
+    return 'ok';
+  },
+};
+
+const cldCommand: Command = {
+  name: 'cld',
+  summary: 'show the calendar day by day (defaults to the next 7 days)',
+  usage: 'cld [days]',
+  run: (io, args): CommandResult => {
+    let days = 7;
+    if (args[0] !== undefined) {
+      const n = Number(args[0]);
+      if (!Number.isInteger(n) || n < 1) {
+        io.out(`invalid days: ${args[0]} (use a positive integer)`);
+        return 'ok';
+      }
+      days = n;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tree = io.client.getTree();
+    const blocks = io.client.getBlocks();
+    for (let i = 0; i < days; i++) {
+      const dayStart = today.getTime() + i * DAY_MS;
+      const dayBlocks = blocks
+        .filter((b) => b.start >= dayStart && b.start < dayStart + DAY_MS)
+        .sort((a, b) => a.start - b.start);
+      io.out(`${formatDayHeader(dayStart)}${i === 0 ? ' *' : ''}`);
+      if (dayBlocks.length === 0) continue;
+      for (const b of dayBlocks) {
+        const spanDays = Math.ceil((b.end - b.start) / DAY_MS);
+        const marker = spanDays > 1 ? ` (${spanDays} days)` : '';
+        io.out(`  ${formatBlock(b, tree)}${marker}`);
+      }
+    }
+    return 'ok';
   },
 };
 
@@ -670,6 +848,10 @@ export const COMMANDS: Command[] = [
   cplCommand,
   uncplCommand,
   reminderCommand,
+  blkCommand,
+  linkCommand,
+  unlinkCommand,
+  cldCommand,
   reconnectCommand,
   statsCommand,
   statusCommand,

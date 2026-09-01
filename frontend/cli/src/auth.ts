@@ -83,13 +83,19 @@ export async function promptPassword(prompt: string): Promise<string> {
     // readline exposes no public way to suppress echo; stubbing _writeToOutput
     // is the standard trick, but the method is a private implementation detail
     // of readline, so the cast is unavoidable.
+    // The prompt itself travels through the same hook as the echoed input, so
+    // print it first and only then silence the output — otherwise the user
+    // sees a blank line instead of "password: ".
+    process.stdout.write(prompt);
     (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = () => {};
-    rl.question(prompt, (answer) => {
+    rl.question('', (answer) => {
       rl.close();
+      process.stdout.write('\n');
       resolve(answer);
     });
     rl.on('SIGINT', () => {
       rl.close();
+      process.stdout.write('\n');
       reject(new Error('aborted'));
     });
   });

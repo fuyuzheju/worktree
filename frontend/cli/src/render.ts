@@ -1,6 +1,7 @@
-import type { FilteredNode, Node, NodeFilter, Reminder } from '@worktree/core';
+import type { Block, FilteredNode, Node, NodeFilter, Reminder } from '@worktree/core';
 import { ROOT_ID, filterTree, hasActiveFilter, matchesFilter } from '@worktree/core';
 import type { FilterDisplayMode } from './command';
+import { findNode, pathOf } from './resolve';
 
 const SHORT_ID_LEN = 4;
 
@@ -82,4 +83,30 @@ function formatReminder(r: Reminder): string {
   const repeat = r.repeat !== undefined ? `+${r.repeat}ms` : '';
   const active = r.active ? '' : '/off';
   return `${r.name ?? ''}@${when}${repeat}${active}`;
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Local-time HH:MM (24h). */
+export function formatTime(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Local-time `YYYY-MM-DD Weekday`. */
+export function formatDayHeader(ms: number): string {
+  const d = new Date(ms);
+  const weekday = WEEKDAYS[d.getDay()] ?? '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${weekday}`;
+}
+
+/** One calendar block: `name [id4] HH:MM–HH:MM (node: /path | unlinked) ✔`. */
+export function formatBlock(block: Block, tree: Node): string {
+  const parts = [block.name, `[${shortId(block.id)}]`, `${formatTime(block.start)}–${formatTime(block.end)}`];
+  const node = block.nodeId !== undefined ? findNode(tree, block.nodeId) : undefined;
+  parts.push(node ? `(node: ${pathOf(tree, node.id)})` : '(unlinked)');
+  if (block.status) parts.push('✔');
+  if (block.note !== '') parts.push(`✎ ${block.note}`);
+  const text = parts.join(' ');
+  return colorEnabled ? `${block.status ? GREEN : YELLOW}${text}${RESET}` : text;
 }
