@@ -66,7 +66,7 @@ export function BlockDetailPanel(props: {
     }
   };
 
-  const inputClass = 'mt-1 w-full rounded border border-gray-300 px-2 py-1 text-gray-900';
+  const inputClass = 'mt-1 flex-1 rounded border border-gray-300 px-2 py-1 text-gray-900';
 
   return (
     <div
@@ -116,12 +116,12 @@ export function BlockDetailPanel(props: {
       )}
 
       <div className="mt-3 space-y-3 text-sm">
-        <label className="block text-xs text-gray-600">
-          {t('calendar.name')}
+        <div className="flex flex-col text-xs text-gray-600">
+          <span>{t('calendar.name')}</span>
           <input data-testid="block-name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-        </label>
+        </div>
         <div className="flex flex-col gap-3">
-          <label className="block flex-1 text-xs text-gray-600">
+          <label className="flex-1 flex flex-col text-xs text-gray-600">
             {t('calendar.start')}
             <input
               data-testid="block-start"
@@ -132,7 +132,7 @@ export function BlockDetailPanel(props: {
               className={inputClass}
             />
           </label>
-          <label className="block flex-1 text-xs text-gray-600">
+          <label className="flex-1 flex flex-col text-xs text-gray-600">
             {t('calendar.end')}
             <input
               data-testid="block-end"
@@ -144,7 +144,7 @@ export function BlockDetailPanel(props: {
             />
           </label>
         </div>
-        <label className="block text-xs text-gray-600">
+        <label className="flex flex-col text-xs text-gray-600">
           {t('calendar.note')}
           <textarea data-testid="block-note" value={note} onChange={(e) => setNote(e.target.value)} className={inputClass} rows={2} />
         </label>
