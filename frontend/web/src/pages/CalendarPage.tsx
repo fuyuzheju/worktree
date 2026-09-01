@@ -9,6 +9,7 @@ import {
   DAY_MS,
   DEFAULT_PX_PER_HOUR,
   HOUR_GUTTER_PX,
+  MIN_PX_PER_HOUR,
   blockColor,
   dayOffsetCalc,
   dayStartMs,
@@ -55,14 +56,14 @@ export function CalendarPage(props: {
   return (
     <div className={`flex w-full flex-1 min-h-0 ${isMobile ? 'flex-col' : ''}`}>
       <div className="flex min-w-0 flex-1 flex-col min-h-0 max-w-[700px] mx-auto">
-        <div className="flex items-center gap-2 pb-2">
+        <div className="flex items-center gap-2 pb-2 flex-wrap ml-2 mr-2">
           <button
             type="button"
             data-testid="calendar-prev"
             onClick={() => nav(-1)}
             className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
           >
-            ‹ {t('calendar.prev')}
+            ‹ {isMobile ? '' : t('calendar.prev')}
           </button>
           <button
             type="button"
@@ -78,7 +79,7 @@ export function CalendarPage(props: {
             onClick={() => nav(1)}
             className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
           >
-            {t('calendar.next')} ›
+            {isMobile ? '' : t('calendar.next')} ›
           </button>
           <input
             type="date"
@@ -114,11 +115,11 @@ export function CalendarPage(props: {
           ))}
         </div>
 
-        <div className="relative flex-1 min-h-0 overflow-hidden rounded border border-gray-300 bg-white">
-          {/* The canvas fills the available space: 24h maps to 100% of the
-              height and the day columns share the width evenly (fewer days →
-              wider columns), so no scrollbar is needed. */}
-          <div className="relative h-full w-full">
+        <div className="relative flex-1 min-h-0 overflow-y-auto rounded border border-gray-300 bg-white">
+          {/* The canvas fills the available space, but hour rows never shrink
+              below MIN_PX_PER_HOUR — the day scrolls when the space is short.
+              The day columns share the width evenly (fewer days → wider). */}
+          <div className="relative h-full w-full" style={{ minHeight: 24 * MIN_PX_PER_HOUR }}>
             {Array.from({ length: 24 }, (_, h) => (
               <div key={h}>
                 <div
@@ -205,6 +206,7 @@ export function CalendarPage(props: {
           {editBlock !== null ? (
             <BlockDetailPanel
               key={editBlock.id}
+              bare
               block={editBlock}
               client={client}
               tree={tree}

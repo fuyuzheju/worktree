@@ -197,7 +197,7 @@ export function NodeDetailPanel(props: {
           type="button"
           onClick={() => run(() => client.setCompleted(node.id, !node.status))}
           data-testid="detail-complete"
-          className="rounded bg-green-600 px-2 py-2 text-white hover:bg-green-700 md:py-1"
+          className="h-8 rounded bg-green-600 px-2 py-2 text-white hover:bg-green-700 md:py-1"
         >
           {node.status ? t('detail.uncomplete') : t('detail.complete')}
         </button>
@@ -205,7 +205,7 @@ export function NodeDetailPanel(props: {
           type="button"
           onClick={onRemove}
           data-testid="detail-remove"
-          className="rounded bg-red-600 px-2 py-2 text-white hover:bg-red-700 md:py-1"
+          className="h-8 rounded bg-red-600 px-2 py-2 text-white hover:bg-red-700 md:py-1"
         >
           {t('detail.remove')}
         </button>

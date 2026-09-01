@@ -67,24 +67,61 @@ export function BlockDetailPanel(props: {
   };
 
   const inputClass = 'mt-1 w-full rounded border border-gray-300 px-2 py-1 text-gray-900';
-  const buttonClass = 'rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50';
 
   return (
-    <div className={bare ? 'p-4' : 'rounded border border-gray-300 bg-white p-4'} data-testid="block-detail">
-      <div className="flex items-center justify-between">
+    <div
+      className="rounded border border-gray-300 bg-white p-4 pt-0 text-sm h-full overflow-auto"
+      data-testid="block-detail"
+    >
+      <div
+        className={`flex items-center justify-between ${
+          bare === true ? 'sticky top-0 z-10 -mx-4 mb-1 bg-white px-4 py-1' : ''
+        }`}
+      >
         <h2 className="font-semibold">{block === null ? t('calendar.newTitle') : t('calendar.editTitle')}</h2>
-        <button type="button" data-testid="block-cancel" onClick={onClose} className={buttonClass}>
-          {t('calendar.cancel')}
+        <button
+          type="button"
+          data-testid="block-cancel"
+          onClick={onClose}
+          className="rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
+        >
+          ✕
         </button>
       </div>
 
+      {block !== null && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-testid="block-complete"
+            onClick={() => client.setBlockCompleted(block.id, !block.status)}
+            className="h-8 rounded bg-green-600 px-2 py-2 text-white hover:bg-green-700 md:py-1"
+          >
+            {block.status ? t('detail.uncomplete') : t('detail.complete')}
+          </button>
+          <button
+            type="button"
+            data-testid="block-delete"
+            onClick={() => {
+              if (window.confirm(t('calendar.deleteConfirm', { name: block.name }))) {
+                client.removeBlock(block.id);
+                onClose();
+              }
+            }}
+            className="h-8 rounded bg-red-600 px-2 py-2 text-white hover:bg-red-700 md:py-1"
+          >
+            {t('calendar.delete')}
+          </button>
+        </div>
+      )}
+
       <div className="mt-3 space-y-3 text-sm">
-        <label className="block">
+        <label className="block text-xs text-gray-600">
           {t('calendar.name')}
           <input data-testid="block-name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
         </label>
         <div className="flex flex-col gap-3">
-          <label className="block flex-1">
+          <label className="block flex-1 text-xs text-gray-600">
             {t('calendar.start')}
             <input
               data-testid="block-start"
@@ -95,7 +132,7 @@ export function BlockDetailPanel(props: {
               className={inputClass}
             />
           </label>
-          <label className="block flex-1">
+          <label className="block flex-1 text-xs text-gray-600">
             {t('calendar.end')}
             <input
               data-testid="block-end"
@@ -107,69 +144,43 @@ export function BlockDetailPanel(props: {
             />
           </label>
         </div>
-        <label className="block">
+        <label className="block text-xs text-gray-600">
           {t('calendar.note')}
           <textarea data-testid="block-note" value={note} onChange={(e) => setNote(e.target.value)} className={inputClass} rows={2} />
         </label>
 
-        <div>
-          <span className="text-xs text-gray-500">{t('calendar.linkedNode')}: </span>
+        <div className="text-xs text-gray-600">
+          {t('calendar.linkedNode')}:{' '}
           <button
             type="button"
             data-testid="block-link"
             onClick={() => setPickerOpen(true)}
-            className="rounded border border-gray-300 px-2 py-0.5 text-xs text-blue-700 hover:bg-gray-50"
+            className="rounded px-2 py-1.5 text-blue-700 hover:bg-blue-50 md:px-1.5 md:py-0.5"
           >
             {linked?.name ?? t('calendar.noLink')}
           </button>
           {nodeId !== null && (
-            <button type="button" data-testid="block-link-clear" onClick={() => setNodeId(null)} className={`ml-2 ${buttonClass}`}>
+            <button
+              type="button"
+              data-testid="block-link-clear"
+              onClick={() => setNodeId(null)}
+              className="rounded px-2 py-1.5 text-red-700 hover:bg-red-50 md:px-1.5 md:py-0.5"
+            >
               {t('calendar.clearLink')}
             </button>
           )}
         </div>
 
-        {block !== null && (
-          <label className="flex items-center gap-2">
-            <input
-              data-testid="block-complete"
-              type="checkbox"
-              checked={block.status}
-              onChange={(e) => client.setBlockCompleted(block.id, e.target.checked)}
-            />
-            {t('calendar.complete')}
-          </label>
-        )}
-
         {error !== null && <p className="text-xs text-red-700">{error}</p>}
 
-        <div className="flex justify-between pt-1">
-          <div>
-            {block !== null && (
-              <button
-                type="button"
-                data-testid="block-delete"
-                onClick={() => {
-                  if (window.confirm(t('calendar.deleteConfirm', { name: block.name }))) {
-                    client.removeBlock(block.id);
-                    onClose();
-                  }
-                }}
-                className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
-              >
-                {t('calendar.delete')}
-              </button>
-            )}
-          </div>
-          <button
-            type="button"
-            data-testid="block-save"
-            onClick={save}
-            className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
-          >
-            {t('calendar.save')}
-          </button>
-        </div>
+        <button
+          type="button"
+          data-testid="block-save"
+          onClick={save}
+          className="rounded bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 md:py-1"
+        >
+          {t('calendar.save')}
+        </button>
       </div>
 
       {pickerOpen && (

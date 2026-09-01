@@ -4,6 +4,8 @@ export const DAY_MS = 86_400_000;
 export const HOUR_MS = 3_600_000;
 /** Grid height per hour; a full day is 24 * this. */
 export const DEFAULT_PX_PER_HOUR = 48;
+/** Minimum rendered height per hour row; the canvas scrolls below 24 * this. */
+export const MIN_PX_PER_HOUR = 24;
 /** Smallest clickable bar height, so tiny blocks stay reachable. */
 export const MIN_BAR_PX = 14;
 /** Left gutter holding the hour labels. */
