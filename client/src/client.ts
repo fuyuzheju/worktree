@@ -234,7 +234,7 @@ export class WorktreeClient {
   }
 
   /** Returns the new reminder id. */
-  addReminder(nodeId: string, name: string, deadline: number, repeat?: number): string {
+  addReminder(nodeId: string, name: string | undefined, deadline: number, repeat?: number): string {
     const rmdId = newId();
     this.apply({ kind: 'add_reminder', nodeId, rmdId, name, deadline, repeat });
     return rmdId;

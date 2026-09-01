@@ -5,7 +5,7 @@ a bearer token that resolves to this name (Authorization: Bearer / ?token=).
 
 Reminder:
 id: string,
-name: string,
+name: string | undefined,  // display name; absent for unnamed reminders
 deadline: timestamp,
 repeat: time | undefined,   // recurrence interval in ms; undefined = one-shot
 active: boolean,            // false disables firing without deleting
@@ -77,7 +77,7 @@ move(id, new_parent_id, new_weight) |
 copy(id, new_parent_id, new_id, new_weight[, new_name]) | 
 complete(id) | 
 uncomplete(id) | 
-add_reminder(id, rmd_id, rmd_name, deadline, repeat) | 
+add_reminder(id, rmd_id[, rmd_name], deadline, repeat) | 
 remove_reminder(rmd_id) | 
 edit_reminder(rmd_id, patch: {
   name?: string,

@@ -69,6 +69,12 @@ describe('formatReminder', () => {
       'R@1970-01-01T00:00:01.000Z',
     );
   });
+
+  it('omits the name when absent', () => {
+    expect(formatReminder({ id: 'r1', deadline: 1000, active: true })).toBe(
+      '@1970-01-01T00:00:01.000Z',
+    );
+  });
 });
 
 describe('connectors', () => {

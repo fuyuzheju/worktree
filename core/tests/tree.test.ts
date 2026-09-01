@@ -310,6 +310,11 @@ describe('Tree', () => {
     expect(() => tree.apply({ kind: 'add_reminder', nodeId: 'missing', rmdId: 'r1', name: 'R', deadline: 1 })).toThrow();
   });
 
+  it('add_reminder without a name replays to an unnamed reminder', () => {
+    const tree = Tree.fromOps([add(ROOT_ID, 'a'), { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', deadline: 100 }]);
+    expect(tree.getNode('a')?.reminders[0]?.name).toBeUndefined();
+  });
+
   it('counts reminders across the tree', () => {
     const tree = Tree.fromOps([
       add(ROOT_ID, 'a'),

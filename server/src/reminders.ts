@@ -14,7 +14,7 @@ export interface DueReminder {
   nodeId: string;
   nodeName: string;
   rmdId: string;
-  name: string;
+  name?: string;
   occurrence: number;
 }
 
@@ -51,7 +51,7 @@ function latestOccurrence(r: Reminder, now: number): number | null {
 }
 
 export interface PushPayload {
-  title: string;
+  title?: string;
   body: string;
   tag: string;
   icon: string;
@@ -84,7 +84,7 @@ export async function sweepOnce(store: HistoryStore, now: number, send: Send = s
       await prisma.reminderFire.create({ data: { userId: d.userId, rmdId: d.rmdId, occurrence: BigInt(d.occurrence) } });
       claimed = true;
       console.log(
-        `[push] due: user=${d.userId} rmd=${d.rmdId} "${d.name}" node="${d.nodeName}" ` +
+        `[push] due: user=${d.userId} rmd=${d.rmdId} "${d.name ?? ''}" node="${d.nodeName}" ` +
           `occurrence=${d.occurrence} (${Math.round(now - d.occurrence)}ms after due)`,
       );
     } catch (err) {

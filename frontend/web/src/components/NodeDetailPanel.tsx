@@ -582,10 +582,6 @@ function ReminderForm(props: {
       return;
     }
     const nameValue = name.trim();
-    if (nameValue === '') {
-      setError('reminder name must not be empty');
-      return;
-    }
     try {
       if (isEdit) {
         client.editReminder(reminder.id, {
@@ -597,7 +593,7 @@ function ReminderForm(props: {
       } else {
         client.addReminder(
           nodeId,
-          nameValue,
+          nameValue === '' ? undefined : nameValue,
           deadlineMs,
           repeat.trim() === '' ? undefined : Number(repeat),
         );

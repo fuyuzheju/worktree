@@ -81,5 +81,5 @@ function formatReminder(r: Reminder): string {
   const when = new Date(r.deadline).toISOString();
   const repeat = r.repeat !== undefined ? `+${r.repeat}ms` : '';
   const active = r.active ? '' : '/off';
-  return `${r.name}@${when}${repeat}${active}`;
+  return `${r.name ?? ''}@${when}${repeat}${active}`;
 }

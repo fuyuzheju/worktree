@@ -33,7 +33,7 @@ const treeOperation = z.discriminatedUnion('kind', [
     kind: z.literal('add_reminder'),
     nodeId: id,
     rmdId: id,
-    name: z.string(),
+    name: z.string().optional(),
     deadline: timestamp,
     repeat: timestamp.optional(),
   }),

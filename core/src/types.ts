@@ -3,7 +3,8 @@ export type Timestamp = number;
 
 export interface Reminder {
   id: string;
-  name: string;
+  /** Display name; absent for unnamed reminders. */
+  name?: string;
   deadline: Timestamp;
   /** Recurrence interval in milliseconds; absent for one-shot reminders. */
   repeat?: Timestamp;
@@ -69,7 +70,7 @@ export type TreeOperation =
   | { kind: 'copy'; id: string; parentId: string; newId: string; weight: number; name?: string }
   | { kind: 'complete'; id: string }
   | { kind: 'uncomplete'; id: string }
-  | { kind: 'add_reminder'; nodeId: string; rmdId: string; name: string; deadline: Timestamp; repeat?: Timestamp }
+  | { kind: 'add_reminder'; nodeId: string; rmdId: string; name?: string; deadline: Timestamp; repeat?: Timestamp }
   | { kind: 'remove_reminder'; rmdId: string }
   | {
       kind: 'edit_reminder';

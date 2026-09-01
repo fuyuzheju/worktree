@@ -42,6 +42,13 @@ describe('computeDue', () => {
     expect(due).toEqual([{ userId: 1, nodeId: 'a', nodeName: 'a', rmdId: 'r1', name: 'r1', occurrence: now - 1 }]);
   });
 
+  it('fires a nameless reminder with no name', () => {
+    const tree = treeWith(addNode('a'), { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', deadline: now - 1 });
+    const due = computeDue(tree, 1, now);
+    expect(due).toEqual([{ userId: 1, nodeId: 'a', nodeName: 'a', rmdId: 'r1', name: undefined, occurrence: now - 1 }]);
+    expect(payloadFor(due[0]).title).toBeUndefined();
+  });
+
   it('excludes a reminder that is still in the future', () => {
     expect(computeDue(treeWith(addNode('a'), addRmd('a', 'r1', now + 1)), 1, now)).toEqual([]);
   });
