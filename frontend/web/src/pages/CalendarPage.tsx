@@ -47,9 +47,6 @@ export function CalendarPage(props: {
   );
 
   const editBlock = editing?.mode === 'edit' ? (blocks.find((b) => b.id === editing.id) ?? null) : null;
-  // The side panel (or bottom sheet) edits existing blocks only; adding a
-  // block is a centered modal instead.
-  const showPanel = editBlock !== null;
 
   const nav = (delta: number): void => setAnchor((a) => a + delta * DAY_MS);
 
@@ -189,10 +186,10 @@ export function CalendarPage(props: {
       </div>
 
       {isMobile ? (
-        showPanel && (
+        editBlock !== null && (
           <div className="max-h-[55vh] min-h-[55vh] w-full overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl">
             <BlockDetailPanel
-              key={editBlock!.id}
+              key={editBlock.id}
               bare
               block={editBlock}
               client={client}
@@ -205,9 +202,9 @@ export function CalendarPage(props: {
         )
       ) : (
         <div className="w-96 shrink-0">
-          {showPanel ? (
+          {editBlock !== null ? (
             <BlockDetailPanel
-              key={editBlock!.id}
+              key={editBlock.id}
               block={editBlock}
               client={client}
               tree={tree}

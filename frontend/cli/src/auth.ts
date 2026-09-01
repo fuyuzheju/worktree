@@ -1,6 +1,7 @@
 import os from 'node:os';
 import readline from 'node:readline';
 import type { AuthResponse } from '@worktree/core';
+import { isAuthResponse, isRecord } from '@worktree/core';
 import type { StoredToken } from './storage';
 
 export class AuthError extends Error {
@@ -24,14 +25,16 @@ async function authFetch(serverUrl: string, path: string, body: object, token?: 
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
-      const parsed = (await res.json()) as { error?: string };
-      if (typeof parsed.error === 'string') message = parsed.error;
+      const parsed: unknown = await res.json();
+      if (isRecord(parsed) && typeof parsed.error === 'string') message = parsed.error;
     } catch {
       // non-JSON error body
     }
     throw new AuthError(res.status, message);
   }
-  return (await res.json()) as AuthResponse;
+  const parsed: unknown = await res.json();
+  if (!isAuthResponse(parsed)) throw new AuthError(res.status, 'malformed auth response');
+  return parsed;
 }
 
 export async function registerOnServer(serverUrl: string, username: string, password: string): Promise<StoredToken> {
@@ -77,6 +80,9 @@ export async function promptPassword(prompt: string): Promise<string> {
   }
   return new Promise((resolve, reject) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    // readline exposes no public way to suppress echo; stubbing _writeToOutput
+    // is the standard trick, but the method is a private implementation detail
+    // of readline, so the cast is unavoidable.
     (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = () => {};
     rl.question(prompt, (answer) => {
       rl.close();

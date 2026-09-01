@@ -6,7 +6,7 @@ export function statsRouter(store: HistoryStore): Router {
   const router = Router();
 
   router.get('/', async (req, res) => {
-    const user = res.locals.user as string;
+    const user: string = res.locals.user;
     const state = await store.getTreeForUser(user);
     res.json({
       opCount: (await store.all(user)).length,

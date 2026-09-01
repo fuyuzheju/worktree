@@ -23,7 +23,8 @@ class MemoryStorage {
   }
 
   getItem(key: string): string | null {
-    return this.map.has(key) ? this.map.get(key)! : null;
+    const value = this.map.get(key);
+    return value === undefined ? null : value;
   }
 
   key(index: number): string | null {
@@ -39,7 +40,7 @@ class MemoryStorage {
   }
 }
 
-const storage = new MemoryStorage() as unknown as Storage;
+const storage: Storage = new MemoryStorage();
 for (const target of [globalThis, window]) {
   Object.defineProperty(target, 'localStorage', { value: storage, configurable: true });
 }

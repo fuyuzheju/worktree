@@ -38,8 +38,9 @@ describe('registerOnServer', () => {
     stubFetch(() => new Response(JSON.stringify({ error: 'username taken' }), { status: 409 }));
     const err = await registerOnServer(SERVER, 'alice', 'hunter2222').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AuthError);
-    expect((err as AuthError).status).toBe(409);
-    expect((err as AuthError).message).toBe('username taken');
+    if (!(err instanceof AuthError)) throw new Error('expected AuthError');
+    expect(err.status).toBe(409);
+    expect(err.message).toBe('username taken');
   });
 });
 
@@ -53,7 +54,7 @@ describe('loginOnServer', () => {
     );
     const stored = await loginOnServer(SERVER, 'alice', 'hunter2222', 'my-phone');
     expect(stored).toEqual({ token: 'tok-2', tokenId: 4, label: 'my-phone' });
-    expect(JSON.parse(calls[0]!.init.body as string)).toEqual({
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
       username: 'alice',
       password: 'hunter2222',
       label: 'my-phone',
@@ -63,7 +64,8 @@ describe('loginOnServer', () => {
   it('maps a 401 to AuthError', async () => {
     stubFetch(() => new Response(JSON.stringify({ error: 'invalid username or password' }), { status: 401 }));
     const err = await loginOnServer(SERVER, 'alice', 'wrong').catch((e: unknown) => e);
-    expect((err as AuthError).status).toBe(401);
+    expect(err).toBeInstanceOf(AuthError);
+    if (err instanceof AuthError) expect(err.status).toBe(401);
   });
 });
 

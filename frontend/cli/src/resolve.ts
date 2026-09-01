@@ -78,12 +78,12 @@ export function resolveRef(root: Node, ref: string, cwd?: Node): Node {
 
   const all = collectNodes(root);
   const exact = all.filter((n) => n.id === ref);
-  if (exact.length === 1) return exact[0]!;
+  if (exact.length === 1) return exact[0];
   const prefix = all.filter((n) => n.id.startsWith(ref));
-  if (prefix.length === 1) return prefix[0]!;
+  if (prefix.length === 1) return prefix[0];
   if (prefix.length > 1) throw new AmbiguousRefError(ref, prefix);
   const byName = all.filter((n) => n.name === ref);
-  if (byName.length === 1) return byName[0]!;
+  if (byName.length === 1) return byName[0];
   if (byName.length > 1) throw new AmbiguousRefError(ref, byName);
   throw new Error(`unknown node reference: ${ref}`);
 }

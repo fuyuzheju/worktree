@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID, Tree } from '../src/index';
+import type { TreeOperation } from '../src/index';
 
-const add = (parentId: string, id: string, weight = 1, name = id) =>
-  ({ kind: 'add', parentId, id, name, weight }) as const;
+const add = (parentId: string, id: string, weight = 1, name = id): TreeOperation =>
+  ({ kind: 'add', parentId, id, name, weight });
 
 describe('Tree', () => {
   it('builds from add ops', () => {
@@ -322,11 +323,11 @@ describe('Tree', () => {
   });
 
   it('sibling order is independent of the order the adds were applied', () => {
-    const ops = [
+    const ops: TreeOperation[] = [
       { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 },
       { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 },
       { kind: 'add', parentId: ROOT_ID, id: 'c', name: 'C', weight: 2 },
-    ] as const;
+    ];
     const forward = Tree.fromOps([...ops]);
     const backward = Tree.fromOps([...ops].reverse());
     expect(forward.getRoot().children.map((c) => c.id)).toEqual(['a', 'b', 'c']);

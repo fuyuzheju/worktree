@@ -33,8 +33,8 @@ function authStubIO(cmd: string): CommandIO {
       return {};
     },
     set filter(_value) {},
-    get filterMode() {
-      return 'hide' as const;
+    get filterMode(): 'hide' {
+      return 'hide';
     },
     set filterMode(_value) {},
     switchUser: async (name: string): Promise<void> => {
@@ -84,7 +84,7 @@ async function runCommand(io: CommandIO, line: string): Promise<CommandResult> {
   if (!trimmed) return 'ok';
   const [cmd, ...args] = trimmed.split(/\s+/);
   try {
-    return await dispatch(io, cmd!, args);
+    return await dispatch(io, cmd, args);
   } catch (e) {
     io.out(`error: ${errMsg(e)}`);
     return 'ok';
@@ -196,8 +196,8 @@ async function main(): Promise<void> {
   }
   const [cmd, ...rest] = args;
   // Auth commands run before any client exists (there is no token yet).
-  if (AUTH_ONE_SHOT.has(cmd!)) {
-    await dispatch(authStubIO(cmd!), cmd!, rest);
+  if (AUTH_ONE_SHOT.has(cmd)) {
+    await dispatch(authStubIO(cmd), cmd, rest);
     exitAfterFlush(Number(process.exitCode ?? 0));
     return;
   }
@@ -234,10 +234,10 @@ async function main(): Promise<void> {
       process.exitCode = 1;
     }
   }
-  const command = findCommand(COMMANDS, cmd!);
+  const command = findCommand(COMMANDS, cmd);
   let ran = false;
   try {
-    await dispatch(io, cmd!, rest);
+    await dispatch(io, cmd, rest);
     ran = true;
   } catch (e) {
     console.error(`error: ${errMsg(e)}`);

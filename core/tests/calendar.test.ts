@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { Calendar } from '../src/index';
+import type { CalendarOperation } from '../src/index';
 
-const addBlock = (id: string, start = 0, end = 10, name = id) =>
-  ({ kind: 'add_block', id, name, start, end }) as const;
+const addBlock = (id: string, start = 0, end = 10, name = id): CalendarOperation =>
+  ({ kind: 'add_block', id, name, start, end });
 
 describe('Calendar', () => {
   it('builds from add_block ops in order', () => {
@@ -73,7 +74,7 @@ describe('Calendar', () => {
     const calendar = new Calendar();
     calendar.apply(addBlock('b1'));
     calendar.apply({ kind: 'edit_block', id: 'b1', name: 'renamed', note: 'n' });
-    const b = calendar.getBlocks()[0]!;
+    const b = calendar.getBlocks()[0];
     expect(b.name).toBe('renamed');
     expect(b.note).toBe('n');
     expect(b.start).toBe(0);
@@ -84,7 +85,7 @@ describe('Calendar', () => {
     const calendar = new Calendar();
     calendar.apply({ kind: 'add_block', id: 'b1', name: 'B', start: 0, end: 10, nodeId: 'a' });
     calendar.apply({ kind: 'edit_block', id: 'b1', nodeId: null });
-    expect(calendar.getBlocks()[0]!.nodeId).toBeUndefined();
+    expect(calendar.getBlocks()[0].nodeId).toBeUndefined();
   });
 
   it('edit_block rejects an unknown id', () => {
@@ -110,7 +111,7 @@ describe('Calendar', () => {
     expect(() => calendar.apply({ kind: 'edit_block', id: 'b1', start: 15 })).toThrow(/start must be before end/);
     expect(() => calendar.apply({ kind: 'edit_block', id: 'b1', end: 0 })).toThrow(/start must be before end/);
     calendar.apply({ kind: 'edit_block', id: 'b1', end: 20 });
-    expect(calendar.getBlocks()[0]!.end).toBe(20);
+    expect(calendar.getBlocks()[0].end).toBe(20);
   });
 
   it('edit_block rejects relinking to a node another block links, allows a free one', () => {
@@ -119,7 +120,7 @@ describe('Calendar', () => {
     calendar.apply(addBlock('b2'));
     expect(() => calendar.apply({ kind: 'edit_block', id: 'b2', nodeId: 'a' })).toThrow(/node already linked to a block/);
     calendar.apply({ kind: 'edit_block', id: 'b2', nodeId: 'b' });
-    expect(calendar.getBlocks()[1]!.nodeId).toBe('b');
+    expect(calendar.getBlocks()[1].nodeId).toBe('b');
   });
 
   it('complete_block/uncomplete_block toggle status and reject unknown ids', () => {
@@ -128,9 +129,9 @@ describe('Calendar', () => {
     expect(() => calendar.apply({ kind: 'complete_block', id: 'missing' })).toThrow(/unknown block id/);
     expect(() => calendar.apply({ kind: 'uncomplete_block', id: 'missing' })).toThrow(/unknown block id/);
     calendar.apply({ kind: 'complete_block', id: 'b1' });
-    expect(calendar.getBlocks()[0]!.status).toBe(true);
+    expect(calendar.getBlocks()[0].status).toBe(true);
     calendar.apply({ kind: 'uncomplete_block', id: 'b1' });
-    expect(calendar.getBlocks()[0]!.status).toBe(false);
+    expect(calendar.getBlocks()[0].status).toBe(false);
   });
 
   it('clone() is a deep copy isolated from mutations', () => {
@@ -140,6 +141,6 @@ describe('Calendar', () => {
     copy.apply({ kind: 'edit_block', id: 'b1', name: 'changed' });
     copy.apply({ kind: 'remove_block', id: 'b1' });
     expect(calendar.blockCount()).toBe(1);
-    expect(calendar.getBlocks()[0]!.name).toBe('b1');
+    expect(calendar.getBlocks()[0].name).toBe('b1');
   });
 });

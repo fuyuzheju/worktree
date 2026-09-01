@@ -55,8 +55,8 @@ export class WorktreeClient {
     if (saved) this.store.restore(saved.confirmed, saved.pending);
 
     const base = options.serverUrl.replace(/\/+$/, '');
-    this.api = new ServerAPI(base, options.token!);
-    this.socket = new ServerSocket(withTokenParam(options.wsUrl ?? defaultWsUrl(base), options.token!), {
+    this.api = new ServerAPI(base, options.token);
+    this.socket = new ServerSocket(withTokenParam(options.wsUrl ?? defaultWsUrl(base), options.token), {
       onOpen: () => {
         void this.resync();
       },
@@ -449,7 +449,8 @@ function defaultWsUrl(base: string): string {
 }
 
 /** Append the bearer token to a WS URL, preserving existing query params. */
-function withTokenParam(wsUrl: string, token: string): string {
+function withTokenParam(wsUrl: string, token: string | undefined): string {
+  if (token === undefined) return wsUrl;
   const url = new URL(wsUrl);
   url.searchParams.set('token', token);
   return url.toString();

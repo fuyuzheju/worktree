@@ -55,14 +55,16 @@ export class WorktreeState {
         this.calendar.apply(op);
         // A new or relinked block is born in sync with its node.
         if (nodeId !== undefined) {
-          this.calendar.setStatus(op.id, this.tree.getNode(nodeId)!.status);
+          const node = this.tree.getNode(nodeId);
+          if (node !== undefined) this.calendar.setStatus(op.id, node.status);
         }
         return;
       }
       case 'complete_block':
       case 'uncomplete_block': {
         this.calendar.apply(op);
-        const block = this.calendar.getBlocks().find((b) => b.id === op.id)!;
+        const block = this.calendar.getBlocks().find((b) => b.id === op.id);
+        if (block === undefined) throw new Error(`unknown block id: ${op.id}`);
         if (block.nodeId !== undefined) {
           // At most one block links a node, so no sibling sync is needed.
           this.tree.setNodeStatus(block.nodeId, block.status);

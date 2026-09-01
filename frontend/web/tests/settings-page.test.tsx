@@ -46,7 +46,7 @@ afterEach(() => {
 describe('SettingsPage calendar', () => {
   it('renders the configured day count', () => {
     renderSettings(5);
-    expect((screen.getByTestId('settings-calendar-days') as HTMLInputElement).value).toBe('5');
+    expect(screen.getByTestId<HTMLInputElement>('settings-calendar-days').value).toBe('5');
   });
 
   it('updates the day count within bounds', () => {

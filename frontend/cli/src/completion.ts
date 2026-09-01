@@ -34,7 +34,7 @@ const EDIT_KEYS = ['name=', 'weight=', 'status=', 'note=', 'deadline='];
  */
 function completeFixed(options: string[], token: string): [string[], string] {
   const hits = options.filter((o) => o.startsWith(token));
-  if (hits.length === 1) return [[hits[0]! + ' '], token];
+  if (hits.length === 1) return [[hits[0] + ' '], token];
   return [hits, token];
 }
 
@@ -64,12 +64,12 @@ function completeRef(root: Node, cwd: Node, token: string): [string[], string] {
     pathPrefix = token.slice(0, slashIdx + 1);
     prefix = token.slice(slashIdx + 1);
   }
-  const names = dir.children.map((c) => c.name).filter((n) => n.startsWith(prefix));
-  if (names.length === 1) {
-    const node = dir.children.find((c) => c.name === names[0])!;
-    return [[pathPrefix + names[0]! + (node.children.length > 0 ? '/' : ' ')], token];
+  const matches = dir.children.filter((c) => c.name.startsWith(prefix));
+  if (matches.length === 1) {
+    const node = matches[0];
+    return [[pathPrefix + node.name + (node.children.length > 0 ? '/' : ' ')], token];
   }
-  return [names.map((n) => pathPrefix + n), token];
+  return [matches.map((n) => pathPrefix + n.name), token];
 }
 
 /** All reminder ids anywhere in the tree (for `reminder rm` / `reminder edit`). */

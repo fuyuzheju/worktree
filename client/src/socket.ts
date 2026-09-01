@@ -1,4 +1,5 @@
-import type { HistoryNode, ServerMessage, ServerState } from '@worktree/core';
+import type { HistoryNode, ServerState } from '@worktree/core';
+import { isServerMessage } from '@worktree/core';
 
 export interface SocketHandlers {
   onOpen: () => void;
@@ -70,7 +71,8 @@ export class ServerSocket {
         this.handlers.onOpen();
       };
       ws.onmessage = (event) => {
-        const message = JSON.parse(String(event.data)) as ServerMessage;
+        const message = JSON.parse(String(event.data));
+        if (!isServerMessage(message)) return;
         switch (message.type) {
           case 'op':
             this.handlers.onOp(message.node);

@@ -67,7 +67,7 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** e.g. "Mon 9/1" — fixed English, independent of the browser locale. */
 export function formatDayHeader(dayStart: number): string {
   const d = new Date(dayStart);
-  return `${WEEKDAYS[d.getDay()]!} ${d.getMonth() + 1}/${d.getDate()}`;
+  return `${WEEKDAYS[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /** e.g. "09:00". */
@@ -180,14 +180,19 @@ export function layoutBlocks(
       const dayEnd = dayStart + DAY_MS;
       const segStart = Math.max(v.visStart, dayStart);
       const segEnd = Math.min(v.visEnd, dayEnd);
+      const lanes = laneCount.get(d);
+      const assigned = laneOf.get(d);
+      if (lanes === undefined || assigned === undefined) throw new Error(`missing lane data for day ${d}`);
+      const lane = assigned.get(v.block.id);
+      if (lane === undefined) throw new Error(`missing lane for block ${v.block.id}`);
       bars.push({
         block: v.block,
         id: v.block.id,
         dayIndex: d,
         topPx: ((segStart - dayStart) / HOUR_MS) * pxPerHour,
         heightPx: Math.max(MIN_BAR_PX, ((segEnd - segStart) / HOUR_MS) * pxPerHour),
-        lane: laneOf.get(d)!.get(v.block.id)!,
-        lanes: laneCount.get(d)!,
+        lane,
+        lanes,
         startClipped: v.startClipped,
         endClipped: v.endClipped,
       });

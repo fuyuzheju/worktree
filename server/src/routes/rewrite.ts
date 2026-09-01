@@ -11,10 +11,10 @@ export function rewriteRouter(store: HistoryStore): Router {
   // Force-rewrite: take the user offline, replace their history, come back.
   // Rejected with 409 when the history advanced past the client's base.
   router.post('/', async (req, res) => {
-    const body = req.body as RewriteRequest | undefined;
+    const body: RewriteRequest | undefined = req.body;
     const history = body?.history;
     const base = body?.base ?? null;
-    const user = res.locals.user as string;
+    const user: string = res.locals.user;
     if (!Array.isArray(history)) {
       res.status(400).json({ error: 'history must be an array' });
       return;

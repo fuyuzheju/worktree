@@ -35,7 +35,7 @@ export function pushRouter(): Router {
       res.status(503).json({ error: 'push disabled' });
       return;
     }
-    const body = req.body as SubscribeBody | undefined;
+    const body: SubscribeBody | undefined = req.body;
     const endpoint = readString(body?.endpoint, MAX_ENDPOINT_LEN);
     const p256dh = readString(body?.keys?.p256dh, MAX_KEY_LEN);
     const auth = readString(body?.keys?.auth, MAX_KEY_LEN);
@@ -43,7 +43,7 @@ export function pushRouter(): Router {
       res.status(400).json({ error: 'invalid subscription' });
       return;
     }
-    const userId = res.locals.userId as number;
+    const userId = res.locals.userId;
     await prisma.pushSubscription.upsert({
       where: { endpoint },
       create: { endpoint, p256dh, auth, userId },
@@ -53,13 +53,14 @@ export function pushRouter(): Router {
   });
 
   router.delete('/subscribe', async (req, res) => {
-    const endpoint = readString((req.body as { endpoint?: unknown } | undefined)?.endpoint, MAX_ENDPOINT_LEN);
+    const body: { endpoint?: unknown } | undefined = req.body;
+    const endpoint = readString(body?.endpoint, MAX_ENDPOINT_LEN);
     if (endpoint === null) {
       res.status(400).json({ error: 'invalid subscription' });
       return;
     }
     await prisma.pushSubscription.deleteMany({
-      where: { endpoint, userId: res.locals.userId as number },
+      where: { endpoint, userId: res.locals.userId },
     });
     res.json({ ok: true });
   });

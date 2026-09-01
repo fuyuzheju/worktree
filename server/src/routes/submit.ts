@@ -8,14 +8,15 @@ export function submitRouter(store: HistoryStore, hub: WsHub): Router {
   const router = Router();
 
   router.post('/', async (req, res) => {
-    const htrop = (req.body as SubmitRequest | undefined)?.htrop;
+    const body: SubmitRequest | undefined = req.body;
+    const htrop = body?.htrop;
     if (!Array.isArray(htrop) || htrop.length === 0) {
       res.status(400).json({ error: 'htrop must be a non-empty array' });
       return;
     }
 
     try {
-      const user = res.locals.user as string;
+      const user: string = res.locals.user;
       const { added, removed } = await store.appendBatch(user, htrop);
       for (const node of added) hub.broadcastTo(user, { type: 'op', node });
       for (const id of removed) hub.broadcastTo(user, { type: 'removed', id });

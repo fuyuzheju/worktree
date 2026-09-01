@@ -1,4 +1,5 @@
 import type { AuthResponse } from '@worktree/core';
+import { isAuthResponse, isRecord } from '@worktree/core';
 
 export class AuthError extends Error {
   constructor(
@@ -15,10 +16,22 @@ export class AuthError extends Error {
  */
 export async function authRequest(
   baseUrl: string,
+  path: '/api/register' | '/api/login',
+  body: object,
+  token?: string,
+): Promise<AuthResponse>;
+export async function authRequest(
+  baseUrl: string,
+  path: '/api/logout',
+  body: object,
+  token?: string,
+): Promise<{ ok: boolean }>;
+export async function authRequest(
+  baseUrl: string,
   path: '/api/register' | '/api/login' | '/api/logout',
   body: object,
   token?: string,
-): Promise<AuthResponse & { ok?: boolean }> {
+): Promise<AuthResponse | { ok: boolean }> {
   const res = await fetch(baseUrl.replace(/\/+$/, '') + path, {
     method: 'POST',
     headers: {
@@ -30,12 +43,18 @@ export async function authRequest(
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
-      const parsed = (await res.json()) as { error?: string };
-      if (typeof parsed.error === 'string') message = parsed.error;
+      const parsed: unknown = await res.json();
+      if (isRecord(parsed) && typeof parsed.error === 'string') message = parsed.error;
     } catch {
       // non-JSON error body
     }
     throw new AuthError(res.status, message);
   }
-  return (await res.json()) as AuthResponse & { ok?: boolean };
+  const parsed: unknown = await res.json();
+  if (path === '/api/logout') {
+    if (!isRecord(parsed) || parsed.ok !== true) throw new AuthError(res.status, 'malformed response');
+    return { ok: true };
+  }
+  if (!isAuthResponse(parsed)) throw new AuthError(res.status, 'malformed response');
+  return parsed;
 }

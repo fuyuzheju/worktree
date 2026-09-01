@@ -84,7 +84,9 @@ export class Tree {
         const node = this.mustGet(op.id);
         if (this.isAncestor(node.id, op.parentId)) throw new Error('cannot move a node into its own subtree');
         this.ensureUniqueSiblingName(parent, node.name, node.id);
-        const oldParent = this.mustGet(this.parents.get(op.id)!);
+        const oldParentId = this.parents.get(op.id);
+        if (oldParentId === undefined) throw new Error(`unknown parent id: ${op.id}`);
+        const oldParent = this.mustGet(oldParentId);
         oldParent.children = oldParent.children.filter((c) => c.id !== op.id);
         node.weight = op.weight;
         parent.children.push(node);
@@ -253,11 +255,14 @@ export class Tree {
     if (id === ROOT_ID) throw new Error('cannot remove root');
     const node = this.index.get(id);
     if (!node) return; // already gone — idempotent, so concurrent removes commute
-    const parent = this.mustGet(this.parents.get(id)!);
+    const parentId = this.parents.get(id);
+    if (parentId === undefined) throw new Error(`unknown parent id: ${id}`);
+    const parent = this.mustGet(parentId);
     parent.children = parent.children.filter((c) => c.id !== id);
     const stack = [node];
     while (stack.length > 0) {
-      const n = stack.pop()!;
+      const n = stack.pop();
+      if (n === undefined) break;
       this.index.delete(n.id);
       this.parents.delete(n.id);
       stack.push(...n.children);

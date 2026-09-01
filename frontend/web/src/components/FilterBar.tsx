@@ -118,7 +118,7 @@ export function FilterBar(props: FilterBarProps) {
               <span className="text-gray-600">{t('filter.mode')}</span>
               <select
                 value={mode}
-                onChange={(e) => onModeChange(e.target.value as FilterDisplayMode)}
+                onChange={(e) => onModeChange(e.target.value === 'highlight' ? 'highlight' : 'hide')}
                 data-testid="filter-mode"
                 className="w-full rounded border border-gray-300 px-1 py-0.5"
               >

@@ -8,7 +8,12 @@ function stubFetch() {
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ url, init });
-      return new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      const body = url.endsWith('/api/history')
+        ? { cursorFound: true, nodes: [] }
+        : url.endsWith('/api/stats')
+          ? { opCount: 0, nodeCount: 0, reminderCount: 0, blockCount: 0, state: 'working' }
+          : { ok: true };
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }),
   );
   return calls;
@@ -41,8 +46,8 @@ describe('ServerAPI', () => {
     const calls = stubFetch();
     const api = new ServerAPI('http://localhost:3000', 'token-abc');
     await api.history(null);
-    expect(calls[0]!.init?.headers).toEqual({ Authorization: 'Bearer token-abc' });
+    expect(calls[0].init?.headers).toEqual({ Authorization: 'Bearer token-abc' });
     await api.submit([]);
-    expect(calls[1]!.init?.headers).toMatchObject({ Authorization: 'Bearer token-abc', 'Content-Type': 'application/json' });
+    expect(calls[1].init?.headers).toMatchObject({ Authorization: 'Bearer token-abc', 'Content-Type': 'application/json' });
   });
 });

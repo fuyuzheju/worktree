@@ -1,22 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID, Tree, filterTree, matchesFilter } from '../src/index';
-import type { Node } from '../src/index';
+import type { Node, TreeOperation } from '../src/index';
 
 const add = (
   parentId: string,
   id: string,
   fields: { name?: string; weight?: number; note?: string; deadline?: number; createdAt?: number } = {},
-) =>
-  ({
-    kind: 'add',
-    parentId,
-    id,
-    name: fields.name ?? id,
-    weight: fields.weight ?? 1,
-    note: fields.note,
-    deadline: fields.deadline,
-    createdAt: fields.createdAt,
-  }) as const;
+): TreeOperation => ({
+  kind: 'add',
+  parentId,
+  id,
+  name: fields.name ?? id,
+  weight: fields.weight ?? 1,
+  note: fields.note,
+  deadline: fields.deadline,
+  createdAt: fields.createdAt,
+});
 
 const NOW = 1_000_000;
 
@@ -26,7 +25,11 @@ describe('matchesFilter', () => {
     add(ROOT_ID, 'b', { note: 'write report', deadline: NOW - 100, createdAt: 200 }),
     add(ROOT_ID, 'c', { createdAt: 300 }),
   ]);
-  const node = (id: string): Node => tree.getNode(id)!;
+  const node = (id: string): Node => {
+    const n = tree.getNode(id);
+    if (n === undefined) throw new Error(`missing node ${id}`);
+    return n;
+  };
 
   it('an empty filter matches every non-root node', () => {
     expect(matchesFilter(node('a'), {})).toBe(true);
@@ -85,7 +88,11 @@ describe('matchesFilter', () => {
       add(ROOT_ID, 'todo'),
       { kind: 'complete', id: 'done' },
     ]);
-    const n = (id: string): Node => t.getNode(id)!;
+    const n = (id: string): Node => {
+      const node = t.getNode(id);
+      if (node === undefined) throw new Error(`missing node ${id}`);
+      return node;
+    };
     expect(matchesFilter(n('done'), { status: true }, NOW)).toBe(true);
     expect(matchesFilter(n('todo'), { status: true }, NOW)).toBe(false);
     expect(matchesFilter(n('todo'), { status: false }, NOW)).toBe(true);

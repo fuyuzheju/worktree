@@ -42,14 +42,16 @@ describe('resolveRef', () => {
 
   it('rejects ambiguous names outside the cwd and lists the candidates', () => {
     const root = build().getRoot();
-    const leaf = root.children.find((c) => c.id === 'bbbb-2222')!; // root's beta: a leaf
+    const leaf = root.children.find((c) => c.id === 'bbbb-2222'); // root's beta: a leaf
+    if (leaf === undefined) throw new Error('missing leaf');
     try {
       resolveRef(root, 'beta', leaf);
       expect.unreachable('should have thrown');
     } catch (e) {
       expect(e).toBeInstanceOf(AmbiguousRefError);
-      expect((e as AmbiguousRefError).message).toContain('beta [bbbb]');
-      expect((e as AmbiguousRefError).message).toContain('beta [cccc]');
+      if (!(e instanceof AmbiguousRefError)) throw new Error('expected AmbiguousRefError');
+      expect(e.message).toContain('beta [bbbb]');
+      expect(e.message).toContain('beta [cccc]');
     }
   });
 

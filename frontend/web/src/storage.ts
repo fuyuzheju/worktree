@@ -1,4 +1,5 @@
 import type { ClientStorage, SavedState } from '@worktree/client';
+import { isRecord } from '@worktree/core';
 
 /**
  * localStorage-backed ClientStorage. Namespacing per (server, user) is the
@@ -18,7 +19,8 @@ export class LocalStorageClientStorage implements ClientStorage {
     }
     if (raw === '') return null;
     try {
-      const parsed = JSON.parse(raw) as Partial<SavedState>;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isRecord(parsed)) return null;
       if (!Array.isArray(parsed.confirmed) || !Array.isArray(parsed.pending)) return null;
       return { confirmed: parsed.confirmed, pending: parsed.pending };
     } catch (e) {

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID, WorktreeState } from '@worktree/core';
-import type { TreeOperation } from '@worktree/core';
+import type { HistoryOperation, TreeOperation } from '@worktree/core';
 import { validateOps } from '../src/validation';
 
-const addOp = (parentId: string, id: string) =>
-  ({ kind: 'add', parentId, id, name: id, weight: 1 }) as const;
+const addOp = (parentId: string, id: string): TreeOperation =>
+  ({ kind: 'add', parentId, id, name: id, weight: 1 });
 
-const histAdd = (id: string, op: TreeOperation) => ({ kind: 'add', id, op }) as const;
+const histAdd = (id: string, op: TreeOperation): HistoryOperation => ({ kind: 'add', id, op });
 
 describe('validateOps', () => {
   it('accepts ops that apply cleanly to the current tree', () => {

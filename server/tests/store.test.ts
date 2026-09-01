@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CalendarOperation, TreeOperation } from '@worktree/core';
+import type { CalendarOperation, HistoryOperation, TreeOperation } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 import { prismaMock, resetDb, seedUser } from './helpers/prismaMock';
 
@@ -16,7 +16,7 @@ import {
 
 const op = (id: string): TreeOperation => ({ kind: 'add', parentId: ROOT_ID, id, name: id, weight: 1 });
 const node = (id: string): { id: string; op: TreeOperation } => ({ id, op: op(id) });
-const add = (id: string, opId = id) => ({ kind: 'add' as const, id: opId, op: op(id) });
+const add = (id: string, opId = id): HistoryOperation => ({ kind: 'add', id: opId, op: op(id) });
 
 const ALICE = 'alice';
 const BOB = 'bob';
@@ -293,9 +293,10 @@ describe('HistoryStore', () => {
   });
 
   describe('calendar blocks', () => {
-    const addBlock = (id: string, opId: string, blockOp: CalendarOperation) =>
-      ({ kind: 'add' as const, id: opId, op: blockOp });
-    const block = (id: string, nodeId?: string) => ({ kind: 'add_block' as const, id, name: id, start: 0, end: 10, nodeId });
+    const addBlock = (id: string, opId: string, blockOp: CalendarOperation): HistoryOperation =>
+      ({ kind: 'add', id: opId, op: blockOp });
+    const block = (id: string, nodeId?: string): CalendarOperation =>
+      ({ kind: 'add_block', id, name: id, start: 0, end: 10, nodeId });
 
     it('appends block ops and derives the calendar', async () => {
       const store = new HistoryStore();
@@ -311,7 +312,7 @@ describe('HistoryStore', () => {
       await store.appendBatch(ALICE, [{ kind: 'add', id: 'h3', op: { kind: 'complete', id: 'a' } }]);
       const state = await store.getTreeForUser(ALICE);
       expect(state.tree.getNode('a')!.status).toBe(true);
-      expect(state.calendar.getBlocks()[0]!.status).toBe(true);
+      expect(state.calendar.getBlocks()[0].status).toBe(true);
     });
 
     it('rejects an invalid block op and appends nothing', async () => {
@@ -344,7 +345,7 @@ describe('HistoryStore', () => {
       await store.replace(ALICE, 'h1', [{ id: 'h1', op: op('a') }, { id: 'h2', op: block('b1', 'a') }]);
       const state = await store.getTreeForUser(ALICE);
       expect(state.calendar.blockCount()).toBe(1);
-      expect(state.calendar.getBlocks()[0]!.nodeId).toBe('a');
+      expect(state.calendar.getBlocks()[0].nodeId).toBe('a');
     });
   });
 });

@@ -35,7 +35,7 @@ function installPushGlobals(opts: {
 }) {
   const registration = opts.registration ?? makeRegistration();
   if (opts.pushManagerInWindow === false) {
-    delete (window as unknown as Record<string, unknown>).PushManager;
+    Reflect.deleteProperty(window, 'PushManager');
   } else {
     Object.defineProperty(window, 'PushManager', { value: class {}, configurable: true });
   }
@@ -57,15 +57,20 @@ function installPushGlobals(opts: {
 }
 
 function installFetchMock(body: unknown) {
-  fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => body }));
-  global.fetch = fetchMock as unknown as typeof fetch;
+  fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    // Subscribe calls respond { ok: true }; everything else returns the
+    // canned body (e.g. the VAPID key).
+    const resp = init?.method === 'POST' || init?.method === 'DELETE' ? { ok: true } : body;
+    return { ok: true, status: 200, json: async () => resp };
+  });
+  vi.stubGlobal('fetch', fetchMock);
 }
 
 describe('push module', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     fetchMock = vi.fn();
-    global.fetch = fetchMock as unknown as typeof fetch;
+    vi.stubGlobal('fetch', fetchMock);
   });
 
   describe('urlBase64ToUint8Array', () => {
@@ -102,7 +107,7 @@ describe('push module', () => {
         applicationServerKey: urlBase64ToUint8Array(PUBLIC_KEY),
       });
       // GET /api/push/vapid-key, then POST /api/push/subscribe
-      const [, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+      const [, init] = fetchMock.mock.calls[1];
       expect(init.method).toBe('POST');
       expect(init.headers).toMatchObject({ Authorization: 'Bearer token-1' });
       expect(JSON.parse(String(init.body))).toEqual({
@@ -172,11 +177,11 @@ describe('push module', () => {
       const reg = makeRegistration({ existing: sub });
       installPushGlobals({ registration: reg });
       fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ ok: true }) }));
-      global.fetch = fetchMock as unknown as typeof fetch;
+      vi.stubGlobal('fetch', fetchMock);
 
       await disablePush('http://localhost:9997', 'token-1');
 
-      const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+      const [, init] = fetchMock.mock.calls[0];
       expect(init.method).toBe('DELETE');
       expect(JSON.parse(String(init.body))).toEqual({ endpoint: ENDPOINT });
       expect(sub.unsubscribe).toHaveBeenCalledOnce();
@@ -185,7 +190,7 @@ describe('push module', () => {
     it('is a no-op when no service worker registration exists', async () => {
       installPushGlobals({ getRegistration: async () => undefined });
       fetchMock = vi.fn();
-      global.fetch = fetchMock as unknown as typeof fetch;
+      vi.stubGlobal('fetch', fetchMock);
       await disablePush('http://localhost:9997', 'token-1');
       expect(fetchMock).not.toHaveBeenCalled();
     });

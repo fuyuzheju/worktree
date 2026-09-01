@@ -10,7 +10,7 @@ export function historyRouter(store: HistoryStore): Router {
   router.get('/', async (req, res) => {
     const id = typeof req.query.id === 'string' ? req.query.id : null;
     const after = typeof req.query.after === 'string' ? req.query.after : null;
-    const user = res.locals.user as string;
+    const user: string = res.locals.user;
     if (id !== null) {
       const node = await store.getById(user, id);
       if (!node) {

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClientStorage, SavedState } from '@worktree/client';
-import { USER_RE } from '@worktree/core';
+import { USER_RE, isRecord } from '@worktree/core';
 
 /**
  * File-backed ClientStorage. Saves are atomic (tmp + rename) so a crash
@@ -16,12 +16,13 @@ export class FileStorage implements ClientStorage {
     try {
       raw = fs.readFileSync(this.filePath, 'utf8');
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return null;
       console.error(`failed to read ${this.filePath}: ${e instanceof Error ? e.message : e}`);
       return null;
     }
     try {
-      const parsed = JSON.parse(raw) as Partial<SavedState>;
+      const parsed: unknown = JSON.parse(raw);
+      if (!isRecord(parsed)) throw new Error('invalid shape');
       if (!Array.isArray(parsed.confirmed) || !Array.isArray(parsed.pending)) throw new Error('invalid shape');
       return { confirmed: parsed.confirmed, pending: parsed.pending };
     } catch (e) {
@@ -115,11 +116,16 @@ export function readToken(serverUrl: string, userId: string): StoredToken | null
     return null;
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<StoredToken>;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return null;
     if (typeof parsed.token !== 'string' || parsed.token.length === 0 || typeof parsed.tokenId !== 'number') {
       return null;
     }
-    return { token: parsed.token, tokenId: parsed.tokenId, label: parsed.label };
+    return {
+      token: parsed.token,
+      tokenId: parsed.tokenId,
+      label: typeof parsed.label === 'string' ? parsed.label : undefined,
+    };
   } catch {
     return null;
   }

@@ -30,7 +30,7 @@ function renderBar(client: WorktreeClient, online = true, pendingCount = 0) {
   );
 }
 
-const undoButton = (): HTMLButtonElement => screen.getByTestId('status-undo') as HTMLButtonElement;
+const undoButton = (): HTMLButtonElement => screen.getByTestId<HTMLButtonElement>('status-undo');
 
 describe('StatusBar undo button', () => {
   it('is disabled when there is nothing to undo', () => {

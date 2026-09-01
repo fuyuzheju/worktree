@@ -1,4 +1,4 @@
-import { USER_RE } from '@worktree/core';
+import { USER_RE, isRecord } from '@worktree/core';
 
 export const DEFAULT_SERVER = 'https://worktree.fuyuzheju.cn';
 export const LOCAL_USER = 'local';
@@ -36,11 +36,23 @@ export function loadConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (!raw) return defaultConfig;
-    const parsed = JSON.parse(raw) as Partial<AppConfig>;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return defaultConfig;
+    const display = isRecord(parsed.display) ? parsed.display : {};
     return {
-      ...defaultConfig,
-      ...parsed,
-      display: { ...defaultConfig.display, ...parsed.display },
+      serverUrl: typeof parsed.serverUrl === 'string' ? parsed.serverUrl : defaultConfig.serverUrl,
+      user: typeof parsed.user === 'string' ? parsed.user : defaultConfig.user,
+      display: {
+        showId: typeof display.showId === 'boolean' ? display.showId : defaultConfig.display.showId,
+        showWeight: typeof display.showWeight === 'boolean' ? display.showWeight : defaultConfig.display.showWeight,
+        showReminders: typeof display.showReminders === 'boolean' ? display.showReminders : defaultConfig.display.showReminders,
+        filterMode:
+          display.filterMode === 'highlight' || display.filterMode === 'hide'
+            ? display.filterMode
+            : defaultConfig.display.filterMode,
+      },
+      lang: typeof parsed.lang === 'string' ? parsed.lang : defaultConfig.lang,
+      calendarDays: typeof parsed.calendarDays === 'number' ? parsed.calendarDays : defaultConfig.calendarDays,
     };
   } catch {
     return defaultConfig;
@@ -83,11 +95,16 @@ export function loadToken(serverUrl: string, user: string): StoredToken | null {
   try {
     const raw = localStorage.getItem(tokenKey(serverUrl, user));
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<StoredToken>;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed)) return null;
     if (typeof parsed.token !== 'string' || parsed.token.length === 0 || typeof parsed.tokenId !== 'number') {
       return null;
     }
-    return { token: parsed.token, tokenId: parsed.tokenId, label: parsed.label };
+    return {
+      token: parsed.token,
+      tokenId: parsed.tokenId,
+      label: typeof parsed.label === 'string' ? parsed.label : undefined,
+    };
   } catch {
     return null;
   }

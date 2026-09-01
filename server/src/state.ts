@@ -30,7 +30,8 @@ export function onStateChange(cb: (user: string, state: ServerState) => void): (
 
 /** Rejects a user's requests with 503 while that user is offline. */
 export function offlineGuard(req: Request, res: Response, next: NextFunction): void {
-  if (getState(res.locals.user as string) === 'offline') {
+  const user: string = res.locals.user;
+  if (getState(user) === 'offline') {
     res.status(503).json({ error: 'server is offline' });
     return;
   }

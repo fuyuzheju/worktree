@@ -1,10 +1,13 @@
-import { Tree, WorktreeState } from '@worktree/core';
+import { Tree, WorktreeState, operationSchema } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, Operation } from '@worktree/core';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { validateOps } from './validation';
 import type { ValidationResult } from './validation';
 
+// Prisma's Json type is recursive and rejects `| undefined` from optional
+// fields, so TS cannot prove an Operation is JSON-safe even though it always
+// is; reads back through operationSchema, so writes only ever store valid ops.
 const asJson = (op: Operation): Prisma.InputJsonValue => op as unknown as Prisma.InputJsonValue;
 
 export class BaseMismatchError extends Error {
@@ -71,7 +74,7 @@ export class HistoryStore {
   private async loadUserState(userId: number): Promise<WorktreeState> {
     const rows = await prisma.historyNode.findMany({ where: { userId }, orderBy: { id: 'asc' } });
     const state = new WorktreeState();
-    for (const row of rows) state.apply(row.op as unknown as Operation);
+    for (const row of rows) state.apply(operationSchema.parse(row.op));
     return state;
   }
 
@@ -251,7 +254,7 @@ export class HistoryStore {
     });
     return {
       cursorFound: true,
-      nodes: rows.map((row) => ({ id: row.opId, op: row.op as unknown as Operation })),
+      nodes: rows.map((row) => ({ id: row.opId, op: operationSchema.parse(row.op) })),
     };
   }
 
@@ -261,7 +264,7 @@ export class HistoryStore {
       where: { userId_opId: { userId, opId: id } },
     });
     if (!row) return null;
-    return { id: row.opId, op: row.op as unknown as Operation };
+    return { id: row.opId, op: operationSchema.parse(row.op) };
   }
 
   async all(user: string): Promise<HistoryNode[]> {
@@ -271,7 +274,7 @@ export class HistoryStore {
 
   private async allByUserId(userId: number): Promise<HistoryNode[]> {
     const rows = await prisma.historyNode.findMany({ where: { userId }, orderBy: { id: 'asc' } });
-    return rows.map((row) => ({ id: row.opId, op: row.op as unknown as Operation }));
+    return rows.map((row) => ({ id: row.opId, op: operationSchema.parse(row.op) }));
   }
 
   /** Replace the user's whole history; rejected when `base` is not the current head. */
@@ -284,7 +287,7 @@ export class HistoryStore {
         if (headId !== base) throw new BaseMismatchError(headId, base);
         await tx.historyNode.deleteMany({ where: { userId } });
         for (let i = 0; i < nodes.length; i++) {
-          const n = nodes[i]!;
+          const n = nodes[i];
           await tx.historyNode.create({
             data: {
               userId,

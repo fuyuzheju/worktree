@@ -136,7 +136,7 @@ const addCommand: Command = {
   usage: 'add <name> [parentRef] [weight]',
   run: async (io, args): Promise<CommandResult> => {
     if (args.length < 1) return io.usage();
-    const name = args[0]!;
+    const name = args[0];
     let parent = io.cwdNode();
     if (args[1] !== undefined) {
       const resolved = io.refNode(args[1]);
@@ -208,7 +208,7 @@ const renameCommand: Command = {
     if (args.length < 2) return io.usage();
     const node = io.refNode(args[0]);
     if (!node) return 'ok';
-    mutate(() => io.client.renameNode(node.id, args[1]!));
+    mutate(() => io.client.renameNode(node.id, args[1]));
     io.out(`renamed to "${args[1]}"`);
     await afterCommand(io);
     return 'ok';
@@ -364,7 +364,7 @@ const reminderCommand: Command = {
       if (args.length < 4) return io.usage('reminder add <nodeRef> <name> <deadline> [repeatMs]');
       const node = io.refNode(args[1]);
       if (!node) return 'ok';
-      const deadline = parseTimestamp(io, args[3]!);
+      const deadline = parseTimestamp(io, args[3]);
       if (deadline === null) return 'ok';
       let repeat: number | undefined;
       if (args[4] !== undefined) {
@@ -375,14 +375,14 @@ const reminderCommand: Command = {
         }
         repeat = r;
       }
-      const rmdId = mutate(() => io.client.addReminder(node.id, args[2]!, deadline, repeat));
+      const rmdId = mutate(() => io.client.addReminder(node.id, args[2], deadline, repeat));
       io.out(`added reminder [${shortId(rmdId)}]`);
       await afterCommand(io);
       return 'ok';
     }
     if (sub === 'rm') {
       if (args.length < 2) return io.usage('reminder rm <rmdId>');
-      mutate(() => io.client.removeReminder(args[1]!));
+      mutate(() => io.client.removeReminder(args[1]));
       io.out('reminder removed');
       await afterCommand(io);
       return 'ok';
@@ -416,7 +416,7 @@ const reminderCommand: Command = {
           return 'ok';
         }
       }
-      mutate(() => io.client.editReminder(args[1]!, patch));
+      mutate(() => io.client.editReminder(args[1], patch));
       io.out('reminder updated');
       await afterCommand(io);
       return 'ok';

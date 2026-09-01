@@ -3,6 +3,12 @@ import { ROOT_ID } from '@worktree/core';
 import { ClientStore } from '../src/store';
 import type { SavedState } from '../src/storage';
 
+const lastSaved = (saved: SavedState[]): SavedState => {
+  const s = saved.at(-1);
+  if (s === undefined) throw new Error('no saved state');
+  return s;
+};
+
 describe('ClientStore', () => {
   it('renders local ops optimistically and queues them', () => {
     const store = new ClientStore();
@@ -22,7 +28,7 @@ describe('ClientStore', () => {
   it('moves server-confirmed ops out of pending and stays idempotent', () => {
     const store = new ClientStore();
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
-    const p = store.getPending()[0]!;
+    const p = store.getPending()[0];
     if (p.kind !== 'add') throw new Error('unexpected pending op kind');
     const node = { id: p.id, op: p.op };
     store.applyConfirmed(node);
@@ -46,7 +52,7 @@ describe('ClientStore', () => {
     const store = new ClientStore();
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
     store.confirmAllPending();
-    const headId = store.getConfirmed().at(-1)!.id;
+    const headId = store.getConfirmed().slice(-1)[0].id;
     store.applyRemoved(headId);
     expect(store.getConfirmed()).toHaveLength(0);
     expect(store.getTree().children).toHaveLength(0);
@@ -79,14 +85,14 @@ describe('ClientStore', () => {
     const saved: SavedState[] = [];
     const store = new ClientStore((s) => saved.push(s));
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
-    expect(saved.at(-1)!.pending).toHaveLength(1);
-    expect(saved.at(-1)!.confirmed).toHaveLength(0);
-    const p = store.getPending()[0]!;
+    expect(lastSaved(saved).pending).toHaveLength(1);
+    expect(lastSaved(saved).confirmed).toHaveLength(0);
+    const p = store.getPending()[0];
     if (p.kind !== 'add') throw new Error('unexpected pending op kind');
     store.applyConfirmed({ id: p.id, op: p.op });
-    expect(saved.at(-1)!.pending).toHaveLength(0);
-    expect(saved.at(-1)!.confirmed).toHaveLength(1);
-    expect(saved.at(-1)!.confirmed[0]!.op).toEqual({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
+    expect(lastSaved(saved).pending).toHaveLength(0);
+    expect(lastSaved(saved).confirmed).toHaveLength(1);
+    expect(lastSaved(saved).confirmed[0].op).toEqual({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
   });
 
   it('restore refills confirmed and pending and rebuilds the tree once', () => {
@@ -117,7 +123,7 @@ describe('ClientStore', () => {
     const store = new ClientStore();
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
     store.confirmAllPending();
-    const headId = store.getConfirmed().at(-1)!.id;
+    const headId = store.getConfirmed().slice(-1)[0].id;
     expect(store.applyUndo()).toBe(true);
     expect(store.getPending()).toEqual([{ kind: 'remove', id: headId }]);
     expect(store.getConfirmed()).toHaveLength(1);
@@ -158,7 +164,7 @@ describe('ClientStore', () => {
     store.confirmAllPending();
     store.applyUndo();
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
-    const addId = store.getPending()[1]!.id;
+    const addId = store.getPending()[1].id;
     store.confirmAllPending();
     expect(store.getConfirmed().map((n) => n.id)).toEqual([addId]);
     expect(store.getTree().children.map((c) => c.id)).toEqual(['b']);
@@ -168,7 +174,7 @@ describe('ClientStore', () => {
     const store = new ClientStore();
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
     store.confirmAllPending();
-    const headId = store.getConfirmed().at(-1)!.id;
+    const headId = store.getConfirmed().slice(-1)[0].id;
     store.applyUndo();
     store.applyRemoved(headId);
     expect(store.getPending()).toHaveLength(0);
@@ -183,7 +189,7 @@ describe('ClientStore', () => {
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
     store.confirmAllPending();
-    const first = store.getConfirmed()[0]!.id;
+    const first = store.getConfirmed()[0].id;
     store.restore(store.getConfirmed(), [{ kind: 'remove', id: first }]);
     expect(store.getTree().children.map((c) => c.id)).toEqual(['a', 'b']);
   });

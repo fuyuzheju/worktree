@@ -94,7 +94,7 @@ describe('Syncer', () => {
     api.serverHistory = [node('s1')];
     const syncer = new Syncer(store, api);
     store.applyLocal(addOp('a'));
-    const pendingId = store.getPending()[0]!.id;
+    const pendingId = store.getPending()[0].id;
     expect(await syncer.sync()).toBe('ok');
     expect(store.getPending()).toHaveLength(0);
     expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', pendingId]);
@@ -138,7 +138,7 @@ describe('Syncer', () => {
     store.applyLocal(addOp('a'));
     const err = await syncer.sync().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).status).toBe(401);
+    if (err instanceof ApiError) expect(err.status).toBe(401);
     expect(store.getPending()).toHaveLength(1);
   });
 
@@ -153,7 +153,7 @@ describe('Syncer', () => {
     const syncer = new Syncer(store, api);
     await syncer.catchUp();
     // The two local entries must survive the catch-up.
-    expect(store.getConfirmed().map((n) => n.id)).toEqual([local[0]!.id, local[1]!.id, 's9']);
+    expect(store.getConfirmed().map((n) => n.id)).toEqual([local[0].id, local[1].id, 's9']);
   });
 
   it('catch-up replaces history when the cursor is gone (server rewrite)', async () => {
@@ -185,7 +185,7 @@ describe('Syncer', () => {
     const store = new ClientStore();
     store.setConfirmed([node('s1')]);
     store.applyLocal(addOp('a'));
-    const pendingId = store.getPending()[0]!.id;
+    const pendingId = store.getPending()[0].id;
     const api = new FakeAPI();
     api.serverHistory = [node('s1'), node('s2')];
     const syncer = new Syncer(store, api);
@@ -206,9 +206,9 @@ describe('Syncer', () => {
     const api = new FakeAPI();
     api.serverHistory = [node('s1'), node('s2')];
     const syncer = new Syncer(store, api);
-    await syncer.resolveConflict('local', [store.getPending()[0]!]);
-    expect(api.rewriteCalls[0]!.base).toBe('s2');
-    expect(api.rewriteCalls[0]!.history).toHaveLength(3);
+    await syncer.resolveConflict('local', [store.getPending()[0]]);
+    expect(api.rewriteCalls[0].base).toBe('s2');
+    expect(api.rewriteCalls[0].history).toHaveLength(3);
     expect(store.getConfirmed()).toHaveLength(3);
   });
 
@@ -260,7 +260,8 @@ describe('Syncer', () => {
     api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"parent missing"}');
     const syncer = new Syncer(store, api);
     expect(await syncer.sync()).toBe('conflict');
-    const conflict = syncer.getConflict()!;
+    const conflict = syncer.getConflict();
+    if (conflict === null) throw new Error('expected conflict');
     expect(conflict.base.map((n) => n.id)).toEqual(['h1']);
     expect(conflict.baseId).toBe('h1');
     expect(conflict.cursorFound).toBe(true);
@@ -306,17 +307,17 @@ describe('Syncer', () => {
     const store = new ClientStore();
     store.setConfirmed([node('s1')]);
     store.applyLocal(addOp('a'));
-    const pendingId = store.getPending()[0]!.id;
+    const pendingId = store.getPending()[0].id;
     const api = new FakeAPI();
     api.serverHistory = [node('s1'), node('s2')];
     api.rewriteFailures409 = 1;
     const syncer = new Syncer(store, api);
     await syncer.resolveConflict('local');
     expect(api.rewriteCalls).toHaveLength(2);
-    expect(api.rewriteCalls[0]!.base).toBe('s2');
+    expect(api.rewriteCalls[0].base).toBe('s2');
     // Second attempt merged over the history that advanced in between.
-    expect(api.rewriteCalls[1]!.base).toBe('other0');
-    expect(api.rewriteCalls[1]!.history.map((n) => n.id)).toEqual(['s1', 's2', 'other0', pendingId]);
+    expect(api.rewriteCalls[1].base).toBe('other0');
+    expect(api.rewriteCalls[1].history.map((n) => n.id)).toEqual(['s1', 's2', 'other0', pendingId]);
     expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', 's2', 'other0', pendingId]);
     expect(store.getPending()).toHaveLength(0);
   });
@@ -325,7 +326,7 @@ describe('Syncer', () => {
     const store = new ClientStore();
     store.setConfirmed([node('s1'), node('s2')]);
     store.applyLocal(addOp('a'));
-    const pendingId = store.getPending()[0]!.id;
+    const pendingId = store.getPending()[0].id;
     const api = new FakeAPI();
     api.serverHistory = [node('s1'), node('s2'), node('s3')];
     api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"boom"}');
@@ -347,7 +348,9 @@ describe('Syncer', () => {
     store.setConfirmed([node('s1'), node('s2')]);
     store.applyUndo(); // remove s2
     store.applyLocal(addOp('a'));
-    const pendingAddId = store.getPending().find((p) => p.kind === 'add')!.id;
+    const pending = store.getPending().find((p) => p.kind === 'add');
+    if (pending === undefined) throw new Error('missing pending add');
+    const pendingAddId = pending.id;
     const api = new FakeAPI();
     api.serverHistory = [node('s1'), node('s2'), node('s3')];
     api.failSubmitWith = new ApiError(400, '{"conflict_id":"x","reason":"boom"}');
@@ -356,8 +359,8 @@ describe('Syncer', () => {
     api.failSubmitWith = null;
     await syncer.resolveConflict('local');
     // base [s1, s2] + undo(s2) + add a → [s1, a]; s3 is discarded.
-    expect(api.rewriteCalls[0]!.base).toBe('s3');
-    expect(api.rewriteCalls[0]!.history.map((n) => n.id)).toEqual(['s1', pendingAddId]);
+    expect(api.rewriteCalls[0].base).toBe('s3');
+    expect(api.rewriteCalls[0].history.map((n) => n.id)).toEqual(['s1', pendingAddId]);
     expect(store.getConfirmed().map((n) => n.id)).toEqual(['s1', pendingAddId]);
     expect(store.getPending()).toHaveLength(0);
   });
@@ -380,7 +383,7 @@ describe('Syncer', () => {
     const store = new ClientStore();
     store.applyLocal(addOp('s1'));
     store.confirmAllPending();
-    const headId = store.getConfirmed().at(-1)!.id;
+    const headId = store.getConfirmed().slice(-1)[0].id;
     const api = new FakeAPI();
     api.serverHistory = [...store.getConfirmed()];
     const syncer = new Syncer(store, api);
@@ -412,14 +415,16 @@ describe('Syncer', () => {
     store.setConfirmed([node('s1')]);
     store.applyUndo();
     store.applyLocal(addOp('a'));
-    const pendingAddId = store.getPending().find((p) => p.kind === 'add')!.id;
+    const pending = store.getPending().find((p) => p.kind === 'add');
+    if (pending === undefined) throw new Error('missing pending add');
+    const pendingAddId = pending.id;
     const api = new FakeAPI();
     api.serverHistory = [node('s1')];
     const syncer = new Syncer(store, api);
     await syncer.resolveConflict('local');
     // Here the undo still targets the server tail: the rewrite removes s1.
-    expect(api.rewriteCalls[0]!.base).toBe('s1');
-    expect(api.rewriteCalls[0]!.history.map((n) => n.id)).toEqual([pendingAddId]);
+    expect(api.rewriteCalls[0].base).toBe('s1');
+    expect(api.rewriteCalls[0].history.map((n) => n.id)).toEqual([pendingAddId]);
     expect(store.getConfirmed().map((n) => n.id)).toEqual([pendingAddId]);
     expect(store.getPending()).toHaveLength(0);
   });

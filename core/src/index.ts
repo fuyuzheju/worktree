@@ -8,3 +8,5 @@ export * from './history';
 export * from './pending-queue';
 export * from './id';
 export * from './user';
+export * from './guards';
+export * from './schema';

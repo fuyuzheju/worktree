@@ -19,6 +19,11 @@ import { OpenRegistrationGate, createRegistrationGate } from '../src/registratio
 
 const PW = 'hunter2222';
 
+const must = <T>(v: T | null | undefined): T => {
+  if (v === null || v === undefined) throw new Error('expected a value');
+  return v;
+};
+
 describe('password hashing', () => {
   it('produces the self-describing scrypt format and verifies roundtrip', async () => {
     const stored = await hashPassword(PW);
@@ -82,9 +87,9 @@ describe('loginUser', () => {
   });
 
   it('returns a token on correct credentials', async () => {
-    const auth = await loginUser('alice', PW, 'my-phone');
-    expect(auth?.username).toBe('alice');
-    expect(await resolveToken(auth!.token)).toMatchObject({ tokenId: auth!.tokenId });
+    const auth = must(await loginUser('alice', PW, 'my-phone'));
+    expect(auth.username).toBe('alice');
+    expect(await resolveToken(auth.token)).toMatchObject({ tokenId: auth.tokenId });
   });
 
   it('returns null on wrong password', async () => {
@@ -101,8 +106,8 @@ describe('token management', () => {
 
   it('resolveToken maps a token to its user; unknown or revoked tokens resolve to null', async () => {
     await registerUser('bob', PW);
-    const auth = (await loginUser('bob', PW, null))!;
-    const resolved = (await resolveToken(auth.token))!;
+    const auth = must(await loginUser('bob', PW, null));
+    const resolved = must(await resolveToken(auth.token));
     expect(resolved).toMatchObject({ username: 'bob', tokenId: auth.tokenId, lastUsedAt: null });
 
     expect(await resolveToken('bogus-token')).toBeNull();
@@ -113,15 +118,15 @@ describe('token management', () => {
   it('lists tokens per user and revokes only the caller\'s own', async () => {
     await registerUser('alice', PW);
     await registerUser('bob', PW);
-    const aliceAuth = (await loginUser('alice', PW, 'device-1'))!;
-    const bobAuth = (await loginUser('bob', PW, null))!;
+    const aliceAuth = must(await loginUser('alice', PW, 'device-1'));
+    const bobAuth = must(await loginUser('bob', PW, null));
 
-    const aliceTokens = await listTokens((await resolveToken(aliceAuth.token))!.userId);
+    const aliceTokens = await listTokens(must(await resolveToken(aliceAuth.token)).userId);
     expect(aliceTokens).toHaveLength(2); // register + login
     expect(new Set(aliceTokens.map((t) => t.label))).toEqual(new Set([null, 'device-1']));
 
-    const aliceUserId = (await resolveToken(aliceAuth.token))!.userId;
-    const bobTokenId = (await resolveToken(bobAuth.token))!.tokenId;
+    const aliceUserId = must(await resolveToken(aliceAuth.token)).userId;
+    const bobTokenId = must(await resolveToken(bobAuth.token)).tokenId;
     // revoking another user's token id is a no-op
     expect(await revokeToken(aliceUserId, bobTokenId)).toBe(false);
     expect(await resolveToken(bobAuth.token)).not.toBeNull();

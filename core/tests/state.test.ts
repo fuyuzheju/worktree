@@ -1,24 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID, WorktreeState } from '../src/index';
-import type { Block, Operation } from '../src/index';
+import type { Block, Node, Operation } from '../src/index';
 
-const add = (id: string, parentId = ROOT_ID) => ({ kind: 'add', parentId, id, name: id, weight: 1 }) as const;
-const block = (id: string, nodeId?: string) =>
-  ({ kind: 'add_block', id, name: id, start: 0, end: 10, nodeId }) as const;
-const blockById = (state: WorktreeState, id: string): Block => state.calendar.getBlocks().find((b) => b.id === id)!;
+const add = (id: string, parentId = ROOT_ID): Operation => ({ kind: 'add', parentId, id, name: id, weight: 1 });
+const block = (id: string, nodeId?: string): Operation =>
+  ({ kind: 'add_block', id, name: id, start: 0, end: 10, nodeId });
+const nodeOf = (state: WorktreeState, id: string): Node => {
+  const node = state.tree.getNode(id);
+  if (node === undefined) throw new Error(`missing node ${id}`);
+  return node;
+};
+const blockById = (state: WorktreeState, id: string): Block => {
+  const block = state.calendar.getBlocks().find((b) => b.id === id);
+  if (block === undefined) throw new Error(`missing block ${id}`);
+  return block;
+};
 
 describe('WorktreeState', () => {
   it('completing a node completes its linked block', () => {
     const state = WorktreeState.fromOps([add('a'), block('b1', 'a')]);
     state.apply({ kind: 'complete', id: 'a' });
-    expect(state.tree.getNode('a')!.status).toBe(true);
+    expect(nodeOf(state, 'a').status).toBe(true);
     expect(blockById(state, 'b1').status).toBe(true);
   });
 
   it('uncompleting a node uncompletes its linked block', () => {
     const state = WorktreeState.fromOps([add('a'), block('b1', 'a'), { kind: 'complete', id: 'a' }]);
     state.apply({ kind: 'uncomplete', id: 'a' });
-    expect(state.tree.getNode('a')!.status).toBe(false);
+    expect(nodeOf(state, 'a').status).toBe(false);
     expect(blockById(state, 'b1').status).toBe(false);
   });
 
@@ -26,13 +35,13 @@ describe('WorktreeState', () => {
     const state = WorktreeState.fromOps([add('a'), block('b1', 'a')]);
     state.apply({ kind: 'complete_block', id: 'b1' });
     expect(blockById(state, 'b1').status).toBe(true);
-    expect(state.tree.getNode('a')!.status).toBe(true);
+    expect(nodeOf(state, 'a').status).toBe(true);
   });
 
   it('uncompleting a block uncompletes its linked node', () => {
     const state = WorktreeState.fromOps([add('a'), block('b1', 'a'), { kind: 'complete_block', id: 'b1' }]);
     state.apply({ kind: 'uncomplete_block', id: 'b1' });
-    expect(state.tree.getNode('a')!.status).toBe(false);
+    expect(nodeOf(state, 'a').status).toBe(false);
   });
 
   it('completing a parent does not touch blocks of descendant nodes', () => {
@@ -116,7 +125,7 @@ describe('WorktreeState', () => {
     const state = WorktreeState.fromOps(ops);
     expect(blockById(state, 'b1').status).toBe(true);
     const undone = WorktreeState.fromOps(ops.slice(0, -1));
-    expect(undone.tree.getNode('a')!.status).toBe(false);
+    expect(nodeOf(undone, 'a').status).toBe(false);
     expect(blockById(undone, 'b1').status).toBe(false);
   });
 
@@ -130,7 +139,7 @@ describe('WorktreeState', () => {
       { kind: 'complete_block', id: 'b1' },
     ];
     const state = WorktreeState.fromOps(ops);
-    expect(state.tree.getNode('a')!.status).toBe(true);
+    expect(nodeOf(state, 'a').status).toBe(true);
     expect(blockById(state, 'b1').status).toBe(true);
   });
 
@@ -140,7 +149,7 @@ describe('WorktreeState', () => {
     state.apply({ kind: 'rename', id: 'a', name: 'renamed' });
     state.apply({ kind: 'move', id: 'a', parentId: 'b', weight: 1 });
     expect(blockById(state, 'b1').nodeId).toBe('a');
-    expect(state.tree.getNode('a')!.name).toBe('renamed');
+    expect(nodeOf(state, 'a').name).toBe('renamed');
   });
 
   it('clone() preserves nodes and blocks and isolates mutations', () => {
@@ -148,9 +157,9 @@ describe('WorktreeState', () => {
     const copy = state.clone();
     copy.apply({ kind: 'complete', id: 'a' });
     copy.apply({ kind: 'remove_block', id: 'b1' });
-    expect(state.tree.getNode('a')!.status).toBe(false);
+    expect(nodeOf(state, 'a').status).toBe(false);
     expect(state.calendar.blockCount()).toBe(1);
-    expect(copy.tree.getNode('a')!.status).toBe(true);
+    expect(nodeOf(copy, 'a').status).toBe(true);
     expect(copy.calendar.blockCount()).toBe(0);
   });
 });

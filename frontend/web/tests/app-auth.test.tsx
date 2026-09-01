@@ -112,7 +112,7 @@ describe('App auth gate', () => {
     render(<App />);
     fireEvent.click(screen.getByText('Settings'));
 
-    const select = screen.getByTestId('settings-user-select') as HTMLSelectElement;
+    const select = screen.getByTestId<HTMLSelectElement>('settings-user-select');
     expect(select.value).toBe('alice');
     const options = [...select.options].map((o) => o.value);
     expect(options).toEqual(['local', 'alice', 'bob']);

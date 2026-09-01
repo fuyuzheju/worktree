@@ -23,7 +23,7 @@ export class PendingQueue {
   /** Undo locally: remove and return the newest add-type op (undefined when none). */
   popLastAdd(): HistoryOperation | undefined {
     for (let i = this.ops.length - 1; i >= 0; i--) {
-      if (this.ops[i]!.kind === 'add') return this.ops.splice(i, 1)[0];
+      if (this.ops[i].kind === 'add') return this.ops.splice(i, 1)[0];
     }
     return undefined;
   }

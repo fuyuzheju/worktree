@@ -1,10 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROOT_ID } from '@worktree/core';
+import type { Node } from '@worktree/core';
 import { ApiError } from '../src/api';
 import { WorktreeClient } from '../src/client';
 import type { ClientStorage, SavedState } from '../src/storage';
 
 const newClient = () => new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token' });
+
+const childOf = (tree: Node, id: string): Node => {
+  const node = tree.children.find((n) => n.id === id);
+  if (node === undefined) throw new Error(`missing child ${id}`);
+  return node;
+};
 
 class MemoryStorage implements ClientStorage {
   state: SavedState | null = null;
@@ -52,7 +59,7 @@ describe('WorktreeClient semantic operations', () => {
     const b = c.addNode(ROOT_ID, 'B');
     expect(b).not.toBe(a);
     c.moveNode(b, a);
-    const moved = c.getTree().children.find((n) => n.id === a)!.children[0]!;
+    const moved = childOf(c.getTree(), a).children[0];
     expect(moved.id).toBe(b);
     expect(moved.weight).toBe(8);
   });
@@ -64,7 +71,7 @@ describe('WorktreeClient semantic operations', () => {
     c.addReminder(a, 'R', 1000);
     const copy = c.copyNode(a, ROOT_ID);
     expect(copy).not.toBe(a);
-    const copyNode = c.getTree().children.find((n) => n.id === copy)!;
+    const copyNode = childOf(c.getTree(), copy);
     expect(copyNode.name).toBe('A (copy)');
     expect(copyNode.children).toHaveLength(0);
     expect(copyNode.reminders).toHaveLength(1);
@@ -85,7 +92,7 @@ describe('WorktreeClient semantic operations', () => {
     const a = c.addNode(ROOT_ID, 'A');
     const b = c.addNode(ROOT_ID, 'B');
     const copy = c.copyNode(a, b);
-    expect(c.getTree().children.find((n) => n.id === b)!.children[0]!.name).toBe('A');
+    expect(childOf(c.getTree(), b).children[0].name).toBe('A');
     expect(copy).not.toBe(a);
   });
 
@@ -104,7 +111,7 @@ describe('WorktreeClient semantic operations', () => {
     expect(() => c.renameNode(b, 'A')).toThrow(/sibling named "A" already exists/);
     expect(() => c.renameNode(b, 'B')).not.toThrow();
     c.renameNode(a, 'A2');
-    expect(c.getTree().children.find((n) => n.id === a)!.name).toBe('A2');
+    expect(childOf(c.getTree(), a).name).toBe('A2');
   });
 
   it('moveNode rejects moving into a parent with a same-named child', () => {
@@ -121,7 +128,7 @@ describe('WorktreeClient semantic operations', () => {
     const r = c.addReminder(a, 'R', 1000, 60);
     expect(c.getTree().children[0]?.reminders[0]).toMatchObject({ id: r, name: 'R', deadline: 1000, repeat: 60 });
     c.editReminder(r, { name: 'R2', repeat: null, active: false });
-    const edited = c.getTree().children[0]?.reminders[0]!;
+    const edited = c.getTree().children[0]?.reminders[0];
     expect(edited.name).toBe('R2');
     expect(edited.repeat).toBeUndefined();
     expect(edited.active).toBe(false);
@@ -138,7 +145,7 @@ describe('WorktreeClient semantic operations', () => {
     const c = newClient();
     const before = Date.now();
     const a = c.addNode(ROOT_ID, 'A', undefined, { note: 'hi', deadline: 1000 });
-    const node = c.getTree().children.find((n) => n.id === a)!;
+    const node = childOf(c.getTree(), a);
     expect(node.note).toBe('hi');
     expect(node.deadline).toBe(1000);
     expect(node.createdAt).toBeGreaterThanOrEqual(before);
@@ -161,7 +168,7 @@ describe('WorktreeClient semantic operations', () => {
     const a = c.addNode(ROOT_ID, 'A', undefined, { note: 'n', deadline: 50 });
     const before = Date.now();
     const copy = c.copyNode(a, ROOT_ID);
-    const copyNode = c.getTree().children.find((n) => n.id === copy)!;
+    const copyNode = childOf(c.getTree(), copy);
     expect(copyNode.note).toBe('n');
     expect(copyNode.deadline).toBe(50);
     expect(copyNode.createdAt).toBeGreaterThanOrEqual(before);
@@ -174,9 +181,9 @@ describe('WorktreeClient semantic operations', () => {
     const child = c.addNode(a, 'child');
     c.setWeight(b, 0);
     expect(c.getTree().children.map((n) => n.id)).toEqual([b, a]);
-    expect(c.getTree().children.find((n) => n.id === a)!.children.map((n) => n.id)).toEqual([child]);
+    expect(childOf(c.getTree(), a).children.map((n) => n.id)).toEqual([child]);
     c.setWeight(child, 5);
-    expect(c.getTree().children.find((n) => n.id === a)!.children[0]!.weight).toBe(5);
+    expect(childOf(c.getTree(), a).children[0].weight).toBe(5);
   });
 
   it('restores persisted confirmed history and pending queue at construction', () => {
@@ -196,7 +203,7 @@ describe('WorktreeClient semantic operations', () => {
     c.addNode(ROOT_ID, 'A');
     expect(storage.state?.pending).toHaveLength(1);
     expect(storage.state?.confirmed).toHaveLength(0);
-    c.removeNode(c.getTree().children[0]!.id);
+    c.removeNode(c.getTree().children[0].id);
     expect(storage.state?.pending).toHaveLength(2);
     expect(storage.state?.pending[1]).toMatchObject({ kind: 'add' });
   });
@@ -235,10 +242,10 @@ describe('WorktreeClient semantic operations', () => {
       const a = c.addNode(ROOT_ID, 'A');
       const id = c.addBlock({ name: 'B', start: 0, end: 10, nodeId: a });
       c.setBlockCompleted(id, true);
-      expect(c.getBlocks()[0]!.status).toBe(true);
-      expect(c.getTree().children[0]!.status).toBe(true);
+      expect(c.getBlocks()[0].status).toBe(true);
+      expect(c.getTree().children[0].status).toBe(true);
       c.setBlockCompleted(id, false);
-      expect(c.getTree().children[0]!.status).toBe(false);
+      expect(c.getTree().children[0].status).toBe(false);
     });
 
     it('setCompleted on the node completes its linked block', () => {
@@ -246,7 +253,7 @@ describe('WorktreeClient semantic operations', () => {
       const a = c.addNode(ROOT_ID, 'A');
       c.addBlock({ name: 'B', start: 0, end: 10, nodeId: a });
       c.setCompleted(a, true);
-      expect(c.getBlocks()[0]!.status).toBe(true);
+      expect(c.getBlocks()[0].status).toBe(true);
     });
 
     it('enforces one block per node locally', () => {
@@ -458,12 +465,12 @@ describe('WorktreeClient auth', () => {
     expect(c.isAuthFailed()).toBe(false);
 
     // The socket opens; the automatic resync gets a 401 from the REST API.
-    FakeWebSocket.instances[0]!.onopen?.();
+    FakeWebSocket.instances[0].onopen?.();
     await expect(attempt).resolves.toBe(false);
     expect(c.isAuthFailed()).toBe(true);
 
     // the closed socket must not reconnect
-    FakeWebSocket.instances[0]!.serverClose();
+    FakeWebSocket.instances[0].serverClose();
     vi.advanceTimersByTime(120_000);
     expect(FakeWebSocket.instances).toHaveLength(1);
   });
@@ -472,7 +479,7 @@ describe('WorktreeClient auth', () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('fetch failed'); }));
     const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'tok' });
     const attempt = c.reconnect();
-    FakeWebSocket.instances[0]!.onclose?.();
+    FakeWebSocket.instances[0].onclose?.();
     await expect(attempt).resolves.toBe(false);
     expect(c.isAuthFailed()).toBe(false);
   });

@@ -24,7 +24,7 @@ export function publicAuthRouter(gate: RegistrationGate): Router {
   const router = Router();
 
   router.post('/register', async (req, res) => {
-    const body = req.body as RegisterRequest | undefined;
+    const body: RegisterRequest | undefined = req.body;
     const username = parseUsername(body?.username);
     if (username === null) {
       res.status(400).json({ error: 'invalid username' });
@@ -61,7 +61,7 @@ export function publicAuthRouter(gate: RegistrationGate): Router {
   });
 
   router.post('/login', async (req, res) => {
-    const body = req.body as LoginRequest | undefined;
+    const body: LoginRequest | undefined = req.body;
     const username = parseUsername(body?.username);
     const password = typeof body?.password === 'string' ? body.password : '';
     if (username === null || password.length === 0 || password.length > PASSWORD_MAX_LEN) {
@@ -84,19 +84,19 @@ export function authedAuthRouter(): Router {
   const router = Router();
 
   router.post('/logout', async (_req, res) => {
-    await revokeToken(res.locals.userId as number, res.locals.tokenId as number);
+    await revokeToken(res.locals.userId, res.locals.tokenId);
     res.json({ ok: true });
   });
 
   router.get('/tokens', async (_req, res) => {
-    const tokens = await listTokens(res.locals.userId as number);
+    const tokens = await listTokens(res.locals.userId);
     res.json({
       tokens: tokens.map((t) => ({
         id: t.id,
         label: t.label,
         createdAt: t.createdAt.toISOString(),
         lastUsedAt: t.lastUsedAt?.toISOString() ?? null,
-        current: t.id === (res.locals.tokenId as number),
+        current: t.id === res.locals.tokenId,
       })),
     });
   });
@@ -107,7 +107,7 @@ export function authedAuthRouter(): Router {
       res.status(404).json({ error: 'not found' });
       return;
     }
-    const revoked = await revokeToken(res.locals.userId as number, id);
+    const revoked = await revokeToken(res.locals.userId, id);
     if (!revoked) {
       res.status(404).json({ error: 'not found' });
       return;

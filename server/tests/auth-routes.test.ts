@@ -115,10 +115,12 @@ describe('authenticated endpoints', () => {
     const second = (await request(app).post('/api/login').send({ username: 'alice', password: PW })).body;
     const res = await request(app).get('/api/tokens').set('Authorization', `Bearer ${second.token}`);
     expect(res.status).toBe(200);
-    const tokens = res.body.tokens as Array<{ id: number; current: boolean }>;
+    const tokens: Array<{ id: number; current: boolean }> = res.body.tokens;
     expect(tokens).toHaveLength(2);
     expect(tokens.filter((t) => t.current)).toHaveLength(1);
-    expect(tokens.find((t) => t.current)!.id).toBe(second.tokenId);
+    const current = tokens.find((t) => t.current);
+    if (current === undefined) throw new Error('no current token');
+    expect(current.id).toBe(second.tokenId);
   });
 
   it('DELETE /api/tokens/:id revokes a device; the old token 401s afterwards', async () => {

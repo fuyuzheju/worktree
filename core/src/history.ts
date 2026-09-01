@@ -29,12 +29,18 @@ export class HistoryChain {
     return this.order.length;
   }
 
+  private nodeOf(id: string): HistoryNode {
+    const node = this.nodes.get(id);
+    if (node === undefined) throw new Error(`history node ${id} is missing`);
+    return node;
+  }
+
   /** Nodes after (exclusive) `cursorId`; null or unknown cursor returns the whole chain. */
   since(cursorId: string | null): HistoryNode[] {
     if (cursorId === null) return this.toArray();
     const idx = this.order.indexOf(cursorId);
     if (idx === -1) return this.toArray();
-    return this.order.slice(idx + 1).map((id) => this.nodes.get(id)!);
+    return this.order.slice(idx + 1).map((id) => this.nodeOf(id));
   }
 
   /** Undo: remove the head entry. Only the head may be removed. */
@@ -55,6 +61,6 @@ export class HistoryChain {
   }
 
   toArray(): HistoryNode[] {
-    return this.order.map((id) => this.nodes.get(id)!);
+    return this.order.map((id) => this.nodeOf(id));
   }
 }

@@ -47,13 +47,13 @@ describe('ServerSocket', () => {
     const socket = new ServerSocket('ws://localhost:1', handlers());
     socket.connect();
     expect(FakeWebSocket.instances).toHaveLength(1);
-    FakeWebSocket.instances[0]!.serverClose();
+    FakeWebSocket.instances[0].serverClose();
     await vi.advanceTimersByTimeAsync(1000);
     expect(FakeWebSocket.instances).toHaveLength(2);
-    FakeWebSocket.instances[1]!.serverClose();
+    FakeWebSocket.instances[1].serverClose();
     await vi.advanceTimersByTimeAsync(2000);
     expect(FakeWebSocket.instances).toHaveLength(3);
-    FakeWebSocket.instances[2]!.serverClose();
+    FakeWebSocket.instances[2].serverClose();
     await vi.advanceTimersByTimeAsync(4000);
     expect(FakeWebSocket.instances).toHaveLength(4);
   });
@@ -61,7 +61,7 @@ describe('ServerSocket', () => {
   it('close() cancels a pending reconnect so nothing keeps the process alive', async () => {
     const socket = new ServerSocket('ws://localhost:1', handlers());
     socket.connect();
-    FakeWebSocket.instances[0]!.serverClose();
+    FakeWebSocket.instances[0].serverClose();
     socket.close();
     await vi.advanceTimersByTimeAsync(120_000);
     expect(FakeWebSocket.instances).toHaveLength(1); // no further attempts
@@ -71,17 +71,17 @@ describe('ServerSocket', () => {
     const h = handlers();
     const socket = new ServerSocket('ws://localhost:1', h);
     socket.connect();
-    const ws = FakeWebSocket.instances[0]!;
-    ws.onmessage!({ data: JSON.stringify({ type: 'op', node: { id: 'h1', op: { kind: 'add', parentId: 'root', id: 'a', name: 'A', weight: 1 } } }) });
+    const ws = FakeWebSocket.instances[0];
+    ws.onmessage?.({ data: JSON.stringify({ type: 'op', node: { id: 'h1', op: { kind: 'add', parentId: 'root', id: 'a', name: 'A', weight: 1 } } }) });
     expect(h.onOp).toHaveBeenCalledWith({ id: 'h1', op: { kind: 'add', parentId: 'root', id: 'a', name: 'A', weight: 1 } });
-    ws.onmessage!({ data: JSON.stringify({ type: 'state', state: 'offline' }) });
+    ws.onmessage?.({ data: JSON.stringify({ type: 'state', state: 'offline' }) });
     expect(h.onState).toHaveBeenCalledWith('offline');
   });
 
   it('the client appends the token param to the derived WS URL', () => {
     const client = new WorktreeClient({ serverUrl: 'http://localhost:3000', user: 'alice', token: 'tok-1' });
     client.connect();
-    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:3000/api/websocket?token=tok-1');
+    expect(FakeWebSocket.instances[0].url).toBe('ws://localhost:3000/api/websocket?token=tok-1');
     client.disconnect();
   });
 
@@ -93,7 +93,7 @@ describe('ServerSocket', () => {
       token: 'tok-1',
     });
     client.connect();
-    expect(FakeWebSocket.instances[0]!.url).toBe('ws://localhost:9999/socket?foo=1&token=tok-1');
+    expect(FakeWebSocket.instances[0].url).toBe('ws://localhost:9999/socket?foo=1&token=tok-1');
     client.disconnect();
   });
 
