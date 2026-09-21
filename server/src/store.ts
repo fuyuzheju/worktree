@@ -1,4 +1,4 @@
-import { Tree, WorktreeState, operationSchema } from '@worktree/core';
+import { HistoryReplayError, Tree, WorktreeState, operationSchema, replayHistory } from '@worktree/core';
 import type { HistoryNode, HistoryOperation, Operation } from '@worktree/core';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
@@ -49,6 +49,16 @@ export class UnknownUserError extends Error {
   }
 }
 
+/** The user's stored history no longer replays; only a rewrite can repair it. */
+export class BrokenHistoryError extends Error {
+  constructor(
+    public entryId: string,
+    public reason: string,
+  ) {
+    super(`history is broken at entry ${entryId}: ${reason} — submit a repaired history (rewrite)`);
+  }
+}
+
 /** What an appendBatch actually appended (duplicates are skipped). */
 export interface AppendResult {
   added: HistoryNode[];
@@ -58,24 +68,46 @@ export interface AppendResult {
 /** Server-side history: per-user Prisma persistence + the derived states. */
 export class HistoryStore {
   private states = new Map<number, WorktreeState>();
+  /**
+   * Users whose stored history no longer replays (entries appended before a
+   * rule existed). They cannot submit; their history stays readable so a
+   * client can fetch it, repair it, and force-rewrite it.
+   */
+  private broken = new Map<number, { entryId: string; reason: string }>();
   private userIds = new Map<string, number>();
   private queue: Promise<unknown> = Promise.resolve();
 
-  /** Load persisted history into memory. Call once at boot. */
+  /**
+   * Load persisted history into memory. Call once at boot. A user whose
+   * history fails to replay is marked broken instead of taking the server
+   * down with it.
+   */
   async load(): Promise<void> {
     const users = await prisma.user.findMany();
     this.userIds = new Map(users.map((u) => [u.name, u.id]));
     this.states = new Map();
+    this.broken = new Map();
     for (const u of users) {
-      this.states.set(u.id, await this.loadUserState(u.id));
+      try {
+        this.states.set(u.id, await this.loadUserState(u.id));
+      } catch (e) {
+        if (!(e instanceof HistoryReplayError)) throw e;
+        this.broken.set(u.id, { entryId: e.entryId, reason: e.message });
+        console.error(
+          `user "${u.name}" history is broken at entry ${e.entryId}: ${e.message} — waiting for a client-side repair (rewrite)`,
+        );
+      }
     }
   }
 
   private async loadUserState(userId: number): Promise<WorktreeState> {
     const rows = await prisma.historyNode.findMany({ where: { userId }, orderBy: { id: 'asc' } });
-    const state = new WorktreeState();
-    for (const row of rows) state.apply(operationSchema.parse(row.op));
-    return state;
+    return replayHistory(rows.map((row) => ({ id: row.opId, op: operationSchema.parse(row.op) })));
+  }
+
+  private mustNotBeBroken(userId: number): void {
+    const broken = this.broken.get(userId);
+    if (broken !== undefined) throw new BrokenHistoryError(broken.entryId, broken.reason);
   }
 
   /**
@@ -92,6 +124,7 @@ export class HistoryStore {
   }
 
   private getState(userId: number): WorktreeState {
+    this.mustNotBeBroken(userId);
     let state = this.states.get(userId);
     if (!state) {
       state = new WorktreeState();
@@ -104,7 +137,8 @@ export class HistoryStore {
     return this.getState(await this.resolveUserId(user));
   }
 
-  /** Snapshot of every loaded user's state, for the reminder sweeper. */
+  /** Snapshot of every loaded user's state, for the reminder sweeper. Users
+   *  with a broken history have no state and are skipped. */
   allUserTrees(): Array<{ userId: number; tree: Tree }> {
     return [...this.states.entries()].map(([userId, state]) => ({ userId, tree: state.tree }));
   }
@@ -138,6 +172,7 @@ export class HistoryStore {
   async appendBatch(user: string, ops: HistoryOperation[]): Promise<AppendResult> {
     const userId = await this.resolveUserId(user);
     return this.exclusive(async () => {
+      this.mustNotBeBroken(userId);
       // Idempotent retry: ops whose ids are already in the history are skipped
       // (same op) or rejected (different op) before anything is validated.
       const existingIds = new Set<string>();
@@ -303,6 +338,8 @@ export class HistoryStore {
         });
       });
       this.states.set(userId, WorktreeState.fromOps(nodes.map((n) => n.op)));
+      // A rewrite is also the repair path: the user is whole again.
+      this.broken.delete(userId);
     });
   }
 }

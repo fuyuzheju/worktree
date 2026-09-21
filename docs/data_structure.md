@@ -110,6 +110,13 @@ parent (add/move/copy) — uncompletes every completed ancestor in turn, so a
 completed node never has an uncompleted child in the derived state.
 An empty edit_node or edit_reminder patch (no fields at all) is rejected.
 
+Replay is strict: a stored history containing an entry that apply rejects
+(e.g. a complete persisted before the children-first rule existed) fails as a
+whole with an error naming the entry. The server marks such a user "broken"
+(no submissions; reads and rewrites stay available) and clients freeze at the
+last good state until the history is repaired; the repair drops the offending
+entries (see sync.md, "broken histories").
+
 copy is shallow: copies name, status, reminders, note, deadline and completedAt,
 not children. new_name defaults to the source's name. The copy's createdAt
 comes from the copy op's timestamp (falling back to apply time for legacy ops),

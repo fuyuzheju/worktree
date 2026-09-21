@@ -1,5 +1,5 @@
 import { ROOT_ID, USER_RE, computeStats, matchesFilter } from '@worktree/core';
-import type { Block, Node } from '@worktree/core';
+import type { Block, Node, RepairDrop } from '@worktree/core';
 import { formatBlock, formatDayHeader, formatNode, renderFiltered, renderTree, shortId } from './render';
 import { pathOf, resolveBlock } from './resolve';
 import { DEFAULT_SERVER } from './config';
@@ -823,6 +823,45 @@ const logoutCommand: Command = {
   },
 };
 
+const repairCommand: Command = {
+  name: 'repair',
+  mutatesTree: true,
+  summary: 'drop the history entries that no longer replay (preview; --yes applies it)',
+  usage: 'repair [--yes]',
+  run: async (io, args): Promise<CommandResult> => {
+    if (args.some((a) => a !== '--yes')) return io.usage();
+    const yes = args.includes('--yes');
+    const failure = io.client.getReplayFailure();
+    if (failure === null) {
+      io.out('nothing to repair — the stored history replays fine');
+      return 'ok';
+    }
+    let drops: RepairDrop[];
+    try {
+      drops = await io.client.planRepair();
+    } catch (e) {
+      io.out(`repair failed: ${errMsg(e)}`);
+      return 'ok';
+    }
+    io.out(`history is broken at entry ${failure.entryId}: ${failure.message}`);
+    if (!yes) {
+      io.out(`${drops.length} entry(ies) will be dropped:`);
+      for (const d of drops) io.out(`  ${d.entry.id}  ${d.description} — ${d.reason}`);
+      io.out('run "repair --yes" to drop these entries (later entries are kept)');
+      return 'ok';
+    }
+    try {
+      const dropped = await io.client.repairHistory();
+      for (const d of dropped) io.out(`dropped ${d.entry.id}  ${d.description}`);
+      io.out(dropped.length > 0 ? 'history repaired' : 'the history replays fine again — adopted it');
+    } catch (e) {
+      io.out(`repair failed: ${errMsg(e)}`);
+      return 'ok';
+    }
+    return 'ok';
+  },
+};
+
 const resolveCommand: Command = {
   name: 'resolve',
   summary: 'resolve a sync conflict',
@@ -937,6 +976,7 @@ export const COMMANDS: Command[] = [
   loginCommand,
   logoutCommand,
   resolveCommand,
+  repairCommand,
   helpCommand,
   exitCommand,
 ];

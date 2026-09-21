@@ -96,6 +96,9 @@ inside a single apply — it never appends history ops, so the broadcast
   - validation and append run under the same serialization lock, so the
     validate → append sequence is atomic across concurrent requests
   - any op invalid → 400 {conflict_id: op.id, reason}, nothing is appended
+  - the user's *stored* history no longer replays (entries appended before a
+    rule existed — see "broken histories") → 409 {error, entry_id, reason},
+    nothing is appended; only a rewrite repairs it
 
 legacy ops replay deterministically: an `add` without note/deadline/created_at
 yields note '', no deadline, createdAt 0 on every client and the server — the
@@ -138,7 +141,32 @@ force rewrite the user's history. rejected with 400 if the submitted history doe
 replay cleanly, with 409 {error, head} if base is not the user's current head (the
 history advanced since the client's snapshot — the client must re-merge).
 otherwise: toggle that user to "offline", replace their history, then back to
-"working", and answer {ok: true}.
+"working", and answer {ok: true}. a rewrite is also the *repair* path (see
+"broken histories"): it revalidates the whole history and clears the broken mark.
+
+--
+
+broken histories (replay failure):
+
+replay is strict: an entry that apply rejects — e.g. a `complete` stored before
+the children-first rule existed — makes the whole stored history unreplayable.
+the server marks such a user *broken* at boot (logged; every other user loads
+normally) instead of failing to start:
+  - /api/submit → 409 {error, entry_id, reason} (the entry that fails)
+  - /api/history, /api/history?after=, /api/history?id= and /api/rewrite stay
+    available — they are the repair path
+  - reminders skip the user (no state to sweep)
+  - a successful /api/rewrite clears the mark and the user is whole again
+clients treat replay failure the same way: the kernel aborts the replay, keeps
+the last good state, rejects edits, and offers the repair to the user
+  - repair = drop every entry that no longer replays (deterministic: replay the
+    history and skip the entries that throw); nothing else is rewritten
+  - planRepair previews the drops (entry id + node/block name + reason);
+    repairHistory force-rewrites the history without them
+  - server users repair from the server's history (GET /api/history) with the
+    current head as base; a 409 refetches and re-plans (≤3 attempts)
+  - the repair is lossy — both frontends list the entries and require an
+    explicit confirmation before rewriting
 
 --
 
@@ -166,6 +194,9 @@ namespaced per server and user; on start the client restores them and resumes
 catch-up from the persisted cursor
 offline: no network, render locally; offline edits survive restarts
 online: every edit flushes the pending queue automatically; resync also runs on every (re)connect
+replay failure (broken history): the replay aborts, the tree freezes at the last
+good state and edits are rejected; the user repairs the history first (see
+"broken histories"), which clears the failure — syncing resumes by itself
 
 the "local" user: a reserved client-side-only user that never talks to the server.
 no socket, no requests; ops are appended straight into the confirmed history and

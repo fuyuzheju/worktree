@@ -47,6 +47,9 @@ export class Syncer {
       // not at the post-catch-up head (where the server branch would be empty).
       const base = this.store.getConfirmed();
       await this.catchUp();
+      // The confirmed history no longer replays (legacy entry): the server
+      // would reject the submit with 409, so keep the queue until repaired.
+      if (this.store.getReplayFailure() !== null) return 'ok';
       if (this.store.getPending().length > 0) {
         try {
           await this.api.submit(this.store.getPending());

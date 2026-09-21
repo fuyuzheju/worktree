@@ -72,6 +72,18 @@ function printAuthFailure(client: WorktreeClient, user: string): void {
   }
 }
 
+/** A stored history that no longer replays freezes the tree: offer the repair. */
+function printRepairNotice(client: WorktreeClient): boolean {
+  const failure = client.getReplayFailure();
+  if (failure === null) return false;
+  console.log(`warning: the stored history is broken at entry ${failure.entryId}: ${failure.message}`);
+  console.log('         run "repair" to list the entries that must be dropped, "repair --yes" to apply it');
+  return true;
+}
+
+/** Commands that stay usable while the history needs repair. */
+const BROKEN_ALLOWED = new Set(['repair', 'help', 'exit', 'quit', 'user']);
+
 /** Drain pending stdout writes (pipes are async), then force-exit. */
 function exitAfterFlush(code: number): void {
   process.stdout.write('', () => process.exit(code));
@@ -83,6 +95,13 @@ async function runCommand(io: CommandIO, line: string): Promise<CommandResult> {
   const trimmed = line.trim();
   if (!trimmed) return 'ok';
   const [cmd, ...args] = trimmed.split(/\s+/);
+  // A history that does not replay makes every other command fail anyway
+  // (the kernel rejects edits, the server rejects submits): keep the
+  // session on the repair path until the user takes it.
+  if (io.client.getReplayFailure() !== null && !BROKEN_ALLOWED.has(cmd)) {
+    io.out('history needs repair — run "repair" (or "repair --yes" to apply it)');
+    return 'ok';
+  }
   try {
     return await dispatch(io, cmd, args);
   } catch (e) {
@@ -143,12 +162,14 @@ async function repl(): Promise<void> {
     printAuthFailure(client, name);
     console.log(`user: ${name}${client.isLocal() ? ' (local — offline only)' : ''}`);
     console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
+    printRepairNotice(client);
   };
 
   // One attempt; on failure the socket's backoff loop keeps trying.
   if (!client.isLocal()) await client.reconnect();
   printAuthFailure(client, ctx.currentUser);
   console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
+  printRepairNotice(client);
 
   if (process.stdin.isTTY) {
     console.log(`server: ${DEFAULT_SERVER} — user: ${ctx.currentUser} — type "help" for commands`);

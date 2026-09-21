@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID } from '@worktree/core';
+import type { HistoryNode } from '@worktree/core';
 import { ClientStore } from '../src/store';
 import type { SavedState } from '../src/storage';
 
@@ -192,5 +193,45 @@ describe('ClientStore', () => {
     const first = store.getConfirmed()[0].id;
     store.restore(store.getConfirmed(), [{ kind: 'remove', id: first }]);
     expect(store.getTree().children.map((c) => c.id)).toEqual(['a', 'b']);
+  });
+
+  describe('replay failures', () => {
+    // Legacy history: complete "A" while its child "B" is not completed.
+    const broken: HistoryNode[] = [
+      { id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } },
+      { id: 'h2', op: { kind: 'add', parentId: 'a', id: 'b', name: 'B', weight: 1 } },
+      { id: 'h3', op: { kind: 'complete', id: 'a' } },
+    ];
+
+    it('restore of an un-replayable history aborts instead of throwing and reports the entry', () => {
+      const saved: SavedState[] = [];
+      const store = new ClientStore((s) => saved.push(s));
+      expect(() => store.restore(broken, [])).not.toThrow();
+      const failure = store.getReplayFailure();
+      expect(failure?.entryId).toBe('h3');
+      expect(failure?.message).toContain('child "B" is not completed');
+      // No half-replayed state is rendered.
+      expect(store.getTree().children).toHaveLength(0);
+      // The broken history is still persisted: a repair rewrites from it.
+      expect(lastSaved(saved).confirmed).toHaveLength(3);
+    });
+
+    it('keeps the last good state when a later history fails to replay', () => {
+      const store = new ClientStore();
+      store.restore([{ id: 'h0', op: { kind: 'add', parentId: ROOT_ID, id: 'z', name: 'Z', weight: 1 } }], []);
+      store.restore(broken, []);
+      expect(store.getReplayFailure()).not.toBeNull();
+      expect(store.getTree().children.map((c) => c.name)).toEqual(['Z']);
+    });
+
+    it('a repaired (clean) history clears the failure', () => {
+      const store = new ClientStore();
+      store.restore(broken, []);
+      expect(store.getReplayFailure()).not.toBeNull();
+      store.setConfirmed(broken.slice(0, 2));
+      expect(store.getReplayFailure()).toBeNull();
+      expect(store.getTree().children[0]?.name).toBe('A');
+      expect(store.getTree().children[0]?.status).toBe(false);
+    });
   });
 });

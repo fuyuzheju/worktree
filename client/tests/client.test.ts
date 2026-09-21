@@ -454,6 +454,99 @@ describe('WorktreeClient undo', () => {
   });
 });
 
+describe('WorktreeClient repair', () => {
+  // Legacy history: complete "A" while its child "B" is not completed.
+  const brokenState = (): SavedState => ({
+    confirmed: [
+      { id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } },
+      { id: 'h2', op: { kind: 'add', parentId: 'a', id: 'b', name: 'B', weight: 1 } },
+      { id: 'h3', op: { kind: 'complete', id: 'a' } },
+    ],
+    pending: [],
+  });
+
+  const localBroken = (storage: MemoryStorage) =>
+    new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true, storage });
+
+  it('boots into the repair state and rejects edits while broken', () => {
+    const storage = new MemoryStorage();
+    storage.state = brokenState();
+    const c = localBroken(storage);
+    expect(c.getReplayFailure()?.entryId).toBe('h3');
+    expect(() => c.addNode(ROOT_ID, 'X')).toThrow(/repair the history first/);
+    expect(() => c.undo()).toThrow(/repair the history first/);
+    expect(() => c.addBlock({ name: 'B', start: 0, end: 10 })).toThrow(/repair the history first/);
+  });
+
+  it('planRepair previews the drop and repairHistory applies it (local mode)', async () => {
+    const storage = new MemoryStorage();
+    storage.state = brokenState();
+    const c = localBroken(storage);
+
+    const plan = await c.planRepair();
+    expect(plan.map((d) => d.entry.id)).toEqual(['h3']);
+    expect(plan[0]?.description).toBe('complete "A"');
+    expect(plan[0]?.reason).toContain('child "B" is not completed');
+    expect(c.getReplayFailure()).not.toBeNull(); // preview only
+
+    const dropped = await c.repairHistory();
+    expect(dropped.map((d) => d.entry.id)).toEqual(['h3']);
+    expect(c.getReplayFailure()).toBeNull();
+    expect(c.getConfirmed().map((n) => n.id)).toEqual(['h1', 'h2']);
+    expect(c.getTree().children[0]?.name).toBe('A');
+    expect(c.getTree().children[0]?.status).toBe(false);
+    expect(storage.state?.confirmed.map((n) => n.id)).toEqual(['h1', 'h2']);
+    expect(() => c.addNode(ROOT_ID, 'X')).not.toThrow();
+  });
+
+  it('repairHistory force-rewrites the server history with the dropped entries (server mode)', async () => {
+    const storage = new MemoryStorage();
+    storage.state = brokenState();
+    const serverHistory = brokenState().confirmed;
+    const calls: Array<{ url: string; body: unknown }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push({ url, body: init?.body === undefined ? undefined : JSON.parse(String(init.body)) });
+        const body = url.includes('/api/history')
+          ? { cursorFound: true, nodes: serverHistory }
+          : { ok: true };
+        return new Response(JSON.stringify(body), { status: 200 });
+      }),
+    );
+
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 't', storage });
+    expect(c.getReplayFailure()).not.toBeNull();
+    const dropped = await c.repairHistory();
+    expect(dropped.map((d) => d.entry.id)).toEqual(['h3']);
+    expect(c.getReplayFailure()).toBeNull();
+    expect(c.getTree().children[0]?.status).toBe(false);
+
+    const rewrite = calls.find((call) => call.url.endsWith('/api/rewrite'));
+    expect(rewrite?.body).toEqual({ base: 'h3', history: serverHistory.slice(0, 2) });
+    vi.unstubAllGlobals();
+  });
+
+  it('repairHistory adopts a server history that already replays, dropping nothing', async () => {
+    const storage = new MemoryStorage();
+    storage.state = brokenState();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(JSON.stringify({ cursorFound: true, nodes: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }] }), {
+          status: 200,
+        }),
+      ),
+    );
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 't', storage });
+    const dropped = await c.repairHistory();
+    expect(dropped).toEqual([]);
+    expect(c.getReplayFailure()).toBeNull();
+    expect(c.getTree().children.map((n) => n.id)).toEqual(['a']);
+    vi.unstubAllGlobals();
+  });
+});
+
 describe('WorktreeClient auth', () => {
   class FakeWebSocket {
     static instances: FakeWebSocket[] = [];

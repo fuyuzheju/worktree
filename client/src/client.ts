@@ -1,5 +1,15 @@
-import { ROOT_ID, USER_RE, newId } from '@worktree/core';
-import type { Block, HistoryNode, HistoryOperation, Node, Operation, Reminder, Timestamp } from '@worktree/core';
+import { ROOT_ID, USER_RE, newId, planDropRepair } from '@worktree/core';
+import type {
+  Block,
+  HistoryNode,
+  HistoryOperation,
+  HistoryReplayError,
+  Node,
+  Operation,
+  Reminder,
+  RepairDrop,
+  Timestamp,
+} from '@worktree/core';
 import { ApiError, ServerAPI } from './api';
 import { DEFAULT_AUTO_REMINDER_PCT, autoReminderDeadline } from './autoReminder';
 import { ServerSocket } from './socket';
@@ -95,6 +105,58 @@ export class WorktreeClient {
     return this.store.getTree();
   }
 
+  /**
+   * The confirmed-history entry that no longer replays, if any. While set,
+   * the tree is frozen at the last good state and edits are rejected; the
+   * history can be repaired (planRepair / repairHistory).
+   */
+  getReplayFailure(): HistoryReplayError | null {
+    return this.store.getReplayFailure();
+  }
+
+  /** Entries a repair would drop. Empty when the history replays fine. */
+  async planRepair(): Promise<RepairDrop[]> {
+    if (this.store.getReplayFailure() === null) return [];
+    if (this.local) return planDropRepair(this.store.getConfirmed()).dropped;
+    const page = await this.api.history(null);
+    return planDropRepair(page.nodes).dropped;
+  }
+
+  /**
+   * Repair the history by dropping every entry that no longer replays (see
+   * planDropRepair) and force-rewriting the result. Server users rewrite from
+   * the server's current history — a 409 (it advanced meanwhile) re-fetches
+   * and re-plans; local users rewrite the local chain directly.
+   */
+  async repairHistory(): Promise<RepairDrop[]> {
+    if (this.store.getReplayFailure() === null) return [];
+    if (this.local) {
+      const plan = planDropRepair(this.store.getConfirmed());
+      this.store.setConfirmed(plan.repaired);
+      this.emit();
+      return plan.dropped;
+    }
+    for (let attempt = 0; ; attempt++) {
+      const page = await this.api.history(null);
+      const plan = planDropRepair(page.nodes);
+      if (plan.dropped.length === 0) {
+        // The server history replays fine (e.g. repaired elsewhere): adopt it.
+        this.store.setConfirmed(page.nodes);
+        this.emit();
+        return [];
+      }
+      try {
+        await this.api.rewrite(page.nodes.at(-1)?.id ?? null, plan.repaired);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409 && attempt < 3) continue;
+        throw e;
+      }
+      this.store.setConfirmed(plan.repaired);
+      this.emit();
+      return plan.dropped;
+    }
+  }
+
   /** Number of ops still waiting for server confirmation. */
   getPendingCount(): number {
     return this.store.getPending().length;
@@ -126,6 +188,7 @@ export class WorktreeClient {
    *  Every op is stamped with the local time — deterministic across replays
    *  because the timestamp travels inside the op. */
   apply(op: Operation): void {
+    this.assertNotBroken();
     const stamped: Operation = { ...op, timestamp: Date.now() };
     if (this.local) {
       this.store.applyLocalConfirmed(stamped);
@@ -172,6 +235,7 @@ export class WorktreeClient {
    * undone.
    */
   undo(): void {
+    this.assertNotBroken();
     if (this.local) {
       const head = this.store.getConfirmed().at(-1);
       if (!head) throw new Error('nothing to undo');
@@ -362,6 +426,17 @@ export class WorktreeClient {
     const parent = parentId === ROOT_ID ? this.getTree() : findNode(this.getTree(), parentId);
     if (!parent) throw new Error(`unknown parent id: ${parentId}`);
     return parent.children.reduce((max, c) => Math.max(max, c.weight), 0) + 1;
+  }
+
+  /** While the confirmed history fails to replay, the tree is frozen and the
+   *  server rejects submissions: edits are meaningless until repaired. */
+  private assertNotBroken(): void {
+    const failure = this.store.getReplayFailure();
+    if (failure !== null) {
+      throw new Error(
+        `history is broken at entry ${failure.entryId}: ${failure.message} (repair the history first)`,
+      );
+    }
   }
 
   /** Local pre-check mirroring the core Tree rules, for clear synchronous errors.

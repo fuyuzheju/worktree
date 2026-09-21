@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ROOT_ID } from '@worktree/core';
 import { WorktreeClient } from '@worktree/client';
+import type { ClientStorage, SavedState } from '@worktree/client';
 import { COMMANDS } from '../src/commands';
 import { createCommandIO, createDispatcher } from '../src/command';
 import type { Command, CommandIO } from '../src/command';
@@ -398,6 +399,75 @@ describe('command dispatcher', () => {
     await run(io, 'ls');
     expect(lines.length).toBe(1);
     expect(lines[0]).toContain('beta');
+  });
+
+  describe('repair', () => {
+    /** A local client whose stored history fails to replay (legacy complete). */
+    const brokenIO = () => {
+      const lines: string[] = [];
+      let state: SavedState = {
+        confirmed: [
+          { id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } },
+          { id: 'h2', op: { kind: 'add', parentId: 'a', id: 'b', name: 'B', weight: 1 } },
+          { id: 'h3', op: { kind: 'complete', id: 'a' } },
+          { id: 'h4', op: { kind: 'rename', id: 'b', name: 'B2' } },
+        ],
+        pending: [],
+      };
+      const storage: ClientStorage = {
+        load: () => state,
+        save: (next) => {
+          state = next;
+        },
+      };
+      const ctx = {
+        client: new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true, storage }),
+        out: (line: string | undefined) => lines.push(line ?? ''),
+        cwdId: ROOT_ID,
+        currentUser: 'local',
+        filter: {},
+        filterMode: 'hide' as const,
+      };
+      return { ctx, io: createCommandIO(ctx), lines };
+    };
+
+    it('previews what a repair would drop and applies it with --yes', async () => {
+      const { io, lines } = brokenIO();
+      await run(io, 'repair');
+      expect(lines[0]).toMatch(/^history is broken at entry h3: cannot complete "A": child "B" is not completed$/);
+      expect(lines[1]).toBe('1 entry(ies) will be dropped:');
+      expect(lines[2]).toMatch(/^  h3 {2}complete "A" — /);
+      expect(lines[3]).toMatch(/run "repair --yes"/);
+      expect(io.client.getReplayFailure()).not.toBeNull(); // preview only
+
+      lines.length = 0;
+      await run(io, 'repair --yes');
+      expect(lines[0]).toMatch(/^history is broken at entry h3:/);
+      expect(lines[1]).toBe('dropped h3  complete "A"');
+      expect(lines[2]).toBe('history repaired');
+      expect(io.client.getReplayFailure()).toBeNull();
+      // The dropped complete is gone; the later rename survived.
+      expect(io.client.getTree().children[0]?.status).toBe(false);
+      expect(io.client.getTree().children[0]?.children[0]?.name).toBe('B2');
+    });
+
+    it('reports nothing to repair on a healthy history', async () => {
+      const { io, lines } = newIO();
+      await run(io, 'repair');
+      expect(lines).toEqual(['nothing to repair — the stored history replays fine']);
+      await run(io, 'repair --yes');
+      expect(lines).toEqual([
+        'nothing to repair — the stored history replays fine',
+        'nothing to repair — the stored history replays fine',
+      ]);
+    });
+
+    it('rejects unknown flags', async () => {
+      const { io, lines } = brokenIO();
+      await run(io, 'repair --force');
+      expect(lines).toEqual(['usage: repair [--yes]']);
+      expect(io.client.getReplayFailure()).not.toBeNull();
+    });
   });
 });
 

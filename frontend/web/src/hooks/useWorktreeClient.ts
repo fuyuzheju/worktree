@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { WorktreeClient } from '@worktree/client';
 import type { Conflict } from '@worktree/client';
-import type { Node } from '@worktree/core';
+import type { HistoryReplayError, Node } from '@worktree/core';
 import { LOCAL_USER, stateKey } from '../config';
 import { LocalStorageClientStorage } from '../storage';
 
@@ -10,6 +10,7 @@ export interface ClientSnapshot {
   tree: Node;
   online: boolean;
   conflict: Conflict | null;
+  replayFailure: HistoryReplayError | null;
   pendingCount: number;
   authFailed: boolean;
 }
@@ -20,6 +21,7 @@ function buildSnapshot(client: WorktreeClient): ClientSnapshot {
     tree: client.getTree(),
     online: client.isOnline(),
     conflict: client.getConflict(),
+    replayFailure: client.getReplayFailure(),
     pendingCount: client.getPendingCount(),
     authFailed: client.isAuthFailed(),
   };

@@ -1,4 +1,4 @@
-import type { Operation } from './types';
+import type { HistoryNode, Operation } from './types';
 import { Calendar } from './calendar';
 import { Tree } from './tree';
 
@@ -86,4 +86,39 @@ export class WorktreeState {
       if (node !== undefined) this.calendar.setStatusForNode(id, node.status);
     }
   }
+}
+
+/**
+ * A stored history entry that no longer applies under the current rules (e.g.
+ * a `complete` op appended before the children-first rule existed). Replay is
+ * allowed to fail on such entries: callers abort the replay, surface the entry
+ * to the user, and offer a repair (see planDropRepair).
+ */
+export class HistoryReplayError extends Error {
+  constructor(
+    public entryId: string,
+    public index: number,
+    public op: Operation,
+    reason: string,
+  ) {
+    super(reason);
+  }
+}
+
+/**
+ * Replays a stored history, identifying the entry that fails. Used wherever
+ * the ops come from storage (client cache, server boot, repair) rather than
+ * from a live edit whose submit path reports its own errors.
+ */
+export function replayHistory(nodes: HistoryNode[]): WorktreeState {
+  const state = new WorktreeState();
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    try {
+      state.apply(node.op);
+    } catch (e) {
+      throw new HistoryReplayError(node.id, i, node.op, e instanceof Error ? e.message : String(e));
+    }
+  }
+  return state;
 }

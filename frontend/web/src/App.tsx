@@ -11,6 +11,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { StatsPage } from './pages/StatsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ConflictPage } from './pages/ConflictPage';
+import { RepairPage } from './pages/RepairPage';
 import { AuthPage } from './pages/AuthPage';
 
 export type Tab = 'tree' | 'calendar' | 'stats' | 'settings';
@@ -94,7 +95,9 @@ export default function App() {
 
   return (
     <I18nProvider lang={config.lang}>
-      {snap.conflict !== null ? (
+      {snap.replayFailure !== null ? (
+        <RepairPage client={snap.client} />
+      ) : snap.conflict !== null ? (
         <ConflictPage conflict={snap.conflict} client={snap.client} display={config.display} />
       ) : (
         <FilterProvider

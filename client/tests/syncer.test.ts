@@ -130,6 +130,31 @@ describe('Syncer', () => {
     expect(store.getPending()).toHaveLength(1);
   });
 
+  it('holds the pending queue (no submit) while the confirmed history does not replay', async () => {
+    // Legacy history: complete "a" while its child "b" is not completed.
+    const broken: HistoryNode[] = [
+      node('h1', addOp('a')),
+      node('h2', addOp('b', 'a')),
+      node('h3', { kind: 'complete', id: 'a' }),
+    ];
+    const store = new ClientStore();
+    store.restore(broken, [{ kind: 'add', id: 'p1', op: addOp('x') }]);
+    const api = new FakeAPI();
+    api.serverHistory = [...broken];
+    const syncer = new Syncer(store, api);
+    expect(await syncer.sync()).toBe('ok');
+    expect(api.submitCalls).toHaveLength(0);
+    expect(store.getPending()).toHaveLength(1);
+
+    // After the history is repaired the queue flushes normally.
+    api.serverHistory = broken.slice(0, 2);
+    store.setConfirmed(broken.slice(0, 2));
+    expect(await syncer.sync()).toBe('ok');
+    expect(api.submitCalls).toHaveLength(1);
+    expect(store.getPending()).toHaveLength(0);
+    expect(store.getConfirmed().map((n) => n.id)).toEqual(['h1', 'h2', 'p1']);
+  });
+
   it('propagates a 401 (auth failure is neither a conflict nor offline)', async () => {
     const store = new ClientStore();
     const api = new FakeAPI();

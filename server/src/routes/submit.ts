@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { SubmitRequest } from '@worktree/core';
-import { DuplicateOpError, HeadUndoError, ValidationError } from '../store';
+import { BrokenHistoryError, DuplicateOpError, HeadUndoError, ValidationError } from '../store';
 import type { HistoryStore } from '../store';
 import type { WsHub } from '../ws';
 
@@ -28,6 +28,11 @@ export function submitRouter(store: HistoryStore, hub: WsHub): Router {
       }
       if (e instanceof DuplicateOpError || e instanceof HeadUndoError) {
         res.status(400).json({ conflict_id: e.id, reason: e.message });
+        return;
+      }
+      // The user's stored history no longer replays: only a rewrite repairs it.
+      if (e instanceof BrokenHistoryError) {
+        res.status(409).json({ error: e.message, entry_id: e.entryId, reason: e.reason });
         return;
       }
       throw e;

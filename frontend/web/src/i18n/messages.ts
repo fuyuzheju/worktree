@@ -137,6 +137,21 @@ export const messages: Record<string, StringMap> = {
       error: 'Failed to resolve: {message}',
       empty: '(empty tree)',
     },
+    repair: {
+      title: 'History needs repair',
+      explanation:
+        'Some entries in your stored history no longer replay (they were created before a later rule). The tree is frozen until those entries are removed.',
+      entries: 'Entries that will be dropped ({n})',
+      warning:
+        'Repairing deletes the listed entries from the history. Everything else — including later entries — is kept.',
+      apply: 'Drop them and repair',
+      applying: 'Repairing…',
+      loading: 'Reading the history…',
+      nothing: 'The history replays fine now — nothing to repair.',
+      retry: 'Check again',
+      loadError: 'Could not read the history: {message}',
+      error: 'Repair failed: {message}',
+    },
     calendar: {
       today: 'Today',
       prev: 'Previous',

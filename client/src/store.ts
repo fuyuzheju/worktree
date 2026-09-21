@@ -1,4 +1,4 @@
-import { HistoryChain, PendingQueue, WorktreeState, newId } from '@worktree/core';
+import { HistoryChain, HistoryReplayError, PendingQueue, WorktreeState, newId, replayHistory } from '@worktree/core';
 import type { Block, HistoryNode, HistoryOperation, Node, Operation } from '@worktree/core';
 import type { SavedState } from './storage';
 
@@ -7,6 +7,7 @@ export class ClientStore {
   private confirmed = new HistoryChain();
   private pending = new PendingQueue();
   private state = new WorktreeState();
+  private replayFailure: HistoryReplayError | null = null;
 
   constructor(private persist?: (state: SavedState) => void) {}
 
@@ -20,6 +21,11 @@ export class ClientStore {
 
   getTree(): Node {
     return this.state.tree.getRoot();
+  }
+
+  /** The entry that made the confirmed history unreplayable, if any. */
+  getReplayFailure(): HistoryReplayError | null {
+    return this.replayFailure;
   }
 
   getBlocks(): Block[] {
@@ -120,17 +126,25 @@ export class ClientStore {
       if (p.kind !== 'remove') continue;
       if (confirmed.at(-1)?.id === p.id) confirmed.pop();
     }
-    const state = WorktreeState.fromOps(confirmed.map((n) => n.op));
-    for (const p of pending) {
-      if (p.kind !== 'add') continue;
-      try {
-        state.apply(p.op);
-      } catch {
-        // Pending op no longer applies to the confirmed state (conflict):
-        // render without it until the conflict is resolved.
+    try {
+      const state = replayHistory(confirmed);
+      this.replayFailure = null;
+      for (const p of pending) {
+        if (p.kind !== 'add') continue;
+        try {
+          state.apply(p.op);
+        } catch {
+          // Pending op no longer applies to the confirmed state (conflict):
+          // render without it until the conflict is resolved.
+        }
       }
+      this.state = state;
+    } catch (e) {
+      if (!(e instanceof HistoryReplayError)) throw e;
+      // Abort the replay and keep the last good state: the caller surfaces
+      // the failure and offers a repair (planDropRepair).
+      this.replayFailure = e;
     }
-    this.state = state;
     if (this.persist) {
       try {
         this.persist({ confirmed: this.confirmed.toArray(), pending: this.pending.getAll() });

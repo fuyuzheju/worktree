@@ -3,6 +3,7 @@ export * from './protocol';
 export * from './tree';
 export * from './calendar';
 export * from './state';
+export * from './repair';
 export * from './filter';
 export * from './history';
 export * from './pending-queue';
