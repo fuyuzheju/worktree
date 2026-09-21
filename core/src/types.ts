@@ -9,6 +9,8 @@ export interface Reminder {
   /** Recurrence interval in milliseconds; absent for one-shot reminders. */
   repeat?: Timestamp;
   active: boolean;
+  /** True for reminders auto-created from the node's deadline. */
+  auto: boolean;
 }
 
 export interface Block {
@@ -82,6 +84,8 @@ export type TreeOperation =
       name?: string;
       deadline: Timestamp;
       repeat?: Timestamp;
+      /** Marks an auto-generated deadline reminder; defaults to false on replay. */
+      auto?: boolean;
       timestamp?: Timestamp;
     }
   | { kind: 'remove_reminder'; rmdId: string; timestamp?: Timestamp }

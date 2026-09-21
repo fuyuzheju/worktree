@@ -1,6 +1,7 @@
 import { ROOT_ID, USER_RE, newId } from '@worktree/core';
-import type { Block, HistoryNode, HistoryOperation, Node, Operation, Timestamp } from '@worktree/core';
+import type { Block, HistoryNode, HistoryOperation, Node, Operation, Reminder, Timestamp } from '@worktree/core';
 import { ApiError, ServerAPI } from './api';
+import { DEFAULT_AUTO_REMINDER_PCT, autoReminderDeadline } from './autoReminder';
 import { ServerSocket } from './socket';
 import { ClientStore } from './store';
 import { Syncer } from './syncer';
@@ -294,9 +295,67 @@ export class WorktreeClient {
     this.apply({ kind: 'edit_node', id, note });
   }
 
-  /** Set the node's deadline; null clears it. */
-  setDeadline(id: string, deadline: Timestamp | null): void {
+  /**
+   * Set the node's deadline; null clears it. When `opts.autoReminderEnabled` is
+   * true, the first time a deadline is set on a node (previously no deadline) a
+   * reminder is auto-created to fire when `autoReminderPct` percent of the
+   * creation→deadline window remains. Auto-created reminders (`auto: true`)
+   * always follow later deadline edits — their deadline is recomputed from the
+   * node's createdAt, and clearing the deadline removes them. Manual reminders
+   * (`auto: false`) are never touched.
+   */
+  setDeadline(
+    id: string,
+    deadline: Timestamp | null,
+    opts?: { autoReminderEnabled?: boolean; autoReminderPct?: number },
+  ): void {
+    const node = findNode(this.getTree(), id);
+    if (!node) throw new Error(`unknown node id: ${id}`);
+    const pct = opts?.autoReminderPct ?? DEFAULT_AUTO_REMINDER_PCT;
+    const autoReminders = node.reminders.filter((r) => r.auto);
+    const windowValid = node.createdAt > 0 && deadline !== null && deadline > node.createdAt;
+
     this.apply({ kind: 'edit_node', id, deadline });
+
+    if (deadline === null) {
+      for (const r of autoReminders) this.apply({ kind: 'remove_reminder', rmdId: r.id });
+      return;
+    }
+    if (node.deadline === undefined) {
+      if (autoReminders.length > 0) {
+        // Orphan auto-reminders (e.g. the deadline edit was undone): re-attach
+        // them rather than creating a second one.
+        this.syncAutoReminders(autoReminders, node.createdAt, deadline, pct, windowValid);
+        return;
+      }
+      if (opts?.autoReminderEnabled !== true || !windowValid) return;
+      this.apply({
+        kind: 'add_reminder',
+        nodeId: id,
+        rmdId: newId(),
+        deadline: autoReminderDeadline(node.createdAt, deadline, pct),
+        auto: true,
+      });
+      return;
+    }
+    this.syncAutoReminders(autoReminders, node.createdAt, deadline, pct, windowValid);
+  }
+
+  /** Update or remove the node's auto-reminders so they track a changed deadline. */
+  private syncAutoReminders(
+    reminders: Reminder[],
+    createdAt: number,
+    deadline: Timestamp,
+    pct: number,
+    windowValid: boolean,
+  ): void {
+    if (!windowValid) {
+      for (const r of reminders) this.apply({ kind: 'remove_reminder', rmdId: r.id });
+      return;
+    }
+    for (const r of reminders) {
+      this.apply({ kind: 'edit_reminder', rmdId: r.id, deadline: autoReminderDeadline(createdAt, deadline, pct) });
+    }
   }
 
   private nextWeight(parentId: string): number {

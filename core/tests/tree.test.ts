@@ -218,6 +218,25 @@ describe('Tree', () => {
     expect(() => tree.apply({ kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R2', deadline: 2 })).toThrow();
   });
 
+  it('replays the auto marker and defaults legacy reminder ops to false', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'a'),
+      { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R', deadline: 100, auto: true },
+      { kind: 'add_reminder', nodeId: 'a', rmdId: 'r2', name: 'S', deadline: 200 },
+    ]);
+    expect(tree.getNode('a')?.reminders[0]?.auto).toBe(true);
+    expect(tree.getNode('a')?.reminders[1]?.auto).toBe(false);
+  });
+
+  it('copy preserves the auto marker on the copied reminder', () => {
+    const tree = Tree.fromOps([
+      add(ROOT_ID, 'a'),
+      { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', name: 'R', deadline: 100, auto: true },
+      { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' },
+    ]);
+    expect(tree.getNode('a2')?.reminders[0]?.auto).toBe(true);
+  });
+
   it('rejects moving a node into its own subtree', () => {
     const tree = Tree.fromOps([
       add(ROOT_ID, 'a'),

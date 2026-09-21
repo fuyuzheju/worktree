@@ -56,6 +56,17 @@ describe('operationSchema', () => {
     }
   });
 
+  it('preserves the auto marker on add_reminder', () => {
+    const op = { kind: 'add_reminder', nodeId: 'a', rmdId: 'r', name: 'R', deadline: 100, auto: true };
+    expect(operationSchema.parse(op)).toEqual(op);
+    expect(operationSchema.parse({ kind: 'add_reminder', nodeId: 'a', rmdId: 'r', deadline: 100 })).toEqual({
+      kind: 'add_reminder',
+      nodeId: 'a',
+      rmdId: 'r',
+      deadline: 100,
+    });
+  });
+
   it('rejects an unknown kind', () => {
     expect(operationSchema.safeParse({ kind: 'explode', id: 'a' }).success).toBe(false);
   });

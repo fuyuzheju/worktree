@@ -182,6 +182,51 @@ describe('command dispatcher', () => {
     expect(lines.some((l) => l.startsWith('edited alpha'))).toBe(true);
   });
 
+  it('edit forwards the auto-reminder settings to setDeadline', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
+    const prevHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      fs.mkdirSync(path.join(home, '.worktree'), { recursive: true });
+      fs.writeFileSync(
+        path.join(home, '.worktree', 'config.json'),
+        JSON.stringify({ autoReminder: { enabled: false, pct: 30 } }),
+      );
+      const { io } = newIO();
+      await run(io, 'add alpha');
+      const spy = vi.spyOn(io.client, 'setDeadline');
+      await run(io, 'edit alpha deadline=2026-09-01T10:00');
+      expect(spy).toHaveBeenCalledWith(expect.any(String), Date.parse('2026-09-01T10:00'), {
+        autoReminderEnabled: false,
+        autoReminderPct: 30,
+      });
+    } finally {
+      process.env.HOME = prevHome;
+    }
+  });
+
+  it('config prints and persists settings', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
+    const prevHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      const { io, lines } = newIO();
+      await run(io, 'config');
+      expect(lines).toEqual(['autoReminder: on (pct 15)']);
+      await run(io, 'config autoReminder=off autoReminderPct=30');
+      expect(lines.at(-1)).toBe('autoReminder: off (pct 30)');
+      expect(JSON.parse(fs.readFileSync(path.join(home, '.worktree', 'config.json'), 'utf8'))).toEqual({
+        autoReminder: { enabled: false, pct: 30 },
+      });
+      await run(io, 'config autoReminderPct=500');
+      expect(lines.at(-1)).toBe('invalid autoReminderPct: use an integer 1..99');
+      await run(io, 'config nope=1');
+      expect(lines.at(-1)).toBe('unknown setting: nope');
+    } finally {
+      process.env.HOME = prevHome;
+    }
+  });
+
   it('edit sets name, weight and status', async () => {
     const { io } = newIO();
     await run(io, 'add alpha');

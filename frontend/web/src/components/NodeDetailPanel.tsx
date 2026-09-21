@@ -4,6 +4,7 @@ import { ROOT_ID } from '@worktree/core';
 import type { Node, Reminder } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { useI18n } from '../i18n';
+import type { AutoReminderSetting } from '../config';
 import { flattenTree, descendants } from '../tree-utils';
 import { formatReminder } from '../render';
 import { epochToLocalInput, formatLocalDateTime, localInputToEpoch } from '../time';
@@ -44,9 +45,21 @@ export function NodeDetailPanel(props: {
   onClose: () => void;
   /** Embedded in a parent surface (e.g. the mobile bottom sheet): drop the card frame. */
   bare?: boolean;
+  /** Forwarded to setDeadline; without it no auto-reminder is created. */
+  autoReminder?: AutoReminderSetting;
 }) {
   const { t } = useI18n();
-  const { node, client, onClose, bare } = props;
+  const { node, client, onClose, bare, autoReminder } = props;
+  const applyDeadline = (deadline: number | null): void => {
+    if (autoReminder === undefined) {
+      client.setDeadline(node.id, deadline);
+      return;
+    }
+    client.setDeadline(node.id, deadline, {
+      autoReminderEnabled: autoReminder.enabled,
+      autoReminderPct: autoReminder.pct,
+    });
+  };
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<'operation' | 'info' | 'reminders'>('operation');
 
@@ -157,7 +170,7 @@ export function NodeDetailPanel(props: {
       setError('invalid deadline');
       return;
     }
-    run(() => client.setDeadline(node.id, ms));
+    run(() => applyDeadline(ms));
   };
 
   const onRemove = (): void => {
@@ -336,7 +349,7 @@ export function NodeDetailPanel(props: {
                 type="button"
                 onClick={() =>
                   run(() => {
-                    client.setDeadline(node.id, null);
+                    applyDeadline(null);
                     setDeadlineValue('');
                   })
                 }

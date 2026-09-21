@@ -245,6 +245,7 @@ export function SettingsPage(props: {
             checked={config.display.showId}
             onChange={(v) => updateConfig({ display: { ...config.display, showId: v } })}
             label={t('settings.showId')}
+            testId="settings-show-id"
           />
           <Checkbox
             checked={config.display.showWeight}
@@ -272,6 +273,36 @@ export function SettingsPage(props: {
               <option value="highlight">{t('settings.filterHighlight')}</option>
             </select>
           </label>
+        </div>
+      </section>
+
+      <section className="rounded border border-gray-300 bg-white p-4">
+        <h2 className="font-semibold">{t('settings.autoReminder')}</h2>
+        <div className="mt-2 flex flex-col gap-1.5">
+          <Checkbox
+            checked={config.autoReminder.enabled}
+            onChange={(v) => updateConfig({ autoReminder: { ...config.autoReminder, enabled: v } })}
+            label={t('settings.autoReminderEnabled')}
+            testId="settings-auto-reminder-enabled"
+          />
+          <label className="mt-1 flex items-center gap-2">
+            <span>{t('settings.autoReminderPct')}</span>
+            <input
+              type="number"
+              min={1}
+              max={99}
+              value={config.autoReminder.pct}
+              onChange={(e) => {
+                const raw = Number(e.target.value);
+                if (e.target.value === '' || !Number.isFinite(raw)) return;
+                const pct = Math.min(99, Math.max(1, Math.round(raw)));
+                updateConfig({ autoReminder: { ...config.autoReminder, pct } });
+              }}
+              data-testid="settings-auto-reminder-pct"
+              className="w-20 rounded border border-gray-300 px-2 py-1"
+            />
+          </label>
+          <p className="text-xs text-gray-500">{t('settings.autoReminderHint')}</p>
         </div>
       </section>
 
@@ -324,13 +355,14 @@ export function SettingsPage(props: {
   );
 }
 
-function Checkbox(props: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+function Checkbox(props: { checked: boolean; onChange: (v: boolean) => void; label: string; testId?: string }) {
   return (
     <label className="flex items-center gap-2">
       <input
         type="checkbox"
         checked={props.checked}
         onChange={(e) => props.onChange(e.target.checked)}
+        data-testid={props.testId}
       />
       {props.label}
     </label>

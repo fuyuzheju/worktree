@@ -42,6 +42,22 @@ describe('token storage', () => {
     expect(loadConfig().filter).toEqual({ keyword: 'ok', createdAfter: 5 });
   });
 
+  it('defaults the auto-reminder setting and clamps invalid values', () => {
+    expect(loadConfig().autoReminder).toEqual({ enabled: true, pct: 15 });
+    localStorage.setItem(
+      'worktree.config',
+      JSON.stringify({ autoReminder: { enabled: 'yes', pct: 500 } }),
+    );
+    expect(loadConfig().autoReminder).toEqual({ enabled: true, pct: 99 });
+    localStorage.setItem('worktree.config', JSON.stringify({ autoReminder: { enabled: false, pct: 0 } }));
+    expect(loadConfig().autoReminder).toEqual({ enabled: false, pct: 1 });
+  });
+
+  it('round-trips the auto-reminder setting', () => {
+    saveConfig({ ...loadConfig(), autoReminder: { enabled: false, pct: 30 } });
+    expect(loadConfig().autoReminder).toEqual({ enabled: false, pct: 30 });
+  });
+
   it('lists logged-in users for one server only, sorted', () => {
     saveToken('http://localhost:3000', 'bob', { token: 'tok-b', tokenId: 2 });
     saveToken('http://localhost:3000', 'alice', { token: 'tok-a', tokenId: 1 });

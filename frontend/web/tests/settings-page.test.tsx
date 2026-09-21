@@ -19,6 +19,7 @@ function makeConfig(calendarDays: number): AppConfig {
     filter: {},
     lang: 'en',
     calendarDays,
+    autoReminder: { enabled: true, pct: 15 },
   };
 }
 
@@ -54,5 +55,23 @@ describe('SettingsPage calendar', () => {
     const { updateConfig } = renderSettings(7);
     fireEvent.change(screen.getByTestId('settings-calendar-days'), { target: { value: '6' } });
     expect(updateConfig).toHaveBeenCalledWith({ calendarDays: 6 });
+  });
+});
+
+describe('SettingsPage auto reminder', () => {
+  it('toggles the auto-reminder', () => {
+    const { updateConfig } = renderSettings(7);
+    fireEvent.click(screen.getByTestId('settings-auto-reminder-enabled'));
+    expect(updateConfig).toHaveBeenCalledWith({ autoReminder: { enabled: false, pct: 15 } });
+  });
+
+  it('updates the percentage, clamping out-of-range values', () => {
+    const { updateConfig } = renderSettings(7);
+    fireEvent.change(screen.getByTestId('settings-auto-reminder-pct'), { target: { value: '30' } });
+    expect(updateConfig).toHaveBeenCalledWith({ autoReminder: { enabled: true, pct: 30 } });
+    fireEvent.change(screen.getByTestId('settings-auto-reminder-pct'), { target: { value: '150' } });
+    expect(updateConfig).toHaveBeenCalledWith({ autoReminder: { enabled: true, pct: 99 } });
+    fireEvent.change(screen.getByTestId('settings-auto-reminder-pct'), { target: { value: '0' } });
+    expect(updateConfig).toHaveBeenCalledWith({ autoReminder: { enabled: true, pct: 1 } });
   });
 });

@@ -40,6 +40,7 @@ const treeOperation = z.discriminatedUnion('kind', [
     name: z.string().optional(),
     deadline: timestamp,
     repeat: timestamp.optional(),
+    auto: z.boolean().optional(),
     timestamp: timestampField,
   }),
   z.object({ kind: z.literal('remove_reminder'), rmdId: id, timestamp: timestampField }),

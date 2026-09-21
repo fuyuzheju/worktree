@@ -4,6 +4,7 @@ import { formatBlock, formatDayHeader, formatNode, renderFiltered, renderTree, s
 import { pathOf, resolveBlock } from './resolve';
 import { DEFAULT_SERVER } from './config';
 import { defaultStatePath, deleteToken, readToken, writeToken } from './storage';
+import { loadSettings, saveSettings } from './settings';
 import { listUsers } from './users';
 import { AuthError, defaultLabel, loginOnServer, promptPassword, registerOnServer, revokeOnServer } from './auth';
 import { afterCommand, errMsg, mutate, parseTimeArg, printConflict } from './command';
@@ -291,7 +292,15 @@ const editCommand: Command = {
     if (weight !== undefined) mutate(() => io.client.setWeight(node.id, weight));
     if (status !== undefined) mutate(() => io.client.setCompleted(node.id, status));
     if (note !== undefined) mutate(() => io.client.setNote(node.id, note));
-    if (deadline !== undefined) mutate(() => io.client.setDeadline(node.id, deadline));
+    if (deadline !== undefined) {
+      const settings = loadSettings();
+      mutate(() =>
+        io.client.setDeadline(node.id, deadline, {
+          autoReminderEnabled: settings.autoReminder.enabled,
+          autoReminderPct: settings.autoReminder.pct,
+        }),
+      );
+    }
     io.out(`edited ${node.name}`);
     await afterCommand(io);
     return 'ok';
@@ -856,10 +865,54 @@ const exitCommand: Command = {
   run: () => 'exit',
 };
 
+const configCommand: Command = {
+  name: 'config',
+  summary: 'view or change device settings (autoReminder=on|off, autoReminderPct=1..99)',
+  usage: 'config [autoReminder=on|off] [autoReminderPct=1..99]',
+  run: (io, args): CommandResult => {
+    if (args.length === 0) {
+      const s = loadSettings();
+      io.out(`autoReminder: ${s.autoReminder.enabled ? 'on' : 'off'} (pct ${s.autoReminder.pct})`);
+      return 'ok';
+    }
+    const next = loadSettings();
+    for (const kv of args) {
+      const eq = kv.indexOf('=');
+      if (eq <= 0) {
+        io.out(`invalid key=value: ${kv}`);
+        return 'ok';
+      }
+      const key = kv.slice(0, eq);
+      const value = kv.slice(eq + 1);
+      if (key === 'autoReminder') {
+        if (value !== 'on' && value !== 'off') {
+          io.out('invalid autoReminder: use on or off');
+          return 'ok';
+        }
+        next.autoReminder.enabled = value === 'on';
+      } else if (key === 'autoReminderPct') {
+        const pct = Number(value);
+        if (!Number.isInteger(pct) || pct < 1 || pct > 99) {
+          io.out('invalid autoReminderPct: use an integer 1..99');
+          return 'ok';
+        }
+        next.autoReminder.pct = pct;
+      } else {
+        io.out(`unknown setting: ${key}`);
+        return 'ok';
+      }
+    }
+    saveSettings(next);
+    io.out(`autoReminder: ${next.autoReminder.enabled ? 'on' : 'off'} (pct ${next.autoReminder.pct})`);
+    return 'ok';
+  },
+};
+
 export const COMMANDS: Command[] = [
   treeCommand,
   lsCommand,
   filterCommand,
+  configCommand,
   cdCommand,
   pwdCommand,
   addCommand,

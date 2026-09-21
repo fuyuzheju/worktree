@@ -218,4 +218,30 @@ describe('NodeDetailPanel note and deadline editing', () => {
     fireEvent.click(screen.getByTestId('detail-deadline-clear'));
     expect(client.setDeadline).toHaveBeenCalledWith('aaaa-1', null);
   });
+
+  it('forwards the auto-reminder setting to setDeadline', () => {
+    const node = nodeWithFields();
+    const client = makeClient(node);
+    render(
+      <I18nProvider lang="en">
+        <NodeDetailPanel
+          node={node}
+          client={client}
+          onClose={() => undefined}
+          autoReminder={{ enabled: true, pct: 30 }}
+        />
+      </I18nProvider>,
+    );
+    fireEvent.change(screen.getByTestId('detail-deadline'), { target: { value: '2026-09-01T10:00' } });
+    fireEvent.click(screen.getByTestId('detail-deadline-save'));
+    expect(client.setDeadline).toHaveBeenCalledWith('aaaa-1', new Date('2026-09-01T10:00').getTime(), {
+      autoReminderEnabled: true,
+      autoReminderPct: 30,
+    });
+    fireEvent.click(screen.getByTestId('detail-deadline-clear'));
+    expect(client.setDeadline).toHaveBeenCalledWith('aaaa-1', null, {
+      autoReminderEnabled: true,
+      autoReminderPct: 30,
+    });
+  });
 });

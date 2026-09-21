@@ -49,7 +49,7 @@ export class FileStorage implements ClientStorage {
   }
 }
 
-function worktreeHome(): string {
+export function worktreeHome(): string {
   return path.join(process.env.HOME ?? process.cwd(), '.worktree');
 }
 

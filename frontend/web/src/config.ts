@@ -1,5 +1,6 @@
 import { USER_RE, isRecord } from '@worktree/core';
 import type { NodeFilter } from '@worktree/core';
+import { DEFAULT_AUTO_REMINDER_PCT, clampAutoReminderPct } from '@worktree/client';
 
 export const DEFAULT_SERVER = 'https://worktree.fuyuzheju.cn';
 export const LOCAL_USER = 'local';
@@ -14,6 +15,12 @@ export interface DisplayPrefs {
   filterMode: FilterDisplayMode;
 }
 
+/** Auto-reminder on the first deadline set; fires with pct of the window remaining. */
+export interface AutoReminderSetting {
+  enabled: boolean;
+  pct: number;
+}
+
 export interface AppConfig {
   serverUrl: string;
   user: string;
@@ -23,6 +30,7 @@ export interface AppConfig {
   lang: string;
   /** Day columns shown in the calendar grid (3–9). */
   calendarDays: number;
+  autoReminder: AutoReminderSetting;
 }
 
 const CONFIG_KEY = 'worktree.config';
@@ -34,7 +42,18 @@ const defaultConfig: AppConfig = {
   filter: {},
   lang: 'en',
   calendarDays: 7,
+  autoReminder: { enabled: true, pct: DEFAULT_AUTO_REMINDER_PCT },
 };
+
+function parseAutoReminder(raw: unknown): AutoReminderSetting {
+  if (!isRecord(raw)) return defaultConfig.autoReminder;
+  const enabled = typeof raw.enabled === 'boolean' ? raw.enabled : defaultConfig.autoReminder.enabled;
+  const pct =
+    typeof raw.pct === 'number' && Number.isFinite(raw.pct)
+      ? clampAutoReminderPct(raw.pct)
+      : defaultConfig.autoReminder.pct;
+  return { enabled, pct };
+}
 
 function parseFilter(raw: unknown): NodeFilter {
   if (!isRecord(raw)) return {};
@@ -76,6 +95,7 @@ export function loadConfig(): AppConfig {
       filter: parseFilter(parsed.filter),
       lang: typeof parsed.lang === 'string' ? parsed.lang : defaultConfig.lang,
       calendarDays: typeof parsed.calendarDays === 'number' ? parsed.calendarDays : defaultConfig.calendarDays,
+      autoReminder: parseAutoReminder(parsed.autoReminder),
     };
   } catch {
     return defaultConfig;

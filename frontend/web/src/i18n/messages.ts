@@ -189,6 +189,11 @@ export const messages: Record<string, StringMap> = {
       language: 'Language',
       calendar: 'Calendar',
       calendarDays: 'Days shown in calendar (3–9)',
+      autoReminder: 'Auto reminder',
+      autoReminderEnabled: 'Add a reminder automatically when a deadline is first set',
+      autoReminderPct: 'Percent of the window remaining when it fires',
+      autoReminderHint:
+        'The reminder fires this far before the deadline, measured from the task’s creation time. It follows later deadline edits and is removed when the deadline is cleared.',
       data: 'Data',
       pendingCount: 'Pending ops: {n}',
       clearCache: 'Clear local cache',

@@ -177,6 +177,7 @@ function Shell(props: {
             updateConfig={updateConfig}
             initialNodeId={initialNodeId ?? undefined}
             focusNode={focusNode}
+            autoReminder={config.autoReminder}
           />
         )}
         {tab === 'calendar' && (

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { filterTree, hasActiveFilter } from '@worktree/core';
 import type { Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
-import type { AppConfig, DisplayPrefs } from '../config';
+import type { AppConfig, AutoReminderSetting, DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { ancestorIds, findNode } from '../tree-utils';
@@ -21,9 +21,11 @@ export function TreePage(props: {
   initialNodeId?: string;
   /** Deep link while mounted (e.g. from a service-worker message); nonce forces re-focus. */
   focusNode?: { id: string; nonce: number } | null;
+  /** Forwarded to the detail panel for auto-reminder creation. */
+  autoReminder?: AutoReminderSetting;
 }) {
   const { t } = useI18n();
-  const { tree, client, display, updateConfig, initialNodeId, focusNode } = props;
+  const { tree, client, display, updateConfig, initialNodeId, focusNode, autoReminder } = props;
   const isMobile = useIsMobile();
   const { filter, mode, setFilter, setMode } = useFilter();
   const [expanded, setExpanded] = useState<Set<string>>(
@@ -110,13 +112,13 @@ export function TreePage(props: {
       {isMobile ? (
         selected !== undefined && (
           <div className="max-h-[55vh] min-h-[55vh] w-full overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl">
-            <NodeDetailPanel bare node={selected} client={client} onClose={close} />
+            <NodeDetailPanel bare node={selected} client={client} onClose={close} autoReminder={autoReminder} />
           </div>
         )
       ) : (
         <div className="w-96 shrink-0">
           {selected !== undefined ? (
-            <NodeDetailPanel bare node={selected} client={client} onClose={close} />
+            <NodeDetailPanel bare node={selected} client={client} onClose={close} autoReminder={autoReminder} />
           ) : (
             <div className="rounded border border-gray-300 bg-white p-4 text-sm text-gray-500">
               {t('tree.selectHint')}

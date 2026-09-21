@@ -149,7 +149,14 @@ export class Tree {
       case 'add_reminder': {
         const node = this.mustGet(op.nodeId);
         if (node.reminders.some((r) => r.id === op.rmdId)) throw new Error(`duplicate reminder id: ${op.rmdId}`);
-        node.reminders.push({ id: op.rmdId, name: op.name, deadline: op.deadline, repeat: op.repeat, active: true });
+        node.reminders.push({
+          id: op.rmdId,
+          name: op.name,
+          deadline: op.deadline,
+          repeat: op.repeat,
+          active: true,
+          auto: op.auto ?? false,
+        });
         return [];
       }
       case 'remove_reminder': {

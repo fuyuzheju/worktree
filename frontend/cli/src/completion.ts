@@ -27,6 +27,7 @@ const FILTER_KEYS = [
   'mode=',
 ];
 const EDIT_KEYS = ['name=', 'weight=', 'status=', 'note=', 'deadline='];
+const CONFIG_KEYS = ['autoReminder=', 'autoReminderPct='];
 
 /**
  * Complete a fixed option list: single match gets a trailing space.
@@ -136,6 +137,8 @@ export function completeLine(root: Node, cwdId: string, line: string): [string[]
       return completeFixed(EDIT_KEYS, last);
     case 'filter':
       return completeFixed(FILTER_KEYS, last);
+    case 'config':
+      return completeFixed(CONFIG_KEYS, last);
     case 'mv':
     case 'cp':
       if (position === 2 || position === 3) return completeRef(root, cwd, last);
