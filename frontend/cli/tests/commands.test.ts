@@ -206,6 +206,28 @@ describe('command dispatcher', () => {
     }
   });
 
+  it('reminder repeat must be a non-negative integer', async () => {
+    const { io, lines } = newIO();
+    await run(io, 'add alpha');
+    lines.length = 0;
+
+    await run(io, 'reminder add alpha r 2026-09-01T10:00 90000.5');
+    expect(lines).toEqual(['invalid repeat: 90000.5 (use a non-negative integer of milliseconds)']);
+    expect(io.client.getPending().some((p) => p.kind === 'add' && p.op.kind === 'add_reminder')).toBe(false);
+
+    lines.length = 0;
+    await run(io, 'reminder add alpha r 2026-09-01T10:00 -1');
+    expect(lines).toEqual(['invalid repeat: -1 (use a non-negative integer of milliseconds)']);
+
+    await run(io, 'reminder add alpha r 2026-09-01T10:00 90000');
+    const rmdId = io.client.getTree().children[0]?.reminders[0]?.id;
+    if (rmdId === undefined) throw new Error('missing reminder');
+    lines.length = 0;
+    await run(io, `reminder edit ${rmdId} repeat=1.5`);
+    expect(lines).toEqual(['invalid repeat: 1.5 (use a non-negative integer of milliseconds)']);
+    expect(io.client.getTree().children[0]?.reminders[0]?.repeat).toBe(90000);
+  });
+
   it('config prints and persists settings', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'worktree-home-'));
     const prevHome = process.env.HOME;

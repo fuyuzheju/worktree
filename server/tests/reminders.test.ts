@@ -80,6 +80,18 @@ describe('computeDue', () => {
     expect(due[0].occurrence).toBe(now - 1);
   });
 
+  it('rounds a fractional (legacy) deadline to whole milliseconds', () => {
+    // Histories written before integer deadlines were enforced can carry a
+    // fraction; the occurrence becomes a BigInt push-dedupe key.
+    const oneShot = computeDue(treeWith(addNode('a'), addRmd('a', 'r1', now - 0.4)), 1, now);
+    expect(oneShot).toHaveLength(1);
+    expect(oneShot[0].occurrence).toBe(now);
+
+    const repeating = computeDue(treeWith(addNode('a'), addRmd('a', 'r1', 1000.5, 500.5)), 1, 2760);
+    expect(repeating).toHaveLength(1);
+    expect(Number.isInteger(repeating[0].occurrence)).toBe(true);
+  });
+
   it('never fires an inactive reminder', () => {
     const tree = Tree.fromOps([addNode('a'), addRmd('a', 'r1', now - 1), { kind: 'edit_reminder', rmdId: 'r1', active: false }]);
     expect(computeDue(tree, 1, now)).toEqual([]);
@@ -137,6 +149,21 @@ describe('sweepOnce', () => {
     expect(sends[0]).toEqual({ title: 'r1', body: 'a', tag: 'worktree-reminder', icon: '/icons/icon-192.png', url: '/?node=a' });
 
     // same occurrence, same window: deduped
+    await sweepOnce(store, now, send);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it('fires a reminder with a fractional (legacy) deadline without breaking the sweep', async () => {
+    // Seeded as a tree rather than through appendBatch: ops like this can no
+    // longer be submitted, but stored histories may still hold one.
+    const tree = treeWith(addNode('a'), addRmd('a', 'r1', now - 0.5));
+    const store = { allUserTrees: () => [{ userId: 1, tree }] } as unknown as HistoryStore;
+    await subscribe('alice', 'https://push.example/fractional');
+    const send = vi.fn(async () => undefined);
+
+    await sweepOnce(store, now, send);
+    expect(send).toHaveBeenCalledTimes(1);
+    // deduped on the rounded occurrence
     await sweepOnce(store, now, send);
     expect(send).toHaveBeenCalledTimes(1);
   });

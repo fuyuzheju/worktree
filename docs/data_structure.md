@@ -76,6 +76,9 @@ Every operation (tree and calendar) carries an optional timestamp: the
 client-generated creation time of the op in ms. Clients stamp Date.now() on
 every op they issue; legacy ops predating the field replay without it.
 Timestamps travel inside the op, so replay stays deterministic.
+Every timestamp — op stamps, deadlines, block start/end, repeat intervals — is
+a whole number of milliseconds. The server validates writes against the op
+schema (core/schema.ts), so a fractional value is rejected instead of stored.
 
 TreeOperation:
 add(id, new_name, new_id, weight[, note, deadline, created_at][, timestamp]) | 

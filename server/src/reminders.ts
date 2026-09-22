@@ -41,13 +41,18 @@ export function computeDue(tree: Tree, userId: number, now: number, windowMs = F
   return due;
 }
 
-/** Latest occurrence T = deadline + k*repeat with T <= now; null if none. */
+/**
+ * Latest occurrence T = deadline + k*repeat with T <= now; null if none.
+ * Whole milliseconds: occurrences become the (BigInt) push dedupe keys, and
+ * histories written before integer deadlines were enforced carry fractions.
+ */
 function latestOccurrence(r: Reminder, now: number): number | null {
   if (!r.active) return null;
-  if (now < r.deadline) return null;
-  if (r.repeat === undefined || r.repeat <= 0) return r.deadline;
-  const k = Math.floor((now - r.deadline) / r.repeat);
-  return r.deadline + k * r.repeat;
+  const deadline = Math.round(r.deadline);
+  if (now < deadline) return null;
+  if (r.repeat === undefined || r.repeat <= 0) return deadline;
+  const k = Math.floor((now - deadline) / r.repeat);
+  return Math.round(deadline + k * r.repeat);
 }
 
 export interface PushPayload {

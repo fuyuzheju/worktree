@@ -74,6 +74,28 @@ describe('HistoryStore', () => {
     expect((await store.getTreeForUser(ALICE)).tree.getNode('b')).toBeUndefined();
   });
 
+  it('rejects an op that fails the storage schema (it could never be read back)', async () => {
+    const store = new HistoryStore();
+    await store.appendBatch(ALICE, [add('a', 'h1')]);
+    await expect(
+      store.appendBatch(ALICE, [
+        { kind: 'add', id: 'h2', op: { kind: 'add_reminder', nodeId: 'a', rmdId: 'r1', deadline: 1000.5 } },
+      ]),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('replace rejects a history carrying an unreadable op', async () => {
+    const store = new HistoryStore();
+    await expect(
+      store.replace(ALICE, null, [
+        node('m1'),
+        { id: 'm2', op: { kind: 'add_reminder', nodeId: 'm1', rmdId: 'r1', deadline: 1000.5 } },
+      ]),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(await store.all(ALICE)).toEqual([]);
+  });
+
   it('remove undoes the head and rolls the tree back', async () => {
     const store = new HistoryStore();
     await store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h2')]);

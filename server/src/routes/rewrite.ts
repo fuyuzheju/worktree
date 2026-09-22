@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { WorktreeState } from '@worktree/core';
 import type { RewriteRequest } from '@worktree/core';
 import { setState } from '../state';
-import { BaseMismatchError } from '../store';
+import { BaseMismatchError, ValidationError } from '../store';
 import type { HistoryStore } from '../store';
 
 export function rewriteRouter(store: HistoryStore): Router {
@@ -30,6 +30,12 @@ export function rewriteRouter(store: HistoryStore): Router {
     try {
       await store.replace(user, base, history);
     } catch (e) {
+      // An op that cannot be read back (op schema) would corrupt the stored
+      // history: reject the rewrite instead of persisting it.
+      if (e instanceof ValidationError) {
+        res.status(400).json({ error: e.message });
+        return;
+      }
       if (e instanceof BaseMismatchError) {
         res.status(409).json({ error: e.message, head: e.headId });
         return;

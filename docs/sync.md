@@ -95,6 +95,9 @@ inside a single apply — it never appends history ops, so the broadcast
 {type:'op'} carries only the originating op and every replay agrees.
   - validation and append run under the same serialization lock, so the
     validate → append sequence is atomic across concurrent requests
+  - every op must also match the op schema (core/schema.ts): entries are read
+    back through it, so an op that fails it — a fractional timestamp, say —
+    would make the whole stored history unreadable, including at boot
   - any op invalid → 400 {conflict_id: op.id, reason}, nothing is appended
   - the user's *stored* history no longer replays (entries appended before a
     rule existed — see "broken histories") → 409 {error, entry_id, reason},
@@ -138,8 +141,9 @@ header: Authorization: Bearer <token>
 body: {base: <id of the last entry the client has seen>, history: History}
 
 force rewrite the user's history. rejected with 400 if the submitted history does not
-replay cleanly, with 409 {error, head} if base is not the user's current head (the
-history advanced since the client's snapshot — the client must re-merge).
+replay cleanly or carries an op that fails the op schema (see /api/submit), with
+409 {error, head} if base is not the user's current head (the history advanced
+since the client's snapshot — the client must re-merge).
 otherwise: toggle that user to "offline", replace their history, then back to
 "working", and answer {ok: true}. a rewrite is also the *repair* path (see
 "broken histories"): it revalidates the whole history and clears the broken mark.

@@ -2,7 +2,7 @@ import { HistoryReplayError, Tree, WorktreeState, operationSchema, replayHistory
 import type { HistoryNode, HistoryOperation, Operation } from '@worktree/core';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { validateOps } from './validation';
+import { validateOpShape, validateOps } from './validation';
 import type { ValidationResult } from './validation';
 
 // Prisma's Json type is recursive and rejects `| undefined` from optional
@@ -241,6 +241,8 @@ export class HistoryStore {
    * cannot depend on an entry its own batch undoes.
    */
   private async validateBatch(userId: number, ops: HistoryOperation[]): Promise<ValidationResult> {
+    const shape = validateOpShape(ops.filter((op) => op.kind !== 'remove'));
+    if (!shape.ok) return shape;
     if (!ops.some((op) => op.kind === 'remove')) {
       return validateOps(ops, this.getState(userId));
     }
@@ -316,6 +318,8 @@ export class HistoryStore {
   async replace(user: string, base: string | null, nodes: HistoryNode[]): Promise<void> {
     const userId = await this.resolveUserId(user);
     return this.exclusive(async () => {
+      const shape = validateOpShape(nodes);
+      if (!shape.ok) throw new ValidationError(shape.opId, shape.reason);
       await prisma.$transaction(async (tx) => {
         const userRow = await tx.user.findUnique({ where: { id: userId } });
         const headId = userRow?.headOpId ?? null;

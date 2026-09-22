@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROOT_ID } from '@worktree/core';
+import { ROOT_ID, operationSchema } from '@worktree/core';
 import type { Node, Operation } from '@worktree/core';
 import { WorktreeClient } from '../src/client';
 import { autoReminderDeadline, clampAutoReminderPct } from '../src/autoReminder';
@@ -33,6 +33,18 @@ describe('autoReminderDeadline', () => {
     expect(autoReminderDeadline(1000, 2000, 1)).toBe(1990);
     expect(autoReminderDeadline(1000, 2000, 99)).toBe(1010);
   });
+
+  it('returns whole milliseconds for real-world creation times', () => {
+    // createdAt is a Date.now() value: the raw window math is fractional unless
+    // the fire time is rounded.
+    const odd = createdAt + 123;
+    for (const pct of [1, 15, 33, 50, 99]) {
+      const raw = odd + (deadline - odd) * (1 - pct / 100);
+      const fire = autoReminderDeadline(odd, deadline, pct);
+      expect(Number.isInteger(fire)).toBe(true);
+      expect(Math.abs(fire - raw)).toBeLessThanOrEqual(0.5);
+    }
+  });
 });
 
 describe('clampAutoReminderPct', () => {
@@ -61,6 +73,22 @@ describe('setDeadline auto-reminder', () => {
     const op = lastOp(c);
     expect(op?.kind).toBe('add_reminder');
     if (op?.kind === 'add_reminder') expect(op.auto).toBe(true);
+  });
+
+  it('queues schema-valid reminder ops for a non-round createdAt', () => {
+    const c = newClient();
+    const odd = createdAt + 123;
+    seedNode(c, odd);
+    c.setDeadline('n1', deadline, { autoReminderEnabled: true, autoReminderPct: 15 });
+
+    const added = childOf(c.getTree(), 'n1').reminders[0];
+    expect(Number.isInteger(added?.deadline)).toBe(true);
+    expect(operationSchema.safeParse(lastOp(c)).success).toBe(true);
+
+    c.setDeadline('n1', deadline + 24 * 3600 * 1000, { autoReminderEnabled: true, autoReminderPct: 30 });
+    const recomputed = childOf(c.getTree(), 'n1').reminders.find((r) => r.auto);
+    expect(Number.isInteger(recomputed?.deadline)).toBe(true);
+    expect(operationSchema.safeParse(lastOp(c)).success).toBe(true);
   });
 
   it('creates nothing without opts', () => {

@@ -20,6 +20,18 @@ function parseWeight(io: CommandIO, raw: string): number | undefined {
   return weight;
 }
 
+/** Parse a repeat interval; prints the error and returns undefined when invalid.
+ *  Milliseconds must be a non-negative integer: a fractional repeat would be
+ *  stored in the op and rejected by the server's op schema. */
+function parseRepeat(io: CommandIO, raw: string): number | undefined {
+  const repeat = Number(raw);
+  if (!Number.isInteger(repeat) || repeat < 0) {
+    io.out(`invalid repeat: ${raw} (use a non-negative integer of milliseconds)`);
+    return undefined;
+  }
+  return repeat;
+}
+
 /** Post-order (children first) ids of every uncompleted node in the subtree
  *  rooted at `node` (including `node` itself), so completing them in order
  *  is always valid. Callers pass `node.children` to get descendants only. */
@@ -412,12 +424,8 @@ const reminderCommand: Command = {
       if (deadline === null) return 'ok';
       let repeat: number | undefined;
       if (args[4] !== undefined) {
-        const r = Number(args[4]);
-        if (Number.isNaN(r)) {
-          io.out(`invalid repeat: ${args[4]}`);
-          return 'ok';
-        }
-        repeat = r;
+        repeat = parseRepeat(io, args[4]);
+        if (repeat === undefined) return 'ok';
       }
       const rmdId = mutate(() => io.client.addReminder(node.id, args[2], deadline, repeat));
       io.out(`added reminder [${shortId(rmdId)}]`);
@@ -448,12 +456,13 @@ const reminderCommand: Command = {
           if (t === null) return 'ok';
           patch.deadline = t;
         } else if (key === 'repeat') {
-          const r = value === 'null' ? null : Number(value);
-          if (r !== null && Number.isNaN(r)) {
-            io.out(`invalid repeat: ${value}`);
-            return 'ok';
+          if (value === 'null') {
+            patch.repeat = null;
+          } else {
+            const repeat = parseRepeat(io, value);
+            if (repeat === undefined) return 'ok';
+            patch.repeat = repeat;
           }
-          patch.repeat = r;
         } else if (key === 'active') patch.active = value === 'true';
         else {
           io.out(`unknown field: ${key}`);
