@@ -157,6 +157,19 @@ export class WorktreeClient {
     }
   }
 
+  /**
+   * Replace the local confirmed history with the server's as-is: nothing is
+   * dropped and nothing is rewritten. Recovers a device whose stored copy no
+   * longer replays while the server's history is already whole (e.g. repaired
+   * from another device); pending local ops are kept.
+   */
+  async adoptServerHistory(): Promise<void> {
+    if (this.local) throw new Error('the local user has no server history to sync');
+    const page = await this.api.history(null);
+    this.store.setConfirmed(page.nodes);
+    this.emit();
+  }
+
   /** Number of ops still waiting for server confirmation. */
   getPendingCount(): number {
     return this.store.getPending().length;

@@ -171,6 +171,10 @@ the last good state, rejects edits, and offers the repair to the user
     current head as base; a 409 refetches and re-plans (≤3 attempts)
   - the repair is lossy — both frontends list the entries and require an
     explicit confirmation before rewriting
+  - a device whose stored copy fails to replay while the server's history is
+    whole (e.g. repaired elsewhere) can instead adopt it wholesale
+    (adoptServerHistory): the local copy is replaced with the server's as-is —
+    nothing is dropped, pending local ops are kept
 
 --
 

@@ -37,11 +37,28 @@ export function RepairPage(props: { client: WorktreeClient }) {
       await client.repairHistory();
       // On success the kernel clears the failure and emits; App unmounts us.
     } catch (e) {
-      setApplyError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setApplyError(t('repair.error', { message }));
       setApplying(false);
       // The plan may have changed (e.g. the server history advanced): re-read it.
       void plan();
     }
+  };
+
+  // Recover from the server itself: replace this device's copy with the
+  // server's history as-is. Nothing is dropped from the server.
+  const adopt = async (): Promise<void> => {
+    setApplying(true);
+    setApplyError(null);
+    try {
+      await client.adoptServerHistory();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setApplyError(t('repair.adoptError', { message }));
+    }
+    setApplying(false);
+    // A server history that itself needs a repair now lists its drops.
+    void plan();
   };
 
   return (
@@ -70,13 +87,25 @@ export function RepairPage(props: { client: WorktreeClient }) {
         {drops !== null && drops.length === 0 && (
           <div className="mt-4 rounded border border-gray-300 bg-white px-4 py-3 text-sm">
             <p>{t('repair.nothing')}</p>
-            <button
-              type="button"
-              onClick={() => void plan()}
-              className="mt-2 rounded border border-gray-400 px-3 py-1.5 text-sm hover:bg-gray-50"
-            >
-              {t('repair.retry')}
-            </button>
+            <p className="mt-1 text-gray-600">{t('repair.adoptHint')}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={applying}
+                onClick={() => void adopt()}
+                data-testid="repair-adopt"
+                className="rounded bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700 disabled:opacity-40"
+              >
+                {applying ? t('repair.adopting') : t('repair.adopt')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void plan()}
+                className="rounded border border-gray-400 px-3 py-1.5 text-sm hover:bg-gray-50"
+              >
+                {t('repair.retry')}
+              </button>
+            </div>
           </div>
         )}
 
@@ -106,11 +135,10 @@ export function RepairPage(props: { client: WorktreeClient }) {
             >
               {applying ? t('repair.applying') : t('repair.apply')}
             </button>
-            {applyError !== null && (
-              <div className="mt-3 text-sm text-red-700">{t('repair.error', { message: applyError })}</div>
-            )}
           </>
         )}
+
+        {applyError !== null && <div className="mt-3 text-sm text-red-700">{applyError}</div>}
       </div>
     </div>
   );

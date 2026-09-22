@@ -545,6 +545,42 @@ describe('WorktreeClient repair', () => {
     expect(c.getTree().children.map((n) => n.id)).toEqual(['a']);
     vi.unstubAllGlobals();
   });
+
+  it('adoptServerHistory replaces the local copy with the server history as-is', async () => {
+    const storage = new MemoryStorage();
+    storage.state = brokenState();
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        return new Response(
+          JSON.stringify({
+            cursorFound: true,
+            nodes: [{ id: 'h9', op: { kind: 'add', parentId: ROOT_ID, id: 'z', name: 'Z', weight: 1 } }],
+          }),
+          { status: 200 },
+        );
+      }),
+    );
+
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 't', storage });
+    expect(c.getReplayFailure()).not.toBeNull();
+    await c.adoptServerHistory();
+    expect(c.getReplayFailure()).toBeNull();
+    expect(c.getConfirmed().map((n) => n.id)).toEqual(['h9']);
+    expect(c.getTree().children.map((n) => n.id)).toEqual(['z']);
+    expect(storage.state?.confirmed.map((n) => n.id)).toEqual(['h9']);
+    // Adopting rewrites nothing server-side.
+    expect(calls.some((url) => url.endsWith('/api/rewrite'))).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('adoptServerHistory is rejected for the local user', async () => {
+    const storage = new MemoryStorage();
+    storage.state = brokenState();
+    await expect(localBroken(storage).adoptServerHistory()).rejects.toThrow(/local user/);
+  });
 });
 
 describe('WorktreeClient auth', () => {

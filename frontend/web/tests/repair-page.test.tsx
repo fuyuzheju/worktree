@@ -14,10 +14,12 @@ const drop: RepairDrop = {
 function makeClient(overrides: {
   planRepair?: () => Promise<RepairDrop[]>;
   repairHistory?: () => Promise<RepairDrop[]>;
+  adoptServerHistory?: () => Promise<void>;
 }): WorktreeClient {
   return {
     planRepair: async () => [drop],
     repairHistory: async () => [drop],
+    adoptServerHistory: async () => {},
     ...overrides,
   } as unknown as WorktreeClient;
 }
@@ -74,5 +76,23 @@ describe('RepairPage', () => {
     renderPage(makeClient({ planRepair: async () => [] }));
     expect(await screen.findByText(/nothing to repair/)).toBeTruthy();
     expect(screen.queryByTestId('repair-apply')).toBeNull();
+  });
+
+  it('offers a full re-sync when the server history already replays', async () => {
+    const adoptServerHistory = vi.fn(async () => {});
+    renderPage(makeClient({ planRepair: async () => [], adoptServerHistory }));
+    fireEvent.click(await screen.findByTestId('repair-adopt'));
+    await waitFor(() => expect(adoptServerHistory).toHaveBeenCalledTimes(1));
+  });
+
+  it('shows the failure when the re-sync fails and re-reads the plan', async () => {
+    const adoptServerHistory = vi.fn(async () => {
+      throw new Error('server offline');
+    });
+    const planRepair = vi.fn(async () => []);
+    renderPage(makeClient({ planRepair, adoptServerHistory }));
+    fireEvent.click(await screen.findByTestId('repair-adopt'));
+    expect(await screen.findByText(/Could not sync the server history: server offline/)).toBeTruthy();
+    await waitFor(() => expect(planRepair).toHaveBeenCalledTimes(2));
   });
 });

@@ -148,9 +148,13 @@ export const messages: Record<string, StringMap> = {
       applying: 'Repairing…',
       loading: 'Reading the history…',
       nothing: 'The history replays fine now — nothing to repair.',
+      adopt: 'Use the server history',
+      adoptHint: 'Replace the copy stored on this device with the full server history — nothing is dropped on the server.',
+      adopting: 'Syncing…',
       retry: 'Check again',
       loadError: 'Could not read the history: {message}',
       error: 'Repair failed: {message}',
+      adoptError: 'Could not sync the server history: {message}',
     },
     calendar: {
       today: 'Today',
