@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isRecord } from '@worktree/core';
 import { AppConfig, LOCAL_USER, clearToken, loadConfig, loadToken, saveConfig, saveToken, stateKey } from './config';
 import type { StoredToken } from './config';
 import { useWorktreeClient } from './hooks/useWorktreeClient';
@@ -145,8 +146,10 @@ function Shell(props: {
 
   useEffect(() => {
     const onMessage = (event: MessageEvent): void => {
-      const data = event.data as { type?: string; url?: string } | undefined;
-      if (data?.type !== 'worktree-open-node' || typeof data.url !== 'string') return;
+      // event.data is attacker-influenced (any page can postMessage); guard it.
+      if (!isRecord(event.data)) return;
+      const data = event.data;
+      if (data.type !== 'worktree-open-node' || typeof data.url !== 'string') return;
       const node = new URL(data.url, window.location.origin).searchParams.get('node');
       if (node === null) return;
       setTab('tree');

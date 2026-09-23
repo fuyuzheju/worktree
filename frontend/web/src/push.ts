@@ -13,6 +13,13 @@ export function pushSupported(): boolean {
 
 export class PushError extends Error {}
 
+// Type assertion (explicit exception): the DOM lib types PushSubscription.toJSON()
+// as PushSubscriptionJSON, whose `keys`/`endpoint` are optional — the DOM spec
+// leaves room for subscriptions without a key pair. Web Push has no such case:
+// every subscription the Push API creates carries a p256dh/auth key pair, and
+// `enablePush` only ever passes a PushSubscription obtained from
+// `pushManager.subscribe`/`getSubscription`. Validating the fields instead would
+// only push an "impossible for our callers" branch into the caller.
 function toServerSub(sub: PushSubscription): { endpoint: string; keys: { p256dh: string; auth: string } } {
   const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
   return { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } };

@@ -5,9 +5,15 @@ import { prisma } from './db';
 import { validateOpShape, validateOps } from './validation';
 import type { ValidationResult } from './validation';
 
-// Prisma's Json type is recursive and rejects `| undefined` from optional
-// fields, so TS cannot prove an Operation is JSON-safe even though it always
-// is; reads back through operationSchema, so writes only ever store valid ops.
+// Type assertion (an explicit exception to the no-assertions rule): Prisma's
+// InputJsonValue is recursive, rejects `| undefined` on optional properties and
+// has no string-index signature, so TS cannot prove an Operation — whose
+// optional fields are `| undefined` by design — is JSON-safe even though every
+// value it can hold (string | number | boolean | object | array) is. The risk
+// is bounded and deliberate: the only writer is this module, every op passes
+// operationSchema first (appendBatch/replace go through validateOpShape), and
+// every read parses the column back through operationSchema, so nothing that is
+// not a valid Operation can enter or leave the DB through this type.
 const asJson = (op: Operation): Prisma.InputJsonValue => op as unknown as Prisma.InputJsonValue;
 
 export class BaseMismatchError extends Error {

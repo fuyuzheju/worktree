@@ -25,9 +25,10 @@ body: {username, password, inviteCode?}
   scrypt$N=16384,r=8,p=1$<salt>$<key>) and issues a token
 - 201 {username, token, tokenId}; 400 invalid username/password
   (password: 8-1024 chars); 409 {error: 'username taken'}
-- inviteCode is reserved for a future invite-only registration mode
-  (REGISTRATION_MODE=invite); it is validated for shape but ignored while
-  registration is open
+- inviteCode is reserved for a future invite-only registration mode; it is
+  validated for shape but ignored while registration is open. REGISTRATION_MODE
+  accepts only `open` today — any other value (including `invite`) makes the
+  server fail fast at startup instead of falling back to open
 
 /api/login
 body: {username, password, label?}   (label = device name, ≤100 chars)
@@ -39,8 +40,6 @@ body: {username, password, label?}   (label = device name, ≤100 chars)
 /api/tokens         (authed)  GET: {tokens: [{id, label, createdAt, lastUsedAt, current}]}
                               DELETE /api/tokens/:id: revokes one device token;
                               404 when the id is unknown or belongs to another user
-
-Server logic:
 
 Server logic:
 
@@ -180,7 +179,8 @@ the last good state, rejects edits, and offers the repair to the user
   - planRepair previews the drops (entry id + node/block name + reason);
     repairHistory force-rewrites the history without them
   - server users repair from the server's history (GET /api/history) with the
-    current head as base; a 409 refetches and re-plans (≤3 attempts)
+    current head as base; a 409 refetches and re-plans, and the rewrite is
+    retried up to 3 times before the 409 is rethrown
   - the repair is lossy — both frontends list the entries and require an
     explicit confirmation before rewriting
   - a device whose stored copy fails to replay while the server's history is

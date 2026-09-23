@@ -9,6 +9,25 @@ name: string | undefined,  // display name; absent for unnamed reminders
 deadline: timestamp,
 repeat: time | undefined,   // recurrence interval in ms; undefined = one-shot
 active: boolean,            // false disables firing without deleting
+auto: boolean,              // true for reminders auto-created from a node deadline;
+                            // legacy add_reminder ops replay to false
+
+Auto-reminders (a client-side convenience, not a server feature): the frontends
+offer "remind me pct% of the way through the creation→deadline window"
+(autoReminderPct, default 15, clamp 1..99). It is device configuration, never
+part of an op, and is added as an ordinary add_reminder with auto: true — the
+server only ever sees reminder ops and the replay stays deterministic.
+- Created the first time an add/edit_node sets a deadline on a node that had
+  none, when the deadline is in the future and the node has a createdAt; the
+  deadline is createdAt + (deadline - createdAt) * (1 - pct/100), rounded to a
+  whole ms.
+- Follows later deadline edits: recomputed from the node's createdAt, never
+  duplicated, and removed when the deadline is cleared (even while the setting
+  is off).
+- Opt-in per frontend: `setDeadline` without opts creates nothing, and the
+  percentage is not stored with the reminder — only its computed deadline is.
+- Manual reminders (auto: false) are never touched, and deleting an auto
+  reminder is final: a later deadline edit does not recreate it.
 
 Reminder notifications (server-side, Web Push):
 - The server sweeps all users' trees every 30s (REMINDER_SWEEP_MS) and fires
@@ -41,7 +60,8 @@ by a legacy op — only meaningful when status is true)
 
 Legacy default: ops persisted before these fields existed replay to
 note: '', createdAt: 0, completedAt: 0, no deadline — fixed defaults keep replay
-deterministic.
+deterministic. The same applies to reminders added by legacy add_reminder ops:
+they replay with auto: false.
 
 sibling order: uncompleted siblings first, then completed; within each group ascending
 (weight, name). weight may collide; names are unique among siblings, so the order is
@@ -182,6 +202,10 @@ op: uncompleting a node — or introducing an uncompleted node under a completed
 parent (add/move/copy) — uncompletes every completed ancestor in turn, so a
 completed node never has an uncompleted child in the derived state.
 An empty edit_node or edit_reminder patch (no fields at all) is rejected.
+add_reminder's `auto` flag is display metadata for the auto-reminder mechanism
+(see Reminder above): it changes no validation, and setting a node deadline
+produces plain reminder ops — usually one edit_node followed by add_reminder or
+edit_reminder/remove_reminder — so nothing about auto-reminders is server-side.
 
 Replay is strict: a stored history containing an entry that apply rejects
 (e.g. a complete persisted before the children-first rule existed) fails as a

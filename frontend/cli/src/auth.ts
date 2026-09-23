@@ -80,12 +80,18 @@ export async function promptPassword(prompt: string): Promise<string> {
   }
   return new Promise((resolve, reject) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    // readline exposes no public way to suppress echo; stubbing _writeToOutput
-    // is the standard trick, but the method is a private implementation detail
-    // of readline, so the cast is unavoidable.
-    // The prompt itself travels through the same hook as the echoed input, so
-    // print it first and only then silence the output — otherwise the user
-    // sees a blank line instead of "password: ".
+    // Type assertion (explicit exception): readline has no public API to
+    // suppress echo and does not declare `_writeToOutput` in its types. The
+    // alternative — reading raw stdin byte-by-byte — would reimplement line
+    // editing (backspace, Ctrl+C, Ctrl+D) to avoid one well-known trick, so the
+    // assertion is the smaller risk. If a future Node drops the method, the
+    // assignment silently does nothing and the typed password is echoed — no
+    // data is corrupted, but that regression must be caught by hand (the test
+    // suite only exercises the non-TTY path).
+    //
+    // Order matters: the prompt travels through the same hook as the echoed
+    // input, so print it before silencing the output — otherwise the user sees
+    // a blank line instead of "password: ".
     process.stdout.write(prompt);
     (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = () => {};
     rl.question('', (answer) => {

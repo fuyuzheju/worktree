@@ -43,8 +43,9 @@ export function computeDue(tree: Tree, userId: number, now: number, windowMs = F
 
 /**
  * Latest occurrence T = deadline + k*repeat with T <= now; null if none.
- * Whole milliseconds: occurrences become the (BigInt) push dedupe keys, and
- * histories written before integer deadlines were enforced carry fractions.
+ * Rounded to whole milliseconds: the occurrence is the BigInt push-dedupe key,
+ * and `BigInt()` throws on a fraction. The schema keeps stored timestamps
+ * whole, but k*repeat is itself fractional for an odd interval and k >= 1.
  */
 function latestOccurrence(r: Reminder, now: number): number | null {
   if (!r.active) return null;
@@ -137,12 +138,9 @@ export async function sendNotification(
 }
 
 export function isGoneError(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'statusCode' in err &&
-    [404, 410].includes((err as { statusCode: number }).statusCode)
-  );
+  if (typeof err !== 'object' || err === null || !('statusCode' in err)) return false;
+  const status = err.statusCode;
+  return typeof status === 'number' && (status === 404 || status === 410);
 }
 
 function isUniqueViolation(err: unknown): boolean {
