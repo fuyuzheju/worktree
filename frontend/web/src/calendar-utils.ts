@@ -62,12 +62,10 @@ export function isToday(dayStart: number, nowMs: number = Date.now()): boolean {
   return dayStartMs(nowMs) === dayStart;
 }
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-/** e.g. "Mon 9/1" — fixed English, independent of the browser locale. */
-export function formatDayHeader(dayStart: number): string {
+/** e.g. "Mon 9/1". `weekdays` is Sunday-first, as `Date#getDay()` indexes it. */
+export function formatDayHeader(dayStart: number, weekdays: string[]): string {
   const d = new Date(dayStart);
-  return `${WEEKDAYS[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
+  return `${weekdays[d.getDay()]} ${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 /** e.g. "09:00". */

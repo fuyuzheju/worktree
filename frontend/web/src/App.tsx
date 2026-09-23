@@ -73,7 +73,7 @@ export default function App() {
   };
 
   if (error) {
-    return <ErrorScreen message={error} />;
+    return <ErrorScreen message={error} lang={config.lang} />;
   }
 
   const needsAuth = config.user !== LOCAL_USER && token === null;
@@ -211,7 +211,16 @@ function Shell(props: {
   );
 }
 
-function ErrorScreen({ message }: { message: string }) {
+function ErrorScreen({ message, lang }: { message: string; lang: string }) {
+  return (
+    <I18nProvider lang={lang}>
+      <ErrorScreenBody message={message} />
+    </I18nProvider>
+  );
+}
+
+function ErrorScreenBody({ message }: { message: string }) {
+  const { t } = useI18n();
   const [user, setUser] = useState('');
   const [serverUrl, setServerUrl] = useState('');
 
@@ -228,11 +237,11 @@ function ErrorScreen({ message }: { message: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
       <div className="w-full max-w-96 rounded border border-red-300 bg-red-50 px-6 py-4 text-red-800">
-        <p className="font-semibold">Worktree could not start</p>
+        <p className="font-semibold">{t('recover.title')}</p>
         <p className="mt-1 text-sm">{message}</p>
         <div className="mt-3 flex flex-col gap-2">
           <label className="text-sm">
-            Username
+            {t('recover.username')}
             <input
               value={user}
               onChange={(e) => setUser(e.target.value)}
@@ -241,7 +250,7 @@ function ErrorScreen({ message }: { message: string }) {
             />
           </label>
           <label className="text-sm">
-            Server URL
+            {t('recover.serverUrl')}
             <input
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
@@ -255,7 +264,7 @@ function ErrorScreen({ message }: { message: string }) {
           onClick={recover}
           className="mt-3 rounded bg-red-700 px-3 py-1.5 text-sm text-white hover:bg-red-800"
         >
-          Apply and reload
+          {t('recover.apply')}
         </button>
       </div>
     </div>

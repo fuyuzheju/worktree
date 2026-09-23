@@ -1,5 +1,6 @@
 import type { FilteredNode } from '@worktree/core';
 import type { DisplayPrefs } from '../config';
+import { useI18n } from '../i18n';
 import { connectors } from '../render';
 import { ChevronDownIcon, ChevronRightIcon } from './icons';
 import { NodeLabel } from './NodeLabel';
@@ -43,6 +44,7 @@ export function TreeNode(props: TreeNodeProps) {
     filterActive,
     highlightMatches,
   } = props;
+  const { t } = useI18n();
   const node = view.node;
   const hasChildren = view.children.length > 0;
   const isOpen = expanded.has(node.id);
@@ -76,7 +78,7 @@ export function TreeNode(props: TreeNodeProps) {
           <button
             type="button"
             onClick={(e) => {e.stopPropagation();onToggle(node.id)}}
-            aria-label={isOpen ? 'collapse' : 'expand'}
+            aria-label={isOpen ? t('tree.collapse') : t('tree.expand')}
             className="inline-block h-8 w-8 cursor-pointer select-none text-gray-600 hover:text-gray-900 md:h-auto md:w-5"
           >
             {isOpen ? (

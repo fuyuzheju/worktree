@@ -19,6 +19,8 @@ import {
 
 // DST-free local reference dates: Jan 15-18, 2026.
 const jan = (day: number, hour = 0, minute = 0): number => new Date(2026, 0, day, hour, minute).getTime();
+// Sunday-first, as `formatDayHeader` indexes the names by `Date#getDay()`.
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const gridStart = jan(15);
 const blk = (id: string, start: number, end: number): Block => ({
   id,
@@ -79,7 +81,7 @@ describe('date input helpers', () => {
 describe('formatDayHeader / formatHourLabel', () => {
   it('formats "Weekday m/d"', () => {
     // Jan 15 2026 is a Thursday.
-    expect(formatDayHeader(jan(15))).toBe('Thu 1/15');
+    expect(formatDayHeader(jan(15), WEEKDAYS)).toBe('Thu 1/15');
   });
 
   it('formats zero-padded hours', () => {

@@ -11,7 +11,28 @@ export const messages: Record<string, StringMap> = {
     app: {
       title: 'WORKTREE',
     },
+    /** Sunday-first, indexed by `Date#getDay()`. */
+    weekday: {
+      sun: 'Sun',
+      mon: 'Mon',
+      tue: 'Tue',
+      wed: 'Wed',
+      thu: 'Thu',
+      fri: 'Fri',
+      sat: 'Sat',
+    },
+    /** Language names, shown in their own language. */
+    language: {
+      en: 'English',
+    },
+    recover: {
+      title: 'Worktree could not start',
+      username: 'Username',
+      serverUrl: 'Server URL',
+      apply: 'Apply and reload',
+    },
     tabs: {
+      label: 'tabs',
       tree: 'Tree',
       calendar: 'Calendar',
       stats: 'Stats',
@@ -49,6 +70,8 @@ export const messages: Record<string, StringMap> = {
       selectHint: 'Select a node to see its details.',
       empty: '(empty tree — select the root to add a node)',
       filteredEmpty: 'No nodes match the filter.',
+      collapse: 'collapse',
+      expand: 'expand',
     },
     filter: {
       title: 'Filter',

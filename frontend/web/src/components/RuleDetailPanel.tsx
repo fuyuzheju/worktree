@@ -15,10 +15,10 @@ import type { BlockRule, CivilDate, CivilTime, RuleFreq } from '@worktree/core';
 import type { BlockRulePatch, WorktreeClient } from '@worktree/client';
 import { useI18n } from '../i18n';
 import type { Translate } from '../i18n';
+import { WEEKDAY_KEYS, weekdayName } from '../weekdays';
 import { CheckIcon, ClockIcon, FlagIcon, NoteIcon, PencilIcon, TrashIcon, XIcon } from './icons';
 
 const MINUTE_MS = 60_000;
-export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /** bySetPos value of the "every such weekday" option; the model has no 0. */
 const POS_EVERY = 0;
 const POS_LAST = -1;
@@ -171,16 +171,16 @@ export function RuleDetailPanel(props: {
 
   const weekdayToggles = (testIdPrefix: string): ReactNode => (
     <div className="mt-1 flex flex-wrap gap-1">
-      {WEEKDAY_LABELS.map((label, i) => (
+      {WEEKDAY_KEYS.map((key, i) => (
         <button
-          key={label}
+          key={key}
           type="button"
           data-testid={`${testIdPrefix}-${i}`}
           aria-pressed={byDay.includes(i)}
           onClick={() => setByDay((values) => toggle(values, i))}
           className={toggleClass(byDay.includes(i))}
         >
-          {label}
+          {t(key)}
         </button>
       ))}
     </div>
@@ -556,7 +556,7 @@ export function formatMonthDay(day: number): string {
 export function ruleSummary(rule: BlockRule, t: Translate): string {
   const parts: string[] = [t(`rule.freq${capitalize(rule.freq)}`)];
   if (rule.interval > 1) parts.push(`×${rule.interval}`);
-  if (rule.byDay !== undefined) parts.push(rule.byDay.map((d) => WEEKDAY_LABELS[d] ?? String(d)).join(' '));
+  if (rule.byDay !== undefined) parts.push(rule.byDay.map((d) => weekdayName(t, d)).join(' '));
   if (rule.byMonthDay !== undefined) parts.push(rule.byMonthDay.map(formatMonthDay).join(', '));
   if (rule.byMonth !== undefined) parts.push(rule.byMonth.map((m) => t(`rule.monthName${m}`)).join(' '));
   if (rule.bySetPos !== undefined) parts.push(nthLabel(rule.bySetPos, t));

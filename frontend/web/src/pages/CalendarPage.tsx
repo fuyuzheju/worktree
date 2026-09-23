@@ -3,6 +3,7 @@ import type { Block, BlockOccurrence, Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
+import { weekdayNames } from '../weekdays';
 import { useIsMobile } from '../hooks/useMediaQuery';
 import { findNode } from '../tree-utils';
 import {
@@ -48,6 +49,7 @@ export function CalendarPage(props: {
   nowMs?: number;
 }) {
   const { t } = useI18n();
+  const weekdays = weekdayNames(t);
   const { client, tree, display, calendarDays, nowMs = Date.now() } = props;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState<number>(() => dayStartMs(nowMs));
@@ -185,7 +187,7 @@ export function CalendarPage(props: {
               key={d}
               className={`flex-1 text-center text-xs py-1 ${isToday(d, nowMs) ? 'font-semibold text-blue-700' : 'text-gray-600'}`}
             >
-              {formatDayHeader(d)}
+              {formatDayHeader(d, weekdays)}
             </div>
           ))}
         </div>

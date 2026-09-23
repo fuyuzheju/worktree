@@ -326,7 +326,7 @@ export function SettingsPage(props: {
       <section className="rounded border border-gray-300 bg-white p-4">
         <h2 className="font-semibold">{t('settings.language')}</h2>
         <select value={config.lang} className="mt-2 rounded border border-gray-300 px-2 py-1" disabled>
-          <option value="en">English</option>
+          <option value="en">{t('language.en')}</option>
         </select>
       </section>
 

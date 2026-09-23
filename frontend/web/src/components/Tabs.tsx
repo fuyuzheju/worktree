@@ -11,7 +11,7 @@ const TABS: { id: Tab; key: string }[] = [
 export function Tabs({ active, onChange }: { active: Tab; onChange: (tab: Tab) => void }) {
   const { t } = useI18n();
   return (
-    <nav className="mt-2 flex gap-4" aria-label="tabs">
+    <nav className="mt-2 flex gap-4" aria-label={t('tabs.label')}>
       {TABS.map(({ id, key }) => (
         <button
           key={id}
