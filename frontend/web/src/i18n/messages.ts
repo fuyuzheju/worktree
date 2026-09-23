@@ -243,6 +243,7 @@ export const messages: Record<string, StringMap> = {
       restore: 'Restore',
       delete: 'Delete',
       deleteConfirm: 'Delete rule "{name}" and its skipped occurrences?',
+      clearSkipsConfirm: 'This edit clears these still-upcoming skipped occurrences: {days}. Continue?',
       save: 'Save',
       tzHint: 'This rule keeps UTC{offset} — times follow its own time zone, not this device’s.',
       nameRequired: 'Name is required.',

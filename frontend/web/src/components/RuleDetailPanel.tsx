@@ -7,6 +7,7 @@ import {
   daysFromCivil,
   endOfCivilDay,
   formatCivilDate,
+  occurrenceStart,
   parseCivilDate,
   weekdayFromDays,
 } from '@worktree/core';
@@ -149,6 +150,11 @@ export function RuleDetailPanel(props: {
     if (Object.keys(patch).length === 0) {
       onClose();
       return;
+    }
+    const dropped = clearedFutureSkips(rule, skips, patch, nowMs);
+    if (dropped.length > 0) {
+      const days = dropped.map((d) => formatCivilDate(civilFromDays(d))).join(', ');
+      if (!window.confirm(t('rule.clearSkipsConfirm', { days }))) return;
     }
     if (run(() => client.editBlockRule(rule.id, patch))) onClose();
   };
@@ -479,6 +485,26 @@ export function RuleDetailPanel(props: {
       </div>
     </div>
   );
+}
+
+/** Skips a patch would clear (it touches the day set) whose occurrence is still ahead of `now`.
+ *  Mirrors Calendar's day-set rule: the field's presence in the patch is what clears them. */
+function clearedFutureSkips(
+  rule: BlockRule,
+  skips: readonly number[],
+  patch: BlockRulePatch,
+  now: number,
+): number[] {
+  const touchesDaySet =
+    patch.freq !== undefined ||
+    patch.interval !== undefined ||
+    patch.startDate !== undefined ||
+    patch.byDay !== undefined ||
+    patch.byMonthDay !== undefined ||
+    patch.byMonth !== undefined ||
+    patch.bySetPos !== undefined ||
+    patch.until !== undefined;
+  return touchesDaySet ? skips.filter((day) => occurrenceStart(rule, day) > now) : [];
 }
 
 /** The device's current UTC offset in ms, whole minutes (matches the client). */

@@ -1,5 +1,5 @@
 import { ROOT_ID, USER_RE, computeStats, matchesFilter, parseCivilDate, ruleMatchesDay } from '@worktree/core';
-import { daysFromCivil, civilFromTimestamp } from '@worktree/core';
+import { daysFromCivil, civilFromTimestamp, occurrenceStart } from '@worktree/core';
 import type { Block, BlockRule, CivilDate, Node, RepairDrop } from '@worktree/core';
 import type { BlockRuleInput } from '@worktree/client';
 import { deviceTzOffset } from '@worktree/client';
@@ -613,6 +613,26 @@ function isRulePatchEmpty(fields: ParsedRuleFields): boolean {
   return Object.keys(fields).length === 0;
 }
 
+/** Skips a patch would clear (it touches the day set) whose occurrence is still ahead of `now`.
+ *  Mirrors Calendar's day-set rule: the field's presence in the patch is what clears them. */
+function clearedFutureSkips(
+  rule: BlockRule,
+  skips: readonly number[],
+  patch: ParsedRuleFields,
+  now: number,
+): number[] {
+  const touchesDaySet =
+    patch.freq !== undefined ||
+    patch.interval !== undefined ||
+    patch.startDate !== undefined ||
+    patch.byDay !== undefined ||
+    patch.byMonthDay !== undefined ||
+    patch.byMonth !== undefined ||
+    patch.bySetPos !== undefined ||
+    patch.until !== undefined;
+  return touchesDaySet ? skips.filter((day) => occurrenceStart(rule, day) > now) : [];
+}
+
 const DEFAULT_RULE_TIME = { hour: 9, minute: 0 };
 
 const ruleCommand: Command = {
@@ -668,12 +688,18 @@ const ruleCommand: Command = {
     if (sub === 'edit') {
       if (args.length < 2) {
         return io.usage(
-          'rule edit <ruleRef> name= note= freq= interval= from= time= dur= day= mday= month= until=|null active=true|false',
+          'rule edit <ruleRef> [--yes] name= note= freq= interval= from= time= dur= day= mday= month= until=|null active=true|false',
         );
       }
       const rule = refRule(io, args[1]);
       if (!rule) return 'ok';
-      const parsed = parseRuleFields(args.slice(2), { mode: 'edit', freq: rule.freq, tzOffset: rule.tzOffset });
+      const fields = args.slice(2);
+      const yes = fields.includes('--yes');
+      const parsed = parseRuleFields(fields.filter((field) => field !== '--yes'), {
+        mode: 'edit',
+        freq: rule.freq,
+        tzOffset: rule.tzOffset,
+      });
       if (!parsed.ok) {
         io.out(parsed.error);
         return 'ok';
@@ -682,7 +708,15 @@ const ruleCommand: Command = {
         io.out('empty patch');
         return 'ok';
       }
+      const lost = clearedFutureSkips(rule, io.client.getSkips(rule.id), parsed.fields, Date.now());
+      if (lost.length > 0 && !yes) {
+        io.out(`this edit clears ${lost.length} future skip(s) of "${rule.name}":`);
+        for (const day of lost) io.out(`  ${formatDayIndex(day)}`);
+        io.out('re-run with --yes to apply (past skips are cleared either way)');
+        return 'ok';
+      }
       mutate(() => io.client.editBlockRule(rule.id, parsed.fields));
+      if (lost.length > 0) io.out(`cleared ${lost.length} future skip(s)`);
       io.out('rule updated');
       await afterCommand(io);
       return 'ok';

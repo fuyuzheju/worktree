@@ -151,6 +151,45 @@ describe('RuleDetailPanel editing', () => {
     expect(client.editBlockRule).toHaveBeenCalledWith('r1', { timeOfDay: { hour: 11, minute: 0 } });
   });
 
+  it('confirms before a day-set edit drops a still-upcoming skip', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const client = makeClient([daysFromCivil(2026, 1, 19)]);
+    renderPanel(client, ruleOf());
+    fireEvent.click(screen.getByTestId('rule-day-0'));
+    fireEvent.click(screen.getByTestId('rule-save'));
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('2026-01-19'));
+    expect(client.editBlockRule).not.toHaveBeenCalled();
+  });
+
+  it('applies the day-set edit once the confirm is accepted', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const client = makeClient([daysFromCivil(2026, 1, 19)]);
+    renderPanel(client, ruleOf());
+    fireEvent.click(screen.getByTestId('rule-day-0'));
+    fireEvent.click(screen.getByTestId('rule-save'));
+    expect(client.editBlockRule).toHaveBeenCalledWith('r1', expect.objectContaining({ byDay: [0, 1] }));
+  });
+
+  it('clears a past skip without asking', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const client = makeClient([daysFromCivil(2026, 1, 12)]);
+    renderPanel(client, ruleOf());
+    fireEvent.click(screen.getByTestId('rule-day-0'));
+    fireEvent.click(screen.getByTestId('rule-save'));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(client.editBlockRule).toHaveBeenCalledWith('r1', expect.objectContaining({ byDay: [0, 1] }));
+  });
+
+  it('keeps a future skip when the tweak does not touch the day set', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const client = makeClient([daysFromCivil(2026, 1, 19)]);
+    renderPanel(client, ruleOf());
+    fireEvent.change(screen.getByTestId('rule-time'), { target: { value: '11:00' } });
+    fireEvent.click(screen.getByTestId('rule-save'));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(client.editBlockRule).toHaveBeenCalledWith('r1', { timeOfDay: { hour: 11, minute: 0 } });
+  });
+
   it('switches a monthly rule from a fixed day to an nth weekday', () => {
     const client = makeClient();
     renderPanel(client, ruleOf({ freq: 'monthly', byDay: undefined, byMonthDay: [15] }));

@@ -209,7 +209,7 @@ describe('rule command', () => {
     expect(ctx.client.getRules()[0]?.timeOfDay).toEqual({ hour: 11, minute: 0 });
     expect(ctx.client.getSkips(id)).toEqual([daysFromCivil(2026, 9, 30)]);
     // A day-set edit does clear them (they may no longer be occurrences).
-    await run(io, 'rule edit standup day=thu');
+    await run(io, 'rule edit standup day=thu --yes');
     expect(ctx.client.getRules()[0]?.byDay).toEqual([4]);
     expect(ctx.client.getSkips(id)).toEqual([]);
     lines.length = 0;
@@ -265,6 +265,60 @@ describe('rule command', () => {
     expect(ctx.client.getRules()).toHaveLength(0);
     await run(io, 'rule rm standup');
     expect(ctx.client.getRules()).toHaveLength(0);
+  });
+});
+
+describe('rule edit clearing upcoming skips', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A weekly rule with one skip; the clock decides if that skip is upcoming. */
+  const seeded = async (now: string) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    const { io, ctx, lines } = newIO();
+    await run(io, 'rule add standup freq=weekly day=wed from=2026-09-23 time=10:00 dur=2h');
+    await run(io, 'rule skip standup 2026-09-30');
+    lines.length = 0;
+    return { io, ctx, lines };
+  };
+
+  it('refuses a day-set edit that would drop an upcoming skip', async () => {
+    const { io, ctx, lines } = await seeded('2026-09-01T12:00:00');
+    const id = ctx.client.getRules()[0]!.id;
+    await run(io, 'rule edit standup day=thu');
+    expect(lines).toEqual([
+      'this edit clears 1 future skip(s) of "standup":',
+      '  2026-09-30',
+      're-run with --yes to apply (past skips are cleared either way)',
+    ]);
+    expect(ctx.client.getRules()[0]?.byDay).toEqual([3]);
+    expect(ctx.client.getSkips(id)).toEqual([daysFromCivil(2026, 9, 30)]);
+
+    await run(io, 'rule edit standup day=thu --yes');
+    expect(lines.at(-2)).toBe('cleared 1 future skip(s)');
+    expect(lines.at(-1)).toBe('rule updated');
+    expect(ctx.client.getRules()[0]?.byDay).toEqual([4]);
+    expect(ctx.client.getSkips(id)).toEqual([]);
+  });
+
+  it('applies without --yes once the skipped occurrence has started', async () => {
+    const { io, ctx, lines } = await seeded('2026-10-05T12:00:00');
+    const id = ctx.client.getRules()[0]!.id;
+    await run(io, 'rule edit standup day=thu');
+    expect(lines).toEqual(['rule updated']);
+    expect(ctx.client.getRules()[0]?.byDay).toEqual([4]);
+    expect(ctx.client.getSkips(id)).toEqual([]);
+  });
+
+  it('applies without --yes when the tweak keeps the skips', async () => {
+    const { io, ctx, lines } = await seeded('2026-09-01T12:00:00');
+    const id = ctx.client.getRules()[0]!.id;
+    await run(io, 'rule edit standup time=11:00');
+    expect(lines).toEqual(['rule updated']);
+    expect(ctx.client.getRules()[0]?.timeOfDay).toEqual({ hour: 11, minute: 0 });
+    expect(ctx.client.getSkips(id)).toEqual([daysFromCivil(2026, 9, 30)]);
   });
 });
 

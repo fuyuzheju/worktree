@@ -136,6 +136,11 @@ never enters the log — a stale client's skip gets a normal 400 and the pending
 op is dropped during conflict resolution. A hand-crafted history that strands a
 skip fails replay and is caught by the submit/rewrite probes (or dropped by
 repair).
+Frontend affordance, not part of the log: before a day-set edit, the frontends
+ask about the skips it would drop whose occurrence start is still ahead of now
+(the web panel confirms; the CLI lists the dates and needs `--yes`). Skips whose
+occurrence already started are dropped without notice. Core and client clear
+unconditionally either way — replay never consults a clock.
 
 Every operation (tree and calendar) carries an optional timestamp: the
 client-generated creation time of the op in ms. Clients stamp Date.now() on
