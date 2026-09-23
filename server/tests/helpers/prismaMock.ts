@@ -167,6 +167,14 @@ const hoisted = vi.hoisted(() => {
         return null;
       },
       async create({ data }) {
+        for (const row of historyRows.values()) {
+          if (row.userId === data.userId && row.opId === data.opId) {
+            throw new Prisma.PrismaClientKnownRequestError(
+              'Unique constraint failed on the fields: (`userId`,`opId`)',
+              { code: 'P2002', clientVersion: 'test' },
+            );
+          }
+        }
         const row: HistoryRow = {
           id: nextId++,
           userId: data.userId,

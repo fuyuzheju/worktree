@@ -101,6 +101,27 @@ describe('planDropRepair', () => {
     expect(plan.repaired.map((n) => n.id)).toEqual(['h1']);
   });
 
+  it('describes a dropped tree-op remove of the root as "remove root"', () => {
+    const nodes = [entry('h1', add('a')), entry('h2', { kind: 'remove', id: ROOT_ID })];
+    const plan = planDropRepair(nodes);
+    expect(plan.dropped).toHaveLength(1);
+    expect(plan.dropped[0].description).toBe('remove root');
+    expect(plan.dropped[0].reason).toContain('cannot remove root');
+    expect(plan.repaired.map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('addresses the root by id (its name is empty) for other kinds too', () => {
+    const nodes = [
+      entry('h1', add('a')),
+      entry('h2', add('b', 'a')),
+      entry('h3', { kind: 'complete', id: ROOT_ID }),
+    ];
+    const plan = planDropRepair(nodes);
+    expect(plan.dropped).toHaveLength(1);
+    expect(plan.dropped[0].description).toBe('complete root');
+    expect(plan.dropped[0].reason).toContain('cannot complete');
+  });
+
   it('describes block ops by their block name', () => {
     const nodes = [
       entry('h1', add('a')),

@@ -1,5 +1,5 @@
 import type { ClientStorage, SavedState } from '@worktree/client';
-import { isRecord } from '@worktree/core';
+import { isSavedState } from '@worktree/client';
 
 /**
  * localStorage-backed ClientStorage. Namespacing per (server, user) is the
@@ -20,9 +20,8 @@ export class LocalStorageClientStorage implements ClientStorage {
     if (raw === '') return null;
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (!isRecord(parsed)) return null;
-      if (!Array.isArray(parsed.confirmed) || !Array.isArray(parsed.pending)) return null;
-      return { confirmed: parsed.confirmed, pending: parsed.pending };
+      if (!isSavedState(parsed)) return null;
+      return parsed;
     } catch (e) {
       console.error('state was corrupt — starting fresh:', e);
       return null;

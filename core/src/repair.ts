@@ -7,7 +7,9 @@ export interface RepairDrop {
   entry: HistoryNode;
   /** Why the entry no longer applies (the apply error message). */
   reason: string;
-  /** Human-readable target of the op, e.g. `complete "Groceries"`. */
+  /** Human-readable target of the op, e.g. `complete "Groceries"`. An English
+   *  diagnostic for logs and the repair lists — not localized UI copy, so
+   *  frontends must not route it through their i18n layer. */
   description: string;
 }
 
@@ -79,10 +81,14 @@ function describe(state: WorktreeState, op: Operation): string {
       return rule === undefined ? `${op.kind} ${op.ruleId} ${date}` : `${op.kind} "${rule.name}" ${date}`;
     }
     case 'remove':
-      return `undo ${op.id}`;
-    default: {
-      const node = state.tree.getNode(op.id);
-      return node === undefined ? `${op.kind} ${op.id}` : `${op.kind} "${node.name}"`;
-    }
+      return nodeTarget(state, 'remove', op.id);
+    default:
+      return nodeTarget(state, op.kind, op.id);
   }
+}
+
+/** `kind "name"`, or `kind <id>` when the target is gone or has no name (the root). */
+function nodeTarget(state: WorktreeState, kind: string, id: string): string {
+  const node = state.tree.getNode(id);
+  return node === undefined || node.name === '' ? `${kind} ${id}` : `${kind} "${node.name}"`;
 }

@@ -65,6 +65,14 @@ describe('HistoryChain', () => {
     expect(h.since(null)).toEqual([]);
   });
 
+  it('replace rejects duplicate ids and leaves the chain untouched', () => {
+    const h = new HistoryChain();
+    h.append('n1', op('a'));
+    expect(() => h.replace([{ id: 'm1', op: op('x') }, { id: 'm1', op: op('y') }])).toThrow(/already exists/);
+    expect(h.toArray().map((n) => n.id)).toEqual(['n1']);
+    expect(h.getHead()?.id).toBe('n1');
+  });
+
   it('get returns nodes by id', () => {
     const h = new HistoryChain();
     h.append('n1', op('a'));

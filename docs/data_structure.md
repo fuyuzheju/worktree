@@ -221,8 +221,8 @@ instead of being silently ignored.
 
 copy is shallow: copies name, status, reminders, note, deadline and completedAt,
 not children. new_name defaults to the source's name. The copy's createdAt
-comes from the copy op's timestamp (falling back to apply time for legacy ops),
-so it is deterministic across replays.
+comes from the copy op's timestamp — 0 for legacy ops, like `add` — never from
+apply time, so it is deterministic across replays.
 
 CalendarOperation:
 add_block(id, name, start, end[, note, node_id][, timestamp]) |

@@ -60,6 +60,13 @@ describe('HistoryStore', () => {
     expect((await store.getTreeForUser(ALICE)).tree.getNode('b')).toBeUndefined();
   });
 
+  it('rejects a batch with a duplicated entry id, atomically', async () => {
+    const store = new HistoryStore();
+    // Both ops apply to the tree on their own; only the entry id repeats.
+    await expect(store.appendBatch(ALICE, [add('a', 'h1'), add('b', 'h1')])).rejects.toBeInstanceOf(ValidationError);
+    expect(await store.all(ALICE)).toEqual([]);
+  });
+
   it('rejects a sibling name collision atomically with ValidationError', async () => {
     const store = new HistoryStore();
     await store.appendBatch(ALICE, [add('a', 'h1')]);
@@ -124,6 +131,17 @@ describe('HistoryStore', () => {
     const unknown = await store.appendBatch(ALICE, [{ kind: 'remove', id: 'missing' }]);
     expect(unknown.removed).toEqual([]);
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('accepts two removes of the same id in one batch (concurrent undo)', async () => {
+    const store = new HistoryStore();
+    await store.appendBatch(ALICE, [add('a', 'h1')]);
+    const result = await store.appendBatch(ALICE, [
+      { kind: 'remove', id: 'h1' },
+      { kind: 'remove', id: 'h1' },
+    ]);
+    expect(result.removed).toEqual(['h1']);
+    expect(await store.all(ALICE)).toEqual([]);
   });
 
   it('rejects an add that depends on a node its own batch removes', async () => {

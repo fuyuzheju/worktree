@@ -115,7 +115,7 @@ export class Tree {
           reminders: src.reminders.map((r: Reminder) => ({ ...r, id: `${op.newId}#${r.id}` })),
           status: src.status,
           note: src.note,
-          createdAt: op.timestamp ?? Date.now(),
+          createdAt: op.timestamp ?? 0,
           deadline: src.deadline,
           completedAt: src.completedAt,
         };

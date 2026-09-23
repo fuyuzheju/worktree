@@ -176,8 +176,9 @@ clients treat replay failure the same way: the kernel aborts the replay, keeps
 the last good state, rejects edits, and offers the repair to the user
   - repair = drop every entry that no longer replays (deterministic: replay the
     history and skip the entries that throw); nothing else is rewritten
-  - planRepair previews the drops (entry id + node/block name + reason);
-    repairHistory force-rewrites the history without them
+  - planRepair previews the drops (entry id + node/block name or, when the
+    target has no name — the root — its id + reason); repairHistory
+    force-rewrites the history without them
   - server users repair from the server's history (GET /api/history) with the
     current head as base; a 409 refetches and re-plans, and the rewrite is
     retried up to 3 times before the 409 is rethrown

@@ -52,6 +52,14 @@ export class HistoryChain {
 
   /** Replace the whole history; head becomes the last node of the array. */
   replace(nodes: HistoryNode[]): void {
+    // Duplicate ids would corrupt the chain the same way append() refuses to
+    // (the map keeps the last op, the order repeats the id). Validate first,
+    // so a rejected payload leaves the chain untouched.
+    const seen = new Set<string>();
+    for (const n of nodes) {
+      if (seen.has(n.id)) throw new Error(`history node ${n.id} already exists`);
+      seen.add(n.id);
+    }
     this.nodes.clear();
     this.order = [];
     for (const n of nodes) {

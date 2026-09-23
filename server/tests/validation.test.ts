@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { ROOT_ID, WorktreeState, daysFromCivil } from '@worktree/core';
-import type { HistoryOperation, Operation, TreeOperation } from '@worktree/core';
-import { validateOps } from '../src/validation';
+import type { HistoryNode, HistoryOperation, Operation, TreeOperation } from '@worktree/core';
+import { validateOpIds, validateOpShape, validateOps } from '../src/validation';
 
 const addOp = (parentId: string, id: string): TreeOperation =>
   ({ kind: 'add', parentId, id, name: id, weight: 1 });
 
 const histAdd = (id: string, op: Operation): HistoryOperation => ({ kind: 'add', id, op });
+
+const entry = (id: string, op: Operation): HistoryNode => ({ id, op });
 
 const WEEKLY = daysFromCivil(2026, 9, 23);
 
@@ -21,6 +23,58 @@ const ruleOp = (): Operation => ({
   timeOfDay: { hour: 9, minute: 0 },
   duration: 3_600_000,
   tzOffset: 0,
+});
+
+describe('validateOpShape', () => {
+  it('accepts unique entry ids whose ops parse', () => {
+    const nodes = [entry('h1', addOp(ROOT_ID, 'a')), entry('h2', addOp(ROOT_ID, 'b'))];
+    expect(validateOpShape(nodes).ok).toBe(true);
+  });
+
+  it('rejects a duplicated entry id', () => {
+    const result = validateOpShape([entry('h1', addOp(ROOT_ID, 'a')), entry('h1', addOp(ROOT_ID, 'b'))]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.opId).toBe('h1');
+      expect(result.reason).toContain('duplicate history entry id');
+    }
+  });
+
+  it('rejects a duplicated entry id even when the ops are identical', () => {
+    // cross-batch retries stay idempotent (appendBatch filters them first);
+    // a repeat inside one payload is always a bug worth reporting.
+    const nodes = [entry('h1', addOp(ROOT_ID, 'a')), entry('h1', addOp(ROOT_ID, 'a'))];
+    expect(validateOpShape(nodes).ok).toBe(false);
+  });
+
+  it('checks uniqueness across every op kind, tree-op removes included', () => {
+    // replace() passes whole histories through here — entries are keyed by
+    // their op UUID regardless of what the op does.
+    const nodes = [entry('h1', addOp(ROOT_ID, 'a')), entry('h1', { kind: 'remove', id: 'a' })];
+    expect(validateOpShape(nodes).ok).toBe(false);
+  });
+});
+
+describe('validateOpIds', () => {
+  it('accepts non-empty string ids', () => {
+    expect(validateOpIds([{ id: 'h1' }, { id: 'h2' }]).ok).toBe(true);
+    expect(validateOpIds([]).ok).toBe(true);
+  });
+
+  it('rejects a missing, empty or non-string id', () => {
+    // Request JSON is untyped; the string type is only what callers claim.
+    const id = (v: unknown) => ({ id: v as string });
+    for (const bad of [undefined, null, '', 42]) {
+      const result = validateOpIds([id(bad)]);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toContain('non-empty string');
+    }
+  });
+
+  it('allows repeated ids (uniqueness is validateOpShape\'s job)', () => {
+    // Consecutive undos of the same head share the target id and are legal.
+    expect(validateOpIds([{ id: 'h1' }, { id: 'h1' }]).ok).toBe(true);
+  });
 });
 
 describe('validateOps', () => {

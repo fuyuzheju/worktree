@@ -2,7 +2,7 @@ import { HistoryReplayError, Tree, WorktreeState, operationSchema, replayHistory
 import type { HistoryNode, HistoryOperation, Operation } from '@worktree/core';
 import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
-import { validateOpShape, validateOps } from './validation';
+import { validateOpIds, validateOpShape, validateOps } from './validation';
 import type { ValidationResult } from './validation';
 
 // Type assertion (an explicit exception to the no-assertions rule): Prisma's
@@ -179,6 +179,9 @@ export class HistoryStore {
     const userId = await this.resolveUserId(user);
     return this.exclusive(async () => {
       this.mustNotBeBroken(userId);
+      // Ids are looked up before validation, so they must be key-shaped first.
+      const ids = validateOpIds(ops);
+      if (!ids.ok) throw new ValidationError(ids.opId, ids.reason);
       // Idempotent retry: ops whose ids are already in the history are skipped
       // (same op) or rejected (different op) before anything is validated.
       const existingIds = new Set<string>();
@@ -247,6 +250,8 @@ export class HistoryStore {
    * cannot depend on an entry its own batch undoes.
    */
   private async validateBatch(userId: number, ops: HistoryOperation[]): Promise<ValidationResult> {
+    // A remove op is an undo: its id is the target entry's, so repeats within
+    // a batch are idempotent no-ops and are exempt from the uniqueness check.
     const shape = validateOpShape(ops.filter((op) => op.kind !== 'remove'));
     if (!shape.ok) return shape;
     if (!ops.some((op) => op.kind === 'remove')) {
@@ -324,6 +329,8 @@ export class HistoryStore {
   async replace(user: string, base: string | null, nodes: HistoryNode[]): Promise<void> {
     const userId = await this.resolveUserId(user);
     return this.exclusive(async () => {
+      const ids = validateOpIds(nodes);
+      if (!ids.ok) throw new ValidationError(ids.opId, ids.reason);
       const shape = validateOpShape(nodes);
       if (!shape.ok) throw new ValidationError(shape.opId, shape.reason);
       await prisma.$transaction(async (tx) => {

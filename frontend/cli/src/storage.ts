@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClientStorage, SavedState } from '@worktree/client';
+import { isSavedState } from '@worktree/client';
 import { USER_RE, isRecord } from '@worktree/core';
 
 /**
@@ -22,9 +23,8 @@ export class FileStorage implements ClientStorage {
     }
     try {
       const parsed: unknown = JSON.parse(raw);
-      if (!isRecord(parsed)) throw new Error('invalid shape');
-      if (!Array.isArray(parsed.confirmed) || !Array.isArray(parsed.pending)) throw new Error('invalid shape');
-      return { confirmed: parsed.confirmed, pending: parsed.pending };
+      if (!isSavedState(parsed)) throw new Error('invalid shape');
+      return parsed;
     } catch (e) {
       const backup = `${this.filePath}.corrupt-${Date.now()}`;
       try {

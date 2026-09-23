@@ -33,6 +33,14 @@ describe('LocalStorageClientStorage', () => {
     expect(new LocalStorageClientStorage(KEY).load()).toBeNull();
   });
 
+  it('returns null when an entry or pending op is malformed', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ confirmed: [{ id: 'h1' }], pending: [{ kind: 'add', id: 'h2', op: {} }] }),
+    );
+    expect(new LocalStorageClientStorage(KEY).load()).toBeNull();
+  });
+
   it('does not leak state between keys', () => {
     new LocalStorageClientStorage('worktree.state.a').save({ confirmed: [], pending: [] });
     expect(new LocalStorageClientStorage('worktree.state.b').load()).toBeNull();

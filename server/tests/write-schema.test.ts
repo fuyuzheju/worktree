@@ -21,6 +21,7 @@ vi.mock('../src/config', () => ({
 }));
 
 import { createApp } from '../src/app';
+import { getState } from '../src/state';
 import { HistoryStore } from '../src/store';
 import { WsHub } from '../src/ws';
 
@@ -115,5 +116,43 @@ describe('write schema validation', () => {
     expect(bad.body.error).toContain('op schema');
 
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('rewrite rejects a history with duplicated entry ids with 400 and keeps the stored one', async () => {
+    const { app, store } = makeApp();
+    const token = await register(app);
+    await submit(app, token, [{ kind: 'add', id: 'h1', op: add() }]);
+
+    // Both ops replay cleanly on their own — the payload reaches store.replace,
+    // where the repeated entry id used to fail as a unique-constraint 500.
+    const bad = await request(app)
+      .post('/api/rewrite')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        base: 'h1',
+        history: [
+          { id: 'h1', op: add() },
+          { id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'b', name: 'b', weight: 1 } },
+        ],
+      });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error).toContain('duplicate history entry id');
+
+    expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+    expect(getState(ALICE)).toBe('working');
+  });
+
+  it('submit rejects an entry with a missing or non-string id with 400', async () => {
+    const { app, store } = makeApp();
+    const token = await register(app);
+
+    const missing = await submit(app, token, [{ kind: 'add', id: undefined as unknown as string, op: add() }]);
+    expect(missing.status).toBe(400);
+    expect(missing.body.reason).toContain('non-empty string');
+
+    const numeric = await submit(app, token, [{ kind: 'remove', id: 42 as unknown as string }]);
+    expect(numeric.status).toBe(400);
+
+    expect(await store.all(ALICE)).toEqual([]);
   });
 });

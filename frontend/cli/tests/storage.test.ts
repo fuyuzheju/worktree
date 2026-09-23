@@ -64,6 +64,17 @@ describe('FileStorage', () => {
     expect(new FileStorage(file).load()).toBeNull();
     expect(fs.readdirSync(dir).filter((f) => f !== 'state.json')).toHaveLength(1);
   });
+
+  it('rejects files with malformed entries and preserves them', () => {
+    const dir = tmpDir();
+    const file = path.join(dir, 'state.json');
+    const bad = JSON.stringify({ confirmed: [{ id: 'h1' }], pending: [] });
+    fs.writeFileSync(file, bad);
+    expect(new FileStorage(file).load()).toBeNull();
+    const leftovers = fs.readdirSync(dir).filter((f) => f !== 'state.json');
+    expect(leftovers).toHaveLength(1);
+    expect(fs.readFileSync(path.join(dir, leftovers[0]!), 'utf8')).toBe(bad);
+  });
 });
 
 describe('defaultStatePath', () => {

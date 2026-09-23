@@ -567,18 +567,19 @@ describe('Tree', () => {
     expect(() => tree.apply({ kind: 'edit_reminder', rmdId: 'r1' })).toThrow(/edit_reminder patch is empty/);
   });
 
-  it('copy carries note and deadline but gets a fresh createdAt', () => {
-    const before = Date.now();
-    const tree = Tree.fromOps([
+  it('legacy copy (no timestamp) carries note and deadline, gets createdAt 0', () => {
+    const ops: TreeOperation[] = [
       { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'a', weight: 1, note: 'n', deadline: 50, createdAt: 7 },
-    ]);
-    tree.apply({ kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' });
+      { kind: 'copy', id: 'a', parentId: ROOT_ID, newId: 'a2', weight: 5, name: 'a-copy' },
+    ];
+    const tree = Tree.fromOps(ops);
     const copyNode = tree.getNode('a2');
     expect(copyNode?.note).toBe('n');
     expect(copyNode?.deadline).toBe(50);
-    expect(copyNode?.createdAt).toBeGreaterThanOrEqual(before);
-    expect(copyNode?.createdAt).toBeLessThanOrEqual(Date.now());
-    expect(copyNode?.createdAt).not.toBe(7);
+    // A legacy copy must not pick up the source's createdAt either — it is
+    // unknown, so it replays to the same 0 a legacy add would.
+    expect(copyNode?.createdAt).toBe(0);
+    expect(Tree.fromOps(ops).getNode('a2')?.createdAt).toBe(0);
   });
 
   it('copy inherits completedAt and uses the op timestamp when present', () => {
