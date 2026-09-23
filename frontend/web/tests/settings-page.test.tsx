@@ -58,6 +58,19 @@ describe('SettingsPage calendar', () => {
   });
 });
 
+describe('SettingsPage language', () => {
+  it('offers every catalogue, labelled in its own language', () => {
+    const { updateConfig } = renderSettings(7);
+    const select = screen.getByTestId<HTMLSelectElement>('settings-language');
+    expect([...select.options].map((o) => [o.value, o.textContent])).toEqual([
+      ['en', 'English'],
+      ['zh', '中文'],
+    ]);
+    fireEvent.change(select, { target: { value: 'zh' } });
+    expect(updateConfig).toHaveBeenCalledWith({ lang: 'zh' });
+  });
+});
+
 describe('SettingsPage auto reminder', () => {
   it('toggles the auto-reminder', () => {
     const { updateConfig } = renderSettings(7);

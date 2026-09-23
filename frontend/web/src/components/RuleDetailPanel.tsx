@@ -548,7 +548,8 @@ function parseMonthDays(text: string): number[] | null {
   return days;
 }
 
-export function formatMonthDay(day: number): string {
+/** The month-day input's own syntax ("last"), round-tripped with `parseMonthDays`. */
+function formatMonthDay(day: number): string {
   return day === -1 ? 'last' : String(day);
 }
 
@@ -557,7 +558,9 @@ export function ruleSummary(rule: BlockRule, t: Translate): string {
   const parts: string[] = [t(`rule.freq${capitalize(rule.freq)}`)];
   if (rule.interval > 1) parts.push(`×${rule.interval}`);
   if (rule.byDay !== undefined) parts.push(rule.byDay.map((d) => weekdayName(t, d)).join(' '));
-  if (rule.byMonthDay !== undefined) parts.push(rule.byMonthDay.map(formatMonthDay).join(', '));
+  if (rule.byMonthDay !== undefined) {
+    parts.push(rule.byMonthDay.map((d) => (d === -1 ? t('rule.monthDayLast') : String(d))).join(', '));
+  }
   if (rule.byMonth !== undefined) parts.push(rule.byMonth.map((m) => t(`rule.monthName${m}`)).join(' '));
   if (rule.bySetPos !== undefined) parts.push(nthLabel(rule.bySetPos, t));
   parts.push(`${formatCivilTime(rule.timeOfDay)} · ${rule.duration / MINUTE_MS}min`);

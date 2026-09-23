@@ -1,9 +1,12 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { messages } from './messages';
 import type { StringMap } from './messages';
 
 export type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+/** Locale codes that have a catalogue, in the Settings select's order. */
+export const LANGS = Object.keys(messages);
 
 const I18nContext = createContext<{ t: Translate; lang: string }>({
   t: (key) => key,
@@ -33,6 +36,11 @@ function translate(lang: string, key: string, params?: Record<string, string | n
 
 export function I18nProvider({ lang, children }: { lang: string; children: ReactNode }) {
   const t: Translate = (key, params) => translate(lang, key, params);
+  // Keeps the document in step with the UI language, for screen readers and
+  // hyphenation; index.html can only ship a static default.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
   return <I18nContext.Provider value={{ t, lang }}>{children}</I18nContext.Provider>;
 }
 

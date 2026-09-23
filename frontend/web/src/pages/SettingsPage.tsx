@@ -4,7 +4,7 @@ import type { WorktreeClient } from '@worktree/client';
 import { LOCAL_USER, listLoggedInUsers, loadToken } from '../config';
 import type { AppConfig } from '../config';
 import { authRequest } from '../auth';
-import { useI18n } from '../i18n';
+import { LANGS, useI18n } from '../i18n';
 import { disablePush, enablePush, getPushStatus } from '../push';
 import type { PushStatus } from '../push';
 import { flattenTree } from '../tree-utils';
@@ -325,8 +325,17 @@ export function SettingsPage(props: {
 
       <section className="rounded border border-gray-300 bg-white p-4">
         <h2 className="font-semibold">{t('settings.language')}</h2>
-        <select value={config.lang} className="mt-2 rounded border border-gray-300 px-2 py-1" disabled>
-          <option value="en">{t('language.en')}</option>
+        <select
+          value={config.lang}
+          onChange={(e) => updateConfig({ lang: e.target.value })}
+          data-testid="settings-language"
+          className="mt-2 rounded border border-gray-300 px-2 py-1"
+        >
+          {LANGS.map((code) => (
+            <option key={code} value={code}>
+              {t(`language.${code}`)}
+            </option>
+          ))}
         </select>
       </section>
 
