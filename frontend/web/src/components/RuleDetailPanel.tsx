@@ -253,6 +253,20 @@ export function RuleDetailPanel(props: {
           <input data-testid="rule-name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
         </label>
 
+        <label className="flex flex-col">
+          <span className={labelClass}>
+            <NoteIcon className="h-4 w-4" />
+            {t('rule.note')}
+          </span>
+          <textarea
+            data-testid="rule-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className={inputClass}
+            rows={2}
+          />
+        </label>
+
         <div className="flex flex-wrap gap-3">
           <label className="flex flex-col">
             <span className={labelClass}>{t('rule.freq')}</span>
@@ -430,20 +444,6 @@ export function RuleDetailPanel(props: {
             onChange={(e) => setActive(e.target.checked)}
           />
           <span className="text-sm text-gray-700">{t('rule.active')}</span>
-        </label>
-
-        <label className="flex flex-col">
-          <span className={labelClass}>
-            <NoteIcon className="h-4 w-4" />
-            {t('rule.note')}
-          </span>
-          <textarea
-            data-testid="rule-note"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className={inputClass}
-            rows={2}
-          />
         </label>
 
         {rule !== null && (
