@@ -257,14 +257,14 @@ describe('CalendarPage block editing', () => {
 });
 
 describe('CalendarPage rule occurrences', () => {
-  it('renders an occurrence as a dashed bar at its time', () => {
+  it('renders an occurrence as a bar at its time, styled like a block', () => {
     renderPage(
       makeClient([], { rules: [ruleOf()], occurrences: [occ(day(15, 9), day(15, 10, 30))] }),
     );
     const bar = screen.getByTestId('occurrence-r1:42');
     expect(bar.style.top).toBe(pct(9 * DEFAULT_PX_PER_HOUR));
     expect(bar.style.height).toBe(pct(1.5 * DEFAULT_PX_PER_HOUR));
-    expect(bar.className).toContain('border-dashed');
+    expect(bar.className).not.toContain('border-dashed');
     expect(bar.textContent).toContain('standup');
     // jsdom normalizes colors; compare through the same normalization.
     const probe = document.createElement('div');

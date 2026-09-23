@@ -271,9 +271,7 @@ export function CalendarPage(props: {
                   data-testid={`occurrence-${bar.id}`}
                   onClick={() => setEditing({ mode: 'rule', ruleId: entry.occ.ruleId, day: entry.occ.day })}
                   title={entry.occ.name}
-                  className={`${base} border border-dashed border-white/80 ${
-                    selected ? 'ring-2 ring-inset ring-blue-300' : ''
-                  }`}
+                  className={`${base} ${selected ? 'ring-2 ring-inset ring-blue-300' : ''}`}
                   style={{ ...geometry, backgroundColor: blockColor(entry.occ.ruleId) }}
                 >
                   <span className="block truncate text-xs">{entry.occ.name}</span>
