@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ROOT_ID, WorktreeState } from '../src/index';
-import type { Block, Node, Operation } from '../src/index';
+import { HistoryReplayError, ROOT_ID, WorktreeState, replayHistory } from '../src/index';
+import type { Block, HistoryNode, Node, Operation } from '../src/index';
 
 const add = (id: string, parentId = ROOT_ID): Operation => ({ kind: 'add', parentId, id, name: id, weight: 1 });
 const block = (id: string, nodeId?: string): Operation =>
@@ -213,5 +213,24 @@ describe('WorktreeState', () => {
     expect(state.calendar.blockCount()).toBe(1);
     expect(nodeOf(copy, 'a').status).toBe(true);
     expect(copy.calendar.blockCount()).toBe(0);
+  });
+
+  it('replayHistory names the entry of a stranded skip', () => {
+    const nodes: HistoryNode[] = [
+      { id: 'h1', op: add('a') },
+      { id: 'h2', op: { kind: 'remove_block_rule', id: 'r1' } },
+      { id: 'h3', op: { kind: 'skip_occurrence', ruleId: 'r1', day: 5 } },
+    ];
+    let caught: unknown;
+    try {
+      replayHistory(nodes);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(HistoryReplayError);
+    if (!(caught instanceof HistoryReplayError)) return;
+    expect(caught.entryId).toBe('h3');
+    expect(caught.index).toBe(2);
+    expect(caught.message).toContain('unknown rule id: r1');
   });
 });

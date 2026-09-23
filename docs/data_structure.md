@@ -72,6 +72,71 @@ deterministic and undo/rewrite revert it automatically:
 Removing a node keeps its linked blocks but clears their nodeId; undoing the
 removal restores the links via replay. copy/rename/move leave links intact.
 
+BlockRule (a recurring calendar rule; its occurrences are derived, never stored):
+id: string,
+name: string, (non-empty)
+note: string, (detailed description; '' when unset)
+freq: 'daily' | 'weekly' | 'monthly' | 'yearly',
+interval: number, (>= 1; daily = days, weekly = weeks, monthly = months, yearly = years)
+startDate: {year, month, day}, (civil anchor: the interval phase and the first candidate day)
+timeOfDay: {hour, minute}, (0..23 / 0..59, in the rule's own offset)
+duration: timestamp, (occurrence length in ms; > 0)
+byDay?: number[], (0=Sunday..6=Saturday; weekly weekdays, or monthly weekdays of the month)
+byMonthDay?: number[], (1..31, or -1 for the last day of the month; monthly/yearly)
+byMonth?: number[], (1..12; yearly)
+bySetPos?: number, (nonzero, |n| <= 5; monthly + byDay: the nth such weekday, negative = from the end)
+until?: timestamp, (inclusive upper bound on the occurrence start)
+tzOffset: number, (ms offset of the rule's local time from UTC, whole minutes, fixed at creation)
+active: boolean, (false -> contributes no occurrences; still listed and editable)
+
+Selector scope — anything else is a validation error:
+- daily: no selectors.
+- weekly: byDay only, defaulting to the anchor's weekday. Intervals count
+  weeks from the Monday of the anchor's week.
+- monthly: byMonthDay xor byDay (plus optional bySetPos), defaulting to
+  byMonthDay = [startDate.day]. Intervals count months from the anchor's month.
+- yearly: byMonth + byMonthDay, each defaulting to the anchor's month/day. No
+  byDay/bySetPos — "the last Friday of October every year" is a monthly rule
+  with interval 12 anchored in October.
+Arrays must be non-empty with unique in-range values; startDate must be a real
+civil date and not before 1970-01-01. byMonthDay 31 in a short month simply
+produces no occurrence that month (RRULE skip semantics — never clamped).
+
+BlockOccurrence (derived by expansion; never materialized as history ops):
+{ruleId, day, occStart, occEnd, id, name, note}
+day = the civil day index (days since 1970-01-01) in the rule's tzOffset — the
+occurrence identity and the skip key. A rule produces at most one occurrence
+per civil day (one timeOfDay, byDay xor byMonthDay), so (ruleId, day) is a
+bijection with occurrences: a rule-relative date, not an instant, which is why
+editing a rule's timeOfDay keeps earlier skips rather than un-skipping them.
+occStart = day * 86400000 - tzOffset + timeOfDay, occEnd = occStart + duration
+— plain integer math, no Date, no DST. id = `${ruleId}:${day}` (display key).
+
+Expansion is windowed and pure: expand(from, to) returns the occurrences
+overlapping [from, to) (occStart < to && occEnd > from), sorted by
+(occStart, ruleId). Skipped days, days the schedule does not match and
+occurrences past until are excluded; active: false contributes nothing.
+Derived model caveat: editing a rule rewrites its past occurrences too — use
+until to truncate an old rule and create a new one to affect only the future.
+
+Exceptions (skip_occurrence / unskip_occurrence) hold (ruleId, day) pairs.
+The skip set only ever contains days of a currently existing rule that are
+occurrences of it — no orphans, maintained by construction:
+- skip_occurrence throws for an unknown rule and for a day that is not an
+  occurrence (`day is not an occurrence: <ruleId> <day>`); a day already
+  skipped is an idempotent no-op. unskip_occurrence rejects the same two cases;
+  a day that is not currently skipped is a no-op.
+- edit_block_rule clears the rule's skips whenever the patch touches the day
+  set — freq, interval, startDate, byDay, byMonthDay, byMonth, bySetPos,
+  until. Patches touching only name/note/active/timeOfDay/duration keep them:
+  skips are day-keyed, so a time tweak cannot orphan them.
+- remove_block_rule (idempotent) deletes the rule together with its skips.
+Consequence: a date-set edit drops that rule's exceptions, and a rejected skip
+never enters the log — a stale client's skip gets a normal 400 and the pending
+op is dropped during conflict resolution. A hand-crafted history that strands a
+skip fails replay and is caught by the submit/rewrite probes (or dropped by
+repair).
+
 Every operation (tree and calendar) carries an optional timestamp: the
 client-generated creation time of the op in ms. Clients stamp Date.now() on
 every op they issue; legacy ops predating the field replay without it.
@@ -120,6 +185,11 @@ whole with an error naming the entry. The server marks such a user "broken"
 last good state until the history is repaired; the repair drops the offending
 entries (see sync.md, "broken histories").
 
+Op kinds are strict too: Tree.apply and Calendar.apply switch over every kind,
+and a `default` branch narrows the op to `never` and throws — a kind added
+without a case is a build error, and an unknown kind aborts the replay loudly
+instead of being silently ignored.
+
 copy is shallow: copies name, status, reminders, note, deadline and completedAt,
 not children. new_name defaults to the source's name. The copy's createdAt
 comes from the copy op's timestamp (falling back to apply time for legacy ops),
@@ -136,7 +206,28 @@ edit_block(id, patch: {
   nodeId?: string | null,   // absent = unchanged; null = clear the link
 }[, timestamp]) |
 complete_block(id[, timestamp]) |
-uncomplete_block(id[, timestamp])
+uncomplete_block(id[, timestamp]) |
+add_block_rule(id, name, freq, interval, start_date, time_of_day, duration,
+               tz_offset[, by_day, by_month_day, by_month, by_set_pos, until,
+               note][, timestamp]) |
+edit_block_rule(id, patch: {
+  name?: string,
+  note?: string,
+  freq?: freq,
+  interval?: number,
+  startDate?: {year, month, day},
+  timeOfDay?: {hour, minute},
+  duration?: timestamp,
+  byDay?: number[] | null,      // absent = unchanged; null = clear
+  byMonthDay?: number[] | null,
+  byMonth?: number[] | null,
+  bySetPos?: number | null,
+  until?: timestamp | null,
+  active?: boolean,
+}[, timestamp]) |
+remove_block_rule(id[, timestamp]) |   // idempotent; drops the rule's skips
+skip_occurrence(rule_id, day[, timestamp]) |
+unskip_occurrence(rule_id, day[, timestamp])
 
 add_block/edit_block reject a node_id that is already linked by another block
 (`node already linked to a block`) and a node_id that does not exist (`unknown
@@ -144,6 +235,14 @@ node id`). Empty edit_block patches are rejected. Completing/uncompleting an
 unknown block is rejected (like complete).
 A complete_block stamps the linked node's completedAt with the op timestamp
 (via propagation); uncomplete_block clears it.
+
+add_block_rule validates the rule (see BlockRule above) and rejects a duplicate
+id. edit_block_rule rejects an unknown id and an empty patch, revalidates the
+merged rule, and clears the rule's skips when the patch touches the day set
+(tzOffset is not in the patch, so occurrence identities stay stable). A patch
+containing freq resets the selectors it does not itself supply — changing
+frequency requires restating the pattern. skip_occurrence/unskip_occurrence
+require an existing rule and one of its occurrence days (see Exceptions above).
 
 NodeFilter (client-side display criteria, not part of the persisted log):
 keyword?: string,           // name OR note contains it (case-insensitive)

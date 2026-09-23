@@ -1,5 +1,3 @@
-import type { Block } from '@worktree/core';
-
 export const DAY_MS = 86_400_000;
 export const HOUR_MS = 3_600_000;
 /** Grid height per hour; a full day is 24 * this. */
@@ -92,9 +90,16 @@ export function parseDateInput(value: string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-/** One rendered bar segment: a block clipped to one day column. */
-export interface LayoutBar {
-  block: Block;
+/** Anything the grid can draw as a time bar (a block, a rule occurrence, ...). */
+export interface LayoutItem {
+  id: string;
+  start: number;
+  end: number;
+}
+
+/** One rendered bar segment: an item clipped to one day column. */
+export interface LayoutBar<T extends LayoutItem = LayoutItem> {
+  item: T;
   id: string;
   /** The day column (0..dayCount-1) this segment is drawn in. */
   dayIndex: number;
@@ -108,48 +113,48 @@ export interface LayoutBar {
 }
 
 /**
- * Position every block on the grid canvas. `gridStart` is the local midnight
+ * Position every item on the grid canvas. `gridStart` is the local midnight
  * of the first visible day; each column is one day, 24h tall. Multi-day
- * blocks split into one segment per day column (22:00→next-day 02:00 shows
+ * items split into one segment per day column (22:00→next-day 02:00 shows
  * as 22:00–24:00 in day 1 and 0:00–02:00 in day 2); segments are clipped at
  * the grid edges. Overlapping segments within a day share the column side
  * by side (greedy lane assignment, longer first).
  */
-export function layoutBlocks(
-  blocks: Block[],
+export function layoutBlocks<T extends LayoutItem>(
+  items: T[],
   gridStart: number,
   dayCount: number,
   pxPerHour: number = DEFAULT_PX_PER_HOUR,
-): LayoutBar[] {
+): LayoutBar<T>[] {
   const gridEnd = gridStart + dayCount * DAY_MS;
-  const visible = blocks
-    .map((block) => {
-      const visStart = Math.max(block.start, gridStart);
-      const visEnd = Math.min(block.end, gridEnd);
+  const visible = items
+    .map((item) => {
+      const visStart = Math.max(item.start, gridStart);
+      const visEnd = Math.min(item.end, gridEnd);
       if (visEnd <= visStart) return null;
       const dayIndex = Math.floor((visStart - gridStart) / DAY_MS);
       const endDayIdx = Math.floor((visEnd - 1 - gridStart) / DAY_MS);
       return {
-        block,
+        item,
         visStart,
         visEnd,
         dayIndex,
         endDayIdx,
-        startClipped: block.start < gridStart,
-        endClipped: block.end > gridEnd,
+        startClipped: item.start < gridStart,
+        endClipped: item.end > gridEnd,
       };
     })
-    .filter((b) => b !== null);
+    .filter((v) => v !== null);
 
   // Greedy lanes per day: segments sorted by start asc, longer duration
   // first; each segment joins the first lane whose last segment has ended.
-  const segmentsByDay = new Map<number, Array<{ blockId: string; start: number; end: number }>>();
+  const segmentsByDay = new Map<number, Array<{ itemId: string; start: number; end: number }>>();
   for (const v of visible) {
     for (let d = v.dayIndex; d <= v.endDayIdx; d++) {
       const dayStart = gridStart + d * DAY_MS;
       const dayEnd = dayStart + DAY_MS;
       const segs = segmentsByDay.get(d) ?? [];
-      segs.push({ blockId: v.block.id, start: Math.max(v.visStart, dayStart), end: Math.min(v.visEnd, dayEnd) });
+      segs.push({ itemId: v.item.id, start: Math.max(v.visStart, dayStart), end: Math.min(v.visEnd, dayEnd) });
       segmentsByDay.set(d, segs);
     }
   }
@@ -157,7 +162,7 @@ export function layoutBlocks(
   const laneCount = new Map<number, number>();
   for (const [d, segs] of segmentsByDay) {
     const sorted = [...segs].sort(
-      (a, b) => a.start - b.start || b.end - a.end || (a.blockId < b.blockId ? -1 : 1),
+      (a, b) => a.start - b.start || b.end - a.end || (a.itemId < b.itemId ? -1 : 1),
     );
     const laneEnds: number[] = [];
     const assigned = new Map<string, number>();
@@ -169,13 +174,13 @@ export function layoutBlocks(
       } else {
         laneEnds[lane] = seg.end;
       }
-      assigned.set(seg.blockId, lane);
+      assigned.set(seg.itemId, lane);
     }
     laneOf.set(d, assigned);
     laneCount.set(d, laneEnds.length);
   }
 
-  const bars: LayoutBar[] = [];
+  const bars: LayoutBar<T>[] = [];
   for (const v of visible) {
     for (let d = v.dayIndex; d <= v.endDayIdx; d++) {
       const dayStart = gridStart + d * DAY_MS;
@@ -185,11 +190,11 @@ export function layoutBlocks(
       const lanes = laneCount.get(d);
       const assigned = laneOf.get(d);
       if (lanes === undefined || assigned === undefined) throw new Error(`missing lane data for day ${d}`);
-      const lane = assigned.get(v.block.id);
-      if (lane === undefined) throw new Error(`missing lane for block ${v.block.id}`);
+      const lane = assigned.get(v.item.id);
+      if (lane === undefined) throw new Error(`missing lane for item ${v.item.id}`);
       bars.push({
-        block: v.block,
-        id: v.block.id,
+        item: v.item,
+        id: v.item.id,
         dayIndex: d,
         topPx: ((segStart - dayStart) / HOUR_MS) * pxPerHour,
         heightPx: Math.max(MIN_BAR_PX, ((segEnd - segStart) / HOUR_MS) * pxPerHour),

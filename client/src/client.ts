@@ -1,6 +1,11 @@
 import { ROOT_ID, USER_RE, newId, planDropRepair } from '@worktree/core';
 import type {
   Block,
+  BlockOccurrence,
+  BlockRule,
+  CalendarOperation,
+  CivilDate,
+  CivilTime,
   HistoryNode,
   HistoryOperation,
   HistoryReplayError,
@@ -8,6 +13,7 @@ import type {
   Operation,
   Reminder,
   RepairDrop,
+  RuleFreq,
   Timestamp,
 } from '@worktree/core';
 import { ApiError, ServerAPI } from './api';
@@ -17,6 +23,49 @@ import { ClientStore } from './store';
 import { Syncer } from './syncer';
 import type { Conflict } from './syncer';
 import type { ClientStorage } from './storage';
+
+/** Fields of a new calendar rule; the kernel fills id, note default and tzOffset. */
+export interface BlockRuleInput {
+  name: string;
+  freq: RuleFreq;
+  /** >= 1; daily = days, weekly = weeks, monthly = months, yearly = years. */
+  interval: number;
+  /** The civil anchor: interval phase and first candidate day. */
+  startDate: CivilDate;
+  timeOfDay: CivilTime;
+  /** Occurrence length in ms; > 0. */
+  duration: Timestamp;
+  note?: string;
+  /** 0 = Sunday .. 6 = Saturday (weekly). */
+  byDay?: number[];
+  /** 1..31 or -1 (last day of the month); monthly/yearly. */
+  byMonthDay?: number[];
+  /** 1..12; yearly. */
+  byMonth?: number[];
+  /** Nonzero, |n| <= 5; monthly + byDay (nth / last such weekday). */
+  bySetPos?: number;
+  /** Inclusive upper bound on the occurrence start. */
+  until?: Timestamp;
+  /** Defaults to the device's current offset, rounded to whole minutes. */
+  tzOffset?: number;
+}
+
+/** A rule patch: absent = unchanged, null = clear. */
+export interface BlockRulePatch {
+  name?: string;
+  note?: string;
+  freq?: RuleFreq;
+  interval?: number;
+  startDate?: CivilDate;
+  timeOfDay?: CivilTime;
+  duration?: Timestamp;
+  byDay?: number[] | null;
+  byMonthDay?: number[] | null;
+  byMonth?: number[] | null;
+  bySetPos?: number | null;
+  until?: Timestamp | null;
+  active?: boolean;
+}
 
 export interface WorktreeClientOptions {
   /** e.g. http://localhost:3000 */
@@ -354,6 +403,84 @@ export class WorktreeClient {
     this.apply({ kind: 'remove_block', id });
   }
 
+  /** All calendar rules, in creation order. */
+  getRules(): BlockRule[] {
+    return this.store.getRules();
+  }
+
+  /** The rule's skipped occurrence days (civil day indices), ascending. */
+  getSkips(ruleId: string): number[] {
+    return this.store.getSkips(ruleId);
+  }
+
+  /**
+   * Occurrences of every rule overlapping `[from, to)`, sorted by
+   * (occStart, ruleId). Occurrences are derived, so they are never edited —
+   * only skipped (see skipOccurrence).
+   */
+  expandOccurrences(from: Timestamp, to: Timestamp): BlockOccurrence[] {
+    return this.store.expandOccurrences(from, to);
+  }
+
+  /**
+   * Add a recurring calendar rule; `tzOffset` defaults to the device's current
+   * offset — the rule keeps it, so a later DST shift never moves its
+   * occurrences. Returns the new rule id.
+   */
+  addBlockRule(fields: BlockRuleInput): string {
+    const id = newId();
+    const op: CalendarOperation = {
+      kind: 'add_block_rule',
+      id,
+      name: fields.name,
+      freq: fields.freq,
+      interval: fields.interval,
+      startDate: fields.startDate,
+      timeOfDay: fields.timeOfDay,
+      duration: fields.duration,
+      byDay: fields.byDay,
+      byMonthDay: fields.byMonthDay,
+      byMonth: fields.byMonth,
+      bySetPos: fields.bySetPos,
+      until: fields.until,
+      note: fields.note,
+      tzOffset: fields.tzOffset ?? deviceTzOffset(),
+    };
+    this.store.probeApply(op);
+    this.apply(op);
+    return id;
+  }
+
+  /**
+   * Edit a rule; `null` clears a field, absent leaves it unchanged. A patch
+   * that changes the day set (freq/interval/startDate/selectors/until) clears
+   * the rule's skips, which could no longer be occurrences.
+   */
+  editBlockRule(id: string, patch: BlockRulePatch): void {
+    const op: CalendarOperation = { kind: 'edit_block_rule', id, ...patch };
+    this.store.probeApply(op);
+    this.apply(op);
+  }
+
+  removeBlockRule(id: string): void {
+    this.apply({ kind: 'remove_block_rule', id });
+  }
+
+  /** Cancel one occurrence of a rule without touching the others; `day` is
+   *  the occurrence's civil day index (see expandOccurrences). */
+  skipOccurrence(ruleId: string, day: number): void {
+    const op: CalendarOperation = { kind: 'skip_occurrence', ruleId, day };
+    this.store.probeApply(op);
+    this.apply(op);
+  }
+
+  /** Restore a skipped occurrence. */
+  unskipOccurrence(ruleId: string, day: number): void {
+    const op: CalendarOperation = { kind: 'unskip_occurrence', ruleId, day };
+    this.store.probeApply(op);
+    this.apply(op);
+  }
+
   setBlockCompleted(id: string, completed: boolean): void {
     const block = this.getBlocks().find((b) => b.id === id);
     if (completed && block?.nodeId !== undefined) this.ensureCompletable(block.nodeId);
@@ -589,6 +716,12 @@ export class WorktreeClient {
     const tree = this.getTree();
     for (const l of [...this.listeners]) l(tree);
   }
+}
+
+/** The device's current UTC offset in ms, whole minutes (see BlockRuleInput). */
+export function deviceTzOffset(): number {
+  const ms = -new Date().getTimezoneOffset() * 60 * 1000;
+  return Math.round(ms / 60000) * 60000;
 }
 
 function defaultWsUrl(base: string): string {

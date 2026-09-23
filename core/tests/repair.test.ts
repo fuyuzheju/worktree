@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HistoryReplayError, ROOT_ID, planDropRepair, replayHistory } from '../src/index';
+import { HistoryReplayError, ROOT_ID, daysFromCivil, planDropRepair, replayHistory } from '../src/index';
 import type { HistoryNode, Operation } from '../src/index';
 
 const entry = (id: string, op: Operation): HistoryNode => ({ id, op });
@@ -66,6 +66,38 @@ describe('planDropRepair', () => {
     const plan = planDropRepair(nodes);
     expect(plan.dropped.map((d) => d.entry.id)).toEqual(['h2', 'h3']);
     expect(plan.dropped[1].reason).toContain('unknown node id: x');
+    expect(plan.repaired.map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('describes rule and exception ops', () => {
+    const day = daysFromCivil(2026, 9, 23);
+    const nodes = [
+      entry('h1', add('a')),
+      entry('h2', { kind: 'add_block_rule', id: 'r1', name: 'standup', freq: 'weekly', interval: 1, startDate: { year: 2026, month: 9, day: 23 }, timeOfDay: { hour: 10, minute: 0 }, duration: 3600000, tzOffset: 0 }),
+      entry('h3', { kind: 'skip_occurrence', ruleId: 'r1', day }),
+      entry('h4', { kind: 'skip_occurrence', ruleId: 'r1', day: daysFromCivil(2026, 9, 24) }), // not an occurrence
+      entry('h5', { kind: 'remove_block_rule', id: 'r1' }),
+      entry('h6', { kind: 'edit_block_rule', id: 'missing', name: 'x' }), // unknown rule
+    ];
+    const plan = planDropRepair(nodes);
+    expect(plan.dropped.map((d) => d.description)).toEqual([
+      'skip_occurrence "standup" 2026-09-24',
+      'edit_block_rule missing',
+    ]);
+    expect(plan.repaired.map((n) => n.id)).toEqual(['h1', 'h2', 'h3', 'h5']);
+  });
+
+  it('reports skips stranded by a dropped rule add', () => {
+    const day = daysFromCivil(2026, 9, 23);
+    const nodes = [
+      entry('h1', add('a')),
+      entry('h2', { kind: 'add_block_rule', id: 'r1', name: 'standup', freq: 'daily', interval: 1, startDate: { year: 2026, month: 9, day: 23 }, timeOfDay: { hour: 10, minute: 0 }, duration: 3600000, byDay: [3], tzOffset: 0 }), // daily rules take no selectors
+      entry('h3', { kind: 'skip_occurrence', ruleId: 'r1', day }), // its rule was dropped
+    ];
+    const plan = planDropRepair(nodes);
+    expect(plan.dropped.map((d) => d.entry.id)).toEqual(['h2', 'h3']);
+    expect(plan.dropped[0].reason).toContain('daily rules take no selectors');
+    expect(plan.dropped[1].reason).toContain('unknown rule id: r1');
     expect(plan.repaired.map((n) => n.id)).toEqual(['h1']);
   });
 

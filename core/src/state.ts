@@ -71,6 +71,11 @@ export class WorktreeState {
         return;
       }
       case 'remove_block':
+      case 'add_block_rule':
+      case 'edit_block_rule':
+      case 'remove_block_rule':
+      case 'skip_occurrence':
+      case 'unskip_occurrence':
         this.calendar.apply(op);
         return;
       default:

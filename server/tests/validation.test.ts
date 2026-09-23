@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ROOT_ID, WorktreeState } from '@worktree/core';
+import { ROOT_ID, WorktreeState, daysFromCivil } from '@worktree/core';
 import type { HistoryOperation, Operation, TreeOperation } from '@worktree/core';
 import { validateOps } from '../src/validation';
 
@@ -7,6 +7,21 @@ const addOp = (parentId: string, id: string): TreeOperation =>
   ({ kind: 'add', parentId, id, name: id, weight: 1 });
 
 const histAdd = (id: string, op: Operation): HistoryOperation => ({ kind: 'add', id, op });
+
+const WEEKLY = daysFromCivil(2026, 9, 23);
+
+/** A valid weekly rule op; variants are written out in full. */
+const ruleOp = (): Operation => ({
+  kind: 'add_block_rule',
+  id: 'r1',
+  name: 'standup',
+  freq: 'weekly',
+  interval: 1,
+  startDate: { year: 2026, month: 9, day: 23 },
+  timeOfDay: { hour: 9, minute: 0 },
+  duration: 3_600_000,
+  tzOffset: 0,
+});
 
 describe('validateOps', () => {
   it('accepts ops that apply cleanly to the current tree', () => {
@@ -304,5 +319,82 @@ describe('validateOps', () => {
       state,
     );
     expect(result.ok).toBe(true);
+  });
+
+  it('accepts a valid rule and an idempotent repeat skip of its occurrence', () => {
+    const state = new WorktreeState();
+    expect(validateOps([histAdd('h1', ruleOp())], state).ok).toBe(true);
+
+    const withSkip = WorktreeState.fromOps([
+      ruleOp(),
+      { kind: 'skip_occurrence', ruleId: 'r1', day: WEEKLY },
+    ]);
+    expect(withSkip.calendar.getSkips('r1')).toEqual([WEEKLY]);
+    // A double click or a second device must not manufacture a conflict.
+    expect(validateOps([histAdd('h2', { kind: 'skip_occurrence', ruleId: 'r1', day: WEEKLY })], withSkip).ok).toBe(true);
+    expect(validateOps([histAdd('h3', { kind: 'unskip_occurrence', ruleId: 'r1', day: WEEKLY })], withSkip).ok).toBe(true);
+  });
+
+  it('rejects a rule whose selectors do not fit its frequency', () => {
+    const state = new WorktreeState();
+    const bad: Operation = {
+      kind: 'add_block_rule',
+      id: 'r1',
+      name: 'rent',
+      freq: 'monthly',
+      interval: 1,
+      startDate: { year: 2026, month: 1, day: 15 },
+      timeOfDay: { hour: 9, minute: 0 },
+      duration: 3_600_000,
+      tzOffset: 0,
+      byDay: [1],
+      byMonthDay: [15],
+    };
+    const result = validateOps([histAdd('h1', bad)], state);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('byMonthDay or byDay, not both');
+  });
+
+  it('rejects a skip of a day the rule has no occurrence on', () => {
+    const state = WorktreeState.fromOps([ruleOp()]);
+    const result = validateOps(
+      [histAdd('h1', { kind: 'skip_occurrence', ruleId: 'r1', day: WEEKLY + 1 })],
+      state,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('is not an occurrence');
+  });
+
+  it('rejects a skip and an edit of an unknown rule', () => {
+    const state = new WorktreeState();
+    expect(validateOps([histAdd('h1', { kind: 'skip_occurrence', ruleId: 'missing', day: 0 })], state).ok).toBe(false);
+    expect(validateOps([histAdd('h1', { kind: 'edit_block_rule', id: 'missing', name: 'x' })], state).ok).toBe(false);
+    expect(validateOps([histAdd('h1', { kind: 'edit_block_rule', id: 'missing' })], state).ok).toBe(false);
+  });
+
+  it('clears the rule\'s skips on a day-set edit but keeps them on a time tweak', () => {
+    const skipped = WorktreeState.fromOps([ruleOp(), { kind: 'skip_occurrence', ruleId: 'r1', day: WEEKLY }]);
+    expect(
+      validateOps([histAdd('h1', { kind: 'edit_block_rule', id: 'r1', timeOfDay: { hour: 11, minute: 0 } })], skipped).ok,
+    ).toBe(true);
+    const tweaked = WorktreeState.fromOps([
+      ruleOp(),
+      { kind: 'skip_occurrence', ruleId: 'r1', day: WEEKLY },
+      { kind: 'edit_block_rule', id: 'r1', timeOfDay: { hour: 11, minute: 0 } },
+    ]);
+    expect(tweaked.calendar.getSkips('r1')).toEqual([WEEKLY]);
+
+    const changed = WorktreeState.fromOps([
+      ruleOp(),
+      { kind: 'skip_occurrence', ruleId: 'r1', day: WEEKLY },
+      { kind: 'edit_block_rule', id: 'r1', byDay: [4] },
+    ]);
+    expect(changed.calendar.getSkips('r1')).toEqual([]);
+  });
+
+  it('accepts removing an already-removed rule (idempotent)', () => {
+    const state = WorktreeState.fromOps([ruleOp(), { kind: 'remove_block_rule', id: 'r1' }]);
+    expect(state.calendar.ruleCount()).toBe(0);
+    expect(validateOps([histAdd('h1', { kind: 'remove_block_rule', id: 'r1' })], state).ok).toBe(true);
   });
 });

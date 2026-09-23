@@ -6,6 +6,10 @@ const timestamp = z.number().int().nonnegative();
 const id = z.string().min(1);
 
 const timestampField = timestamp.optional();
+const intArray = z.array(z.number().int());
+const civilDate = z.object({ year: z.number().int(), month: z.number().int(), day: z.number().int() });
+const civilTime = z.object({ hour: z.number().int(), minute: z.number().int() });
+const ruleFreq = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
 
 const treeOperation = z.discriminatedUnion('kind', [
   z.object({
@@ -86,6 +90,45 @@ const calendarOperation = z.discriminatedUnion('kind', [
   }),
   z.object({ kind: z.literal('complete_block'), id, timestamp: timestampField }),
   z.object({ kind: z.literal('uncomplete_block'), id, timestamp: timestampField }),
+  z.object({
+    kind: z.literal('add_block_rule'),
+    id,
+    name: z.string(),
+    freq: ruleFreq,
+    interval: z.number().int(),
+    startDate: civilDate,
+    timeOfDay: civilTime,
+    duration: timestamp,
+    byDay: intArray.optional(),
+    byMonthDay: intArray.optional(),
+    byMonth: intArray.optional(),
+    bySetPos: z.number().int().optional(),
+    until: timestamp.optional(),
+    tzOffset: z.number().int(),
+    note: z.string().optional(),
+    timestamp: timestampField,
+  }),
+  z.object({
+    kind: z.literal('edit_block_rule'),
+    id,
+    name: z.string().optional(),
+    note: z.string().optional(),
+    freq: ruleFreq.optional(),
+    interval: z.number().int().optional(),
+    startDate: civilDate.optional(),
+    timeOfDay: civilTime.optional(),
+    duration: timestamp.optional(),
+    byDay: intArray.nullable().optional(),
+    byMonthDay: intArray.nullable().optional(),
+    byMonth: intArray.nullable().optional(),
+    bySetPos: z.number().int().nullable().optional(),
+    until: timestamp.nullable().optional(),
+    active: z.boolean().optional(),
+    timestamp: timestampField,
+  }),
+  z.object({ kind: z.literal('remove_block_rule'), id, timestamp: timestampField }),
+  z.object({ kind: z.literal('skip_occurrence'), ruleId: id, day: z.number().int(), timestamp: timestampField }),
+  z.object({ kind: z.literal('unskip_occurrence'), ruleId: id, day: z.number().int(), timestamp: timestampField }),
 ]);
 
 export const operationSchema: z.ZodType<Operation> = z.discriminatedUnion('kind', [

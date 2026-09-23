@@ -89,6 +89,18 @@ process ops in order, atomically:
       edit_block: block exists, patch has at least one field; merged start/end must
         satisfy start < end; a relink must reference an existing, unlinked node
       complete_block/uncomplete_block: block exists
+      add_block_rule: new_id unused, the rule validates (name, interval, civil
+        start date not before 1970-01-01, time/duration ranges, whole-minute
+        tz_offset, and the selectors its freq allows; see data_structure.md)
+      edit_block_rule: rule exists, patch has at least one field; the merged rule
+        revalidates; a patch touching the day set (freq/interval/startDate/
+        selectors/until) clears the rule's skips
+      remove_block_rule: no-op when the target is already gone (idempotent);
+        drops the rule's skips
+      skip_occurrence/unskip_occurrence: rule exists and the day is an occurrence
+        of it (`day is not an occurrence: <ruleId> <day>` otherwise); repeating
+        either one is an idempotent no-op (double clicks and concurrent devices
+        must not manufacture a conflict)
 
 block↔node completion propagation (see data_structure.md) is derived state
 inside a single apply — it never appends history ops, so the broadcast

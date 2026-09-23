@@ -601,4 +601,9 @@ describe('Tree', () => {
     const clone = tree.clone();
     expect(clone.getNode('a')).toMatchObject({ note: 'n', createdAt: 7, deadline: 50, completedAt: 100 });
   });
+
+  it('throws on an unknown op kind instead of ignoring it', () => {
+    const tree = new Tree();
+    expect(() => tree.apply({ kind: 'explode' } as unknown as TreeOperation)).toThrow(/unknown tree op kind/);
+  });
 });

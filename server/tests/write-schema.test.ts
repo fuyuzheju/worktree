@@ -51,6 +51,19 @@ const fractionalReminder = (): Operation => ({
   deadline: 1000.5,
 });
 
+/** Fails the op schema: tzOffset must be whole minutes. */
+const fractionalRule = (): Operation => ({
+  kind: 'add_block_rule',
+  id: 'r1',
+  name: 'standup',
+  freq: 'weekly',
+  interval: 1,
+  startDate: { year: 2026, month: 9, day: 23 },
+  timeOfDay: { hour: 9, minute: 0 },
+  duration: 3_600_000,
+  tzOffset: 1000.5,
+});
+
 function submit(app: Express, token: string, htrop: HistoryOperation[]) {
   return request(app).post('/api/submit').set('Authorization', `Bearer ${token}`).send({ htrop });
 }
@@ -69,6 +82,18 @@ describe('write schema validation', () => {
     expect(bad.body.reason).toContain('op schema');
 
     expect((await store.all(ALICE)).map((n) => n.id)).toEqual(['h1']);
+  });
+
+  it('rejects a rule with a fractional tz offset with 400 and appends nothing', async () => {
+    const { app, store } = makeApp();
+    const token = await register(app);
+
+    const bad = await submit(app, token, [{ kind: 'add', id: 'h1', op: fractionalRule() }]);
+    expect(bad.status).toBe(400);
+    expect(bad.body.conflict_id).toBe('h1');
+    expect(bad.body.reason).toContain('op schema');
+
+    expect(await store.all(ALICE)).toEqual([]);
   });
 
   it('rewrite rejects a history with an unreadable op with 400 and keeps the stored one', async () => {

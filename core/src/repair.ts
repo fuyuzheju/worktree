@@ -1,4 +1,5 @@
 import { WorktreeState } from './state';
+import { civilFromDays, formatCivilDate } from './civil';
 import type { HistoryNode, Operation } from './types';
 
 /** An entry a repair drops, with a description of what it targeted. */
@@ -64,6 +65,19 @@ function describe(state: WorktreeState, op: Operation): string {
     case 'remove_reminder':
     case 'edit_reminder':
       return `${op.kind} ${op.rmdId}`;
+    case 'add_block_rule':
+      return `add_block_rule "${op.name}"`;
+    case 'edit_block_rule':
+    case 'remove_block_rule': {
+      const rule = state.calendar.getRules().find((r) => r.id === op.id);
+      return rule === undefined ? `${op.kind} ${op.id}` : `${op.kind} "${rule.name}"`;
+    }
+    case 'skip_occurrence':
+    case 'unskip_occurrence': {
+      const rule = state.calendar.getRules().find((r) => r.id === op.ruleId);
+      const date = formatCivilDate(civilFromDays(op.day));
+      return rule === undefined ? `${op.kind} ${op.ruleId} ${date}` : `${op.kind} "${rule.name}" ${date}`;
+    }
     case 'remove':
       return `undo ${op.id}`;
     default: {

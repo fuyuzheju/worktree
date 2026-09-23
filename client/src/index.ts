@@ -1,5 +1,5 @@
-export { WorktreeClient } from './client';
-export type { WorktreeClientOptions } from './client';
+export { WorktreeClient, deviceTzOffset } from './client';
+export type { BlockRuleInput, BlockRulePatch, WorktreeClientOptions } from './client';
 export {
   AUTO_REMINDER_PCT_MAX,
   AUTO_REMINDER_PCT_MIN,

@@ -191,6 +191,11 @@ export class Tree {
         if (op.deadline !== undefined) node.deadline = op.deadline ?? undefined;
         return [];
       }
+      default: {
+        // An op kind with no case must abort the replay, never be ignored.
+        const unknown: never = op;
+        throw new Error(`unknown tree op kind: ${JSON.stringify(unknown)}`);
+      }
     }
   }
 

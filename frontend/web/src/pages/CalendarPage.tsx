@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Node } from '@worktree/core';
+import type { Block, BlockOccurrence, Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import type { DisplayPrefs } from '../config';
 import { useI18n } from '../i18n';
@@ -22,10 +22,22 @@ import {
   parseDateInput,
 } from '../calendar-utils';
 import { BlockDetailPanel } from '../components/BlockDetailPanel';
-import { ChevronLeftIcon, ChevronRightIcon } from '../components/icons';
+import { RuleDetailPanel, ruleSummary } from '../components/RuleDetailPanel';
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from '../components/icons';
 
 /** Nominal canvas height used by layoutBlocks; the render normalizes to %. */
 const DAY_PX = 24 * DEFAULT_PX_PER_HOUR;
+
+/** What the grid draws: a real block or a derived rule occurrence. */
+type GridEntry =
+  | { kind: 'block'; id: string; start: number; end: number; block: Block }
+  | { kind: 'occurrence'; id: string; start: number; end: number; occ: BlockOccurrence };
+
+type Editing =
+  | { mode: 'add' }
+  | { mode: 'edit'; id: string }
+  | { mode: 'add-rule' }
+  | { mode: 'rule'; ruleId: string; day?: number };
 
 export function CalendarPage(props: {
   client: WorktreeClient;
@@ -39,20 +51,61 @@ export function CalendarPage(props: {
   const { client, tree, display, calendarDays, nowMs = Date.now() } = props;
   const isMobile = useIsMobile();
   const [anchor, setAnchor] = useState<number>(() => dayStartMs(nowMs));
-  const [editing, setEditing] = useState<null | { mode: 'add' } | { mode: 'edit'; id: string }>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const blocks = client.getBlocks();
-  const bars = useMemo(() => layoutBlocks(blocks, anchor, calendarDays), [blocks, anchor, calendarDays]);
+  const rules = client.getRules();
+  // Blocks and occurrences share one lane pool, so a rule never hides a block.
+  const entries = useMemo(() => {
+    const blockEntries: GridEntry[] = blocks.map((block) => ({
+      kind: 'block',
+      id: block.id,
+      start: block.start,
+      end: block.end,
+      block,
+    }));
+    const occurrenceEntries: GridEntry[] = client
+      .expandOccurrences(anchor, anchor + calendarDays * DAY_MS)
+      .map((occ) => ({ kind: 'occurrence', id: occ.id, start: occ.occStart, end: occ.occEnd, occ }));
+    return [...blockEntries, ...occurrenceEntries];
+  }, [blocks, client, anchor, calendarDays]);
+  const bars = useMemo(() => layoutBlocks(entries, anchor, calendarDays), [entries, anchor, calendarDays]);
   const days = useMemo(
     () => Array.from({ length: calendarDays }, (_, i) => anchor + i * DAY_MS),
     [anchor, calendarDays],
   );
 
   const editBlock = editing?.mode === 'edit' ? (blocks.find((b) => b.id === editing.id) ?? null) : null;
+  const editRule =
+    editing?.mode === 'rule' ? (rules.find((r) => r.id === editing.ruleId) ?? null) : null;
+  const editRuleDay = editing?.mode === 'rule' ? editing.day : undefined;
 
   const nav = (delta: number): void => setAnchor((a) => a + delta * DAY_MS);
 
-  const addBlock = (): void => setEditing({ mode: 'add' });
+  const detailPanel =
+    editBlock !== null ? (
+      <BlockDetailPanel
+        key={editBlock.id}
+        bare
+        block={editBlock}
+        client={client}
+        tree={tree}
+        display={display}
+        nowMs={nowMs}
+        onClose={() => setEditing(null)}
+      />
+    ) : editRule !== null ? (
+      <RuleDetailPanel
+        key={editRule.id}
+        bare
+        rule={editRule}
+        day={editRuleDay}
+        client={client}
+        nowMs={nowMs}
+        onClose={() => setEditing(null)}
+      />
+    ) : null;
 
   return (
     <div className={`flex w-full flex-1 min-h-0 ${isMobile ? 'flex-col' : ''}`}>
@@ -98,8 +151,27 @@ export function CalendarPage(props: {
           <div className="flex-1" />
           <button
             type="button"
+            data-testid="calendar-rules"
+            onClick={() => {
+              setEditing(null);
+              setRulesOpen(true);
+            }}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            {t('rule.listTitle')}
+          </button>
+          <button
+            type="button"
+            data-testid="calendar-add-rule"
+            onClick={() => setEditing({ mode: 'add-rule' })}
+            className="rounded bg-teal-600 px-3 py-1 text-xs text-white hover:bg-teal-700"
+          >
+            + {t('rule.add')}
+          </button>
+          <button
+            type="button"
             data-testid="calendar-add"
-            onClick={addBlock}
+            onClick={() => setEditing({ mode: 'add' })}
             className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
           >
             + {t('calendar.add')}
@@ -154,34 +226,57 @@ export function CalendarPage(props: {
               ) : null,
             )}
             {bars.map((bar) => {
-              const linked = bar.block.nodeId !== undefined ? findNode(tree, bar.block.nodeId) : undefined;
+              const entry = bar.item;
+              const geometry = {
+                top: `${(bar.topPx / DAY_PX) * 100}%`,
+                height: `${(bar.heightPx / DAY_PX) * 100}%`,
+                // Each lane occupies 1/lanes of the day column; the old
+                // `1 - lane/lanes` width made lane 0 span the whole column.
+                left: dayOffsetCalc((bar.dayIndex + bar.lane / bar.lanes) / calendarDays),
+                width: dayWidthCalc(1 / bar.lanes / calendarDays),
+              };
+              const base = 'absolute overflow-hidden rounded p-1 text-left text-white min-h-[14px] hover:brightness-95';
+              if (entry.kind === 'block') {
+                const linked = entry.block.nodeId !== undefined ? findNode(tree, entry.block.nodeId) : undefined;
+                const selected = editing?.mode === 'edit' && editing.id === bar.id;
+                return (
+                  <button
+                    key={`${bar.id}#${bar.dayIndex}`}
+                    type="button"
+                    data-testid={`block-${bar.id}`}
+                    onClick={() => setEditing({ mode: 'edit', id: bar.id })}
+                    title={entry.block.name + (linked ? ` · ${linked.name}` : '')}
+                    className={`${base} ${selected ? 'ring-2 ring-inset ring-blue-300' : ''}`}
+                    style={{
+                      ...geometry,
+                      backgroundColor: blockColor(bar.id),
+                      opacity: entry.block.status ? 0.5 : undefined,
+                    }}
+                  >
+                    <span className="block truncate text-xs">{entry.block.name}</span>
+                    {linked !== undefined && (
+                      <span className="block truncate text-[10px] opacity-80">{linked.name}</span>
+                    )}
+                  </button>
+                );
+              }
+              const selected =
+                editing?.mode === 'rule' &&
+                editing.ruleId === entry.occ.ruleId &&
+                editing.day === entry.occ.day;
               return (
                 <button
                   key={`${bar.id}#${bar.dayIndex}`}
                   type="button"
-                  data-testid={`block-${bar.id}`}
-                  onClick={() => setEditing({ mode: 'edit', id: bar.id })}
-                  title={bar.block.name + (linked ? ` · ${linked.name}` : '')}
-                  className={`absolute overflow-hidden rounded p-1 text-left text-white min-h-[14px] ${
-                    bar.block.status ? '' : 'hover:brightness-95'
-                  } ${
-                    editing?.mode === 'edit' && editing.id === bar.id
-                      ? 'ring-2 ring-inset ring-blue-300'
-                      : ''
+                  data-testid={`occurrence-${bar.id}`}
+                  onClick={() => setEditing({ mode: 'rule', ruleId: entry.occ.ruleId, day: entry.occ.day })}
+                  title={entry.occ.name}
+                  className={`${base} border border-dashed border-white/80 ${
+                    selected ? 'ring-2 ring-inset ring-blue-300' : ''
                   }`}
-                  style={{
-                    backgroundColor: blockColor(bar.id),
-                    opacity: bar.block.status ? 0.5 : undefined,
-                    top: `${(bar.topPx / DAY_PX) * 100}%`,
-                    height: `${(bar.heightPx / DAY_PX) * 100}%`,
-                    left: dayOffsetCalc((bar.dayIndex + bar.lane / bar.lanes) / calendarDays),
-                    width: dayWidthCalc((1 - bar.lane / bar.lanes) / calendarDays),
-                  }}
+                  style={{ ...geometry, backgroundColor: blockColor(entry.occ.ruleId) }}
                 >
-                  <span className="block truncate text-xs">{bar.block.name}</span>
-                  {linked !== undefined && (
-                    <span className="block truncate text-[10px] opacity-80">{linked.name}</span>
-                  )}
+                  <span className="block truncate text-xs">{entry.occ.name}</span>
                 </button>
               );
             })}
@@ -190,34 +285,14 @@ export function CalendarPage(props: {
       </div>
 
       {isMobile ? (
-        editBlock !== null && (
+        detailPanel !== null && (
           <div className="max-h-[55vh] min-h-[55vh] w-full overflow-y-auto rounded-t-2xl border-t border-gray-300 bg-white shadow-2xl">
-            <BlockDetailPanel
-              key={editBlock.id}
-              bare
-              block={editBlock}
-              client={client}
-              tree={tree}
-              display={display}
-              nowMs={nowMs}
-              onClose={() => setEditing(null)}
-            />
+            {detailPanel}
           </div>
         )
       ) : (
         <div className="w-96 shrink-0">
-          {editBlock !== null ? (
-            <BlockDetailPanel
-              key={editBlock.id}
-              bare
-              block={editBlock}
-              client={client}
-              tree={tree}
-              display={display}
-              nowMs={nowMs}
-              onClose={() => setEditing(null)}
-            />
-          ) : (
+          {detailPanel ?? (
             <div className="rounded border border-gray-300 bg-white p-4 text-sm text-gray-500">
               {t('calendar.hint')}
             </div>
@@ -244,6 +319,71 @@ export function CalendarPage(props: {
               nowMs={nowMs}
               onClose={() => setEditing(null)}
             />
+          </div>
+        </div>
+      )}
+
+      {editing?.mode === 'add-rule' && (
+        <div
+          data-testid="rule-modal"
+          className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setEditing(null)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90vh] overflow-auto rounded-lg border border-gray-300 bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <RuleDetailPanel bare rule={null} client={client} nowMs={nowMs} onClose={() => setEditing(null)} />
+          </div>
+        </div>
+      )}
+
+      {rulesOpen && (
+        <div
+          data-testid="rule-list-modal"
+          className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setRulesOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg max-h-[90vh] overflow-auto rounded-lg border border-gray-300 bg-white p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold">{t('rule.listTitle')}</h2>
+              <button
+                type="button"
+                data-testid="rule-list-close"
+                onClick={() => setRulesOpen(false)}
+                className="inline-flex items-center rounded px-3 py-1.5 text-gray-500 hover:bg-gray-100 md:px-2 md:py-0.5"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            </div>
+            {rules.length === 0 ? (
+              <p className="mt-3 text-sm text-gray-500">{t('rule.listEmpty')}</p>
+            ) : (
+              <ul className="mt-3 space-y-1">
+                {rules.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      data-testid={`rule-list-${r.id}`}
+                      onClick={() => {
+                        setRulesOpen(false);
+                        setEditing({ mode: 'rule', ruleId: r.id });
+                      }}
+                      className="w-full rounded border border-gray-200 px-3 py-2 text-left hover:bg-gray-50"
+                    >
+                      <span className="block text-sm text-gray-900">
+                        {r.name}
+                        {r.active ? '' : ` · ${t('rule.off')}`}
+                      </span>
+                      <span className="block truncate text-xs text-gray-500">{ruleSummary(r, t)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}

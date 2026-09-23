@@ -177,4 +177,23 @@ describe('layoutBlocks', () => {
     expect(byId['B']!.lanes).toBe(2);
     expect(byId['C']!.lanes).toBe(1);
   });
+
+  it('lays a block and a rule occurrence out in the same lane pool', () => {
+    // Multi-day blocks split per day, so a 3-day rule segment can share a day
+    // column with an unrelated block.
+    const bars = layoutBlocks(
+      [
+        blk('b1', jan(15, 9), jan(15, 10)),
+        { id: 'r1:0', start: jan(15, 9, 30), end: jan(15, 10, 30) },
+        { id: 'r1:1', start: jan(16, 9, 30), end: jan(16, 10, 30) },
+      ],
+      gridStart,
+      7,
+    );
+    const byId = Object.fromEntries(bars.map((b) => [b.id, b]));
+    expect(byId['b1']).toMatchObject({ lane: 0, lanes: 2 });
+    expect(byId['r1:0']).toMatchObject({ lane: 1, lanes: 2 });
+    expect(byId['r1:1']).toMatchObject({ lane: 0, lanes: 1 });
+    expect(byId['r1:0']!.item.id).toBe('r1:0');
+  });
 });

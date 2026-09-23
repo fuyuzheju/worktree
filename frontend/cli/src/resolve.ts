@@ -1,4 +1,4 @@
-import type { Block, Node } from '@worktree/core';
+import type { Block, BlockRule, Node } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
 
 export class AmbiguousRefError extends Error {
@@ -103,6 +103,23 @@ export function resolveBlock(blocks: Block[], ref: string): Block {
     throw new Error(`ambiguous block name '${ref}': ${byName.map((b) => b.id.slice(0, 4)).join(', ')}`);
   }
   throw new Error(`unknown block reference: ${ref}`);
+}
+
+/** Resolve a rule reference: exact id, unique id prefix, or unique name. */
+export function resolveRule(rules: BlockRule[], ref: string): BlockRule {
+  const exact = rules.find((r) => r.id === ref);
+  if (exact) return exact;
+  const prefix = rules.filter((r) => r.id.startsWith(ref));
+  if (prefix.length === 1) return prefix[0];
+  if (prefix.length > 1) {
+    throw new Error(`ambiguous rule reference '${ref}': ${prefix.map((r) => `${r.name} [${r.id.slice(0, 4)}]`).join(', ')}`);
+  }
+  const byName = rules.filter((r) => r.name === ref);
+  if (byName.length === 1) return byName[0];
+  if (byName.length > 1) {
+    throw new Error(`ambiguous rule name '${ref}': ${byName.map((r) => r.id.slice(0, 4)).join(', ')}`);
+  }
+  throw new Error(`unknown rule reference: ${ref}`);
 }
 
 export function resolvePath(root: Node, base: Node, path: string): Node {

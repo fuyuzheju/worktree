@@ -2,12 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Tree } from '@worktree/core';
 import { ROOT_ID } from '@worktree/core';
-import type { Block, Node } from '@worktree/core';
+import type { Block, BlockOccurrence, BlockRule, Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { I18nProvider } from '../src/i18n';
 import type { DisplayPrefs } from '../src/config';
 import { FilterProvider } from '../src/filter-context';
-import { DEFAULT_PX_PER_HOUR, dayWidthCalc } from '../src/calendar-utils';
+import { DEFAULT_PX_PER_HOUR, blockColor, dayWidthCalc } from '../src/calendar-utils';
 import { CalendarPage } from '../src/pages/CalendarPage';
 
 /** The grid renders heights as percentages of the 24h day. */
@@ -34,24 +34,67 @@ const blk = (id: string, start: number, end: number, status = false, nodeId?: st
   nodeId,
 });
 
-function makeClient(blocks: Block[]): WorktreeClient & {
+const ruleOf = (over: Partial<BlockRule> = {}): BlockRule => ({
+  id: 'r1',
+  name: 'standup',
+  note: '',
+  freq: 'weekly',
+  interval: 1,
+  startDate: { year: 2026, month: 1, day: 14 },
+  timeOfDay: { hour: 9, minute: 0 },
+  duration: 3_600_000,
+  byDay: [3],
+  tzOffset: 0,
+  active: true,
+  ...over,
+});
+
+/** The grid draws occurrences at their absolute times; the day key is opaque to it. */
+const occ = (start: number, end: number, over: Partial<BlockOccurrence> = {}): BlockOccurrence => ({
+  ruleId: 'r1',
+  day: 42,
+  occStart: start,
+  occEnd: end,
+  id: 'r1:42',
+  name: 'standup',
+  note: '',
+  ...over,
+});
+
+type FakeClient = WorktreeClient & {
   addBlock: ReturnType<typeof vi.fn>;
   editBlock: ReturnType<typeof vi.fn>;
   removeBlock: ReturnType<typeof vi.fn>;
   setBlockCompleted: ReturnType<typeof vi.fn>;
-} {
+  expandOccurrences: ReturnType<typeof vi.fn>;
+  getSkips: ReturnType<typeof vi.fn>;
+  addBlockRule: ReturnType<typeof vi.fn>;
+  editBlockRule: ReturnType<typeof vi.fn>;
+  removeBlockRule: ReturnType<typeof vi.fn>;
+  skipOccurrence: ReturnType<typeof vi.fn>;
+  unskipOccurrence: ReturnType<typeof vi.fn>;
+};
+
+function makeClient(
+  blocks: Block[],
+  opts: { rules?: BlockRule[]; occurrences?: BlockOccurrence[]; skips?: number[] } = {},
+): FakeClient {
+  const { rules = [], occurrences = [], skips = [] } = opts;
   return {
     getBlocks: () => blocks,
+    getRules: () => rules,
+    expandOccurrences: vi.fn(() => occurrences),
+    getSkips: vi.fn(() => skips),
     addBlock: vi.fn(),
     editBlock: vi.fn(),
     removeBlock: vi.fn(),
     setBlockCompleted: vi.fn(),
-  } as unknown as WorktreeClient & {
-    addBlock: ReturnType<typeof vi.fn>;
-    editBlock: ReturnType<typeof vi.fn>;
-    removeBlock: ReturnType<typeof vi.fn>;
-    setBlockCompleted: ReturnType<typeof vi.fn>;
-  };
+    addBlockRule: vi.fn(),
+    editBlockRule: vi.fn(),
+    removeBlockRule: vi.fn(),
+    skipOccurrence: vi.fn(),
+    unskipOccurrence: vi.fn(),
+  } as unknown as FakeClient;
 }
 
 function renderPage(client: WorktreeClient, calendarDays = 3) {
@@ -210,5 +253,89 @@ describe('CalendarPage block editing', () => {
     expect(screen.queryByTestId('node-picker')).toBeNull();
     fireEvent.click(screen.getByTestId('block-save'));
     expect(client.editBlock).toHaveBeenCalledWith('b1', expect.objectContaining({ nodeId: 'b' }));
+  });
+});
+
+describe('CalendarPage rule occurrences', () => {
+  it('renders an occurrence as a dashed bar at its time', () => {
+    renderPage(
+      makeClient([], { rules: [ruleOf()], occurrences: [occ(day(15, 9), day(15, 10, 30))] }),
+    );
+    const bar = screen.getByTestId('occurrence-r1:42');
+    expect(bar.style.top).toBe(pct(9 * DEFAULT_PX_PER_HOUR));
+    expect(bar.style.height).toBe(pct(1.5 * DEFAULT_PX_PER_HOUR));
+    expect(bar.className).toContain('border-dashed');
+    expect(bar.textContent).toContain('standup');
+    // jsdom normalizes colors; compare through the same normalization.
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = blockColor('r1');
+    expect(bar.style.backgroundColor).toBe(probe.style.backgroundColor);
+  });
+
+  it('expands occurrences over the visible window', () => {
+    const client = makeClient([], { rules: [ruleOf()], occurrences: [] });
+    renderPage(client, 3);
+    expect(client.expandOccurrences).toHaveBeenCalledWith(day(15, 0), day(18, 0));
+  });
+
+  it('shares lanes between blocks and occurrences', () => {
+    renderPage(
+      makeClient([blk('b1', day(15, 9), day(15, 10))], {
+        rules: [ruleOf()],
+        occurrences: [occ(day(15, 9), day(15, 10))],
+      }),
+    );
+    const blockBar = screen.getByTestId('block-b1');
+    const occBar = screen.getByTestId('occurrence-r1:42');
+    expect(blockBar.style.width).toBe(dayWidthCalc(1 / 6));
+    expect(occBar.style.width).toBe(dayWidthCalc(1 / 6));
+    expect(blockBar.style.left).not.toBe(occBar.style.left);
+  });
+
+  it('opens the rule panel from an occurrence and skips that day', () => {
+    const client = makeClient([], {
+      rules: [ruleOf()],
+      occurrences: [occ(day(15, 9), day(15, 10))],
+    });
+    renderPage(client);
+    fireEvent.click(screen.getByTestId('occurrence-r1:42'));
+    expect(screen.getByTestId('rule-detail')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('rule-skip'));
+    expect(client.skipOccurrence).toHaveBeenCalledWith('r1', 42);
+  });
+
+  it('lists the rules and reaches one without occurrences', () => {
+    const client = makeClient([], {
+      rules: [ruleOf({ id: 'r1', name: 'standup' }), ruleOf({ id: 'r2', name: 'lecture', active: false })],
+    });
+    renderPage(client);
+    fireEvent.click(screen.getByTestId('calendar-rules'));
+    expect(screen.getByTestId('rule-list-r2').textContent).toContain('lecture');
+    fireEvent.click(screen.getByTestId('rule-list-r2'));
+    expect(screen.queryByTestId('rule-list-modal')).toBeNull();
+    expect(screen.getByTestId('rule-name')).toHaveValue('lecture');
+    // No occurrence was clicked, so there is no day to skip.
+    expect(screen.queryByTestId('rule-skip')).toBeNull();
+  });
+
+  it('creates a rule through the add modal', () => {
+    const client = makeClient([]);
+    renderPage(client);
+    fireEvent.click(screen.getByTestId('calendar-add-rule'));
+    expect(screen.getByTestId('rule-modal')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('rule-name'), { target: { value: 'standup' } });
+    fireEvent.change(screen.getByTestId('rule-freq'), { target: { value: 'weekly' } });
+    fireEvent.click(screen.getByTestId('rule-day-2'));
+    fireEvent.click(screen.getByTestId('rule-save'));
+    expect(client.addBlockRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'standup',
+        freq: 'weekly',
+        interval: 1,
+        duration: 3_600_000,
+        byDay: [2, 4],
+      }),
+    );
+    expect(screen.queryByTestId('rule-modal')).toBeNull();
   });
 });

@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { operationSchema } from '../src/schema';
 
+const ruleOp = {
+  kind: 'add_block_rule',
+  id: 'r1',
+  name: 'Standup',
+  note: 'n',
+  freq: 'monthly',
+  interval: 2,
+  startDate: { year: 2026, month: 1, day: 15 },
+  timeOfDay: { hour: 9, minute: 30 },
+  duration: 3600000,
+  byMonthDay: [15, -1],
+  tzOffset: -18000000,
+};
+
 describe('operationSchema', () => {
   it('accepts every op kind', () => {
     const ops = [
@@ -20,6 +34,19 @@ describe('operationSchema', () => {
       { kind: 'edit_block', id: 'b1', nodeId: null },
       { kind: 'complete_block', id: 'b1' },
       { kind: 'uncomplete_block', id: 'b1' },
+      ruleOp,
+      {
+        kind: 'edit_block_rule',
+        id: 'r1',
+        freq: 'weekly',
+        byDay: [1, 3],
+        byMonthDay: null,
+        until: null,
+        active: false,
+      },
+      { kind: 'remove_block_rule', id: 'r1' },
+      { kind: 'skip_occurrence', ruleId: 'r1', day: 100 },
+      { kind: 'unskip_occurrence', ruleId: 'r1', day: 100 },
     ];
     for (const op of ops) {
       expect(operationSchema.parse(op)).toEqual(op);
@@ -50,6 +77,11 @@ describe('operationSchema', () => {
       { kind: 'edit_block', id: 'b1', nodeId: null },
       { kind: 'complete_block', id: 'b1' },
       { kind: 'uncomplete_block', id: 'b1' },
+      ruleOp,
+      { kind: 'edit_block_rule', id: 'r1', name: 'Other' },
+      { kind: 'remove_block_rule', id: 'r1' },
+      { kind: 'skip_occurrence', ruleId: 'r1', day: 100 },
+      { kind: 'unskip_occurrence', ruleId: 'r1', day: 100 },
     ];
     for (const op of ops) {
       expect(operationSchema.parse({ ...op, timestamp: 123 })).toEqual({ ...op, timestamp: 123 });
@@ -76,5 +108,16 @@ describe('operationSchema', () => {
       false,
     );
     expect(operationSchema.safeParse({ kind: 'remove', id: '' }).success).toBe(false);
+  });
+
+  it('rejects fractional rule fields', () => {
+    expect(operationSchema.safeParse({ ...ruleOp, duration: 1.5 }).success).toBe(false);
+    expect(operationSchema.safeParse({ ...ruleOp, tzOffset: 1000.5 }).success).toBe(false);
+    expect(operationSchema.safeParse({ ...ruleOp, interval: 2.5 }).success).toBe(false);
+    expect(operationSchema.safeParse({ ...ruleOp, startDate: { year: 2026, month: 1.5, day: 15 } }).success).toBe(false);
+    expect(operationSchema.safeParse({ ...ruleOp, timeOfDay: { hour: 9, minute: 30.5 } }).success).toBe(false);
+    expect(operationSchema.safeParse({ ...ruleOp, byMonthDay: [15.5] }).success).toBe(false);
+    expect(operationSchema.safeParse({ kind: 'skip_occurrence', ruleId: 'r1', day: 1.5 }).success).toBe(false);
+    expect(operationSchema.safeParse({ ...ruleOp, freq: 'hourly' }).success).toBe(false);
   });
 });

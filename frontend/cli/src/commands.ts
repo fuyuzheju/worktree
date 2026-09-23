@@ -1,7 +1,22 @@
-import { ROOT_ID, USER_RE, computeStats, matchesFilter } from '@worktree/core';
-import type { Block, Node, RepairDrop } from '@worktree/core';
-import { formatBlock, formatDayHeader, formatNode, renderFiltered, renderTree, shortId } from './render';
-import { pathOf, resolveBlock } from './resolve';
+import { ROOT_ID, USER_RE, computeStats, matchesFilter, parseCivilDate, ruleMatchesDay } from '@worktree/core';
+import { daysFromCivil, civilFromTimestamp } from '@worktree/core';
+import type { Block, BlockRule, CivilDate, Node, RepairDrop } from '@worktree/core';
+import type { BlockRuleInput } from '@worktree/client';
+import { deviceTzOffset } from '@worktree/client';
+import {
+  formatBlock,
+  formatDayHeader,
+  formatDayIndex,
+  formatNode,
+  formatOccurrence,
+  formatRule,
+  renderFiltered,
+  renderTree,
+  shortId,
+} from './render';
+import { pathOf, resolveBlock, resolveRule } from './resolve';
+import { parseRuleFields } from './rules';
+import type { ParsedRuleFields } from './rules';
 import { DEFAULT_SERVER } from './config';
 import { defaultStatePath, deleteToken, readToken, writeToken } from './storage';
 import { loadSettings, saveSettings } from './settings';
@@ -50,6 +65,23 @@ function refBlock(io: CommandIO, ref: string): Block | null {
     io.out(errMsg(e));
     return null;
   }
+}
+
+/** Resolve a rule ref; prints the error and returns null when it fails. */
+function refRule(io: CommandIO, ref: string): BlockRule | null {
+  try {
+    return resolveRule(io.client.getRules(), ref);
+  } catch (e) {
+    io.out(errMsg(e));
+    return null;
+  }
+}
+
+const MINUTE_MS = 60 * 1000;
+
+/** Today's civil date in the given offset (the default rule anchor). */
+function todayCivil(tzOffset: number): CivilDate {
+  return civilFromTimestamp(Date.now(), tzOffset).date;
 }
 
 const treeCommand: Command = {
@@ -576,6 +608,131 @@ const blkCommand: Command = {
   },
 };
 
+/** Field names a `rule edit` patch may carry; used to reject an empty patch. */
+function isRulePatchEmpty(fields: ParsedRuleFields): boolean {
+  return Object.keys(fields).length === 0;
+}
+
+const DEFAULT_RULE_TIME = { hour: 9, minute: 0 };
+
+const ruleCommand: Command = {
+  name: 'rule',
+  mutatesTree: true,
+  summary: 'manage recurring calendar rules (add / ls / edit / rm / skip / unskip)',
+  usage: 'rule add|ls|edit|rm|skip|unskip ...',
+  run: async (io, args): Promise<CommandResult> => {
+    const sub = args[0];
+    if (sub === 'add') {
+      if (args.length < 2) {
+        return io.usage(
+          'rule add <name> freq=daily|weekly|monthly|yearly [day=mon,wed | day=2nd-tue | mday=15,last] [month=3] ' +
+            '[from=YYYY-MM-DD] [time=HH:MM] [dur=90m] [until=YYYY-MM-DD] [tz=+HH:MM] [note=...]',
+        );
+      }
+      const name = args[1];
+      const parsed = parseRuleFields(args.slice(2), { mode: 'add', tzOffset: deviceTzOffset() });
+      if (!parsed.ok) {
+        io.out(parsed.error);
+        return 'ok';
+      }
+      const { fields } = parsed;
+      const tzOffset = fields.tzOffset ?? deviceTzOffset();
+      const input: BlockRuleInput = {
+        name,
+        freq: parsed.freq,
+        interval: fields.interval ?? 1,
+        startDate: fields.startDate ?? todayCivil(tzOffset),
+        timeOfDay: fields.timeOfDay ?? DEFAULT_RULE_TIME,
+        duration: fields.duration ?? 60 * MINUTE_MS,
+        note: fields.note,
+        byDay: fields.byDay ?? undefined,
+        byMonthDay: fields.byMonthDay ?? undefined,
+        byMonth: fields.byMonth ?? undefined,
+        bySetPos: fields.bySetPos ?? undefined,
+        until: fields.until ?? undefined,
+        tzOffset: fields.tzOffset,
+      };
+      const id = mutate(() => io.client.addBlockRule(input));
+      io.out(`added rule [${shortId(id)}] ${name}`);
+      await afterCommand(io);
+      return 'ok';
+    }
+    if (sub === 'ls') {
+      for (const rule of io.client.getRules()) {
+        io.out(formatRule(rule));
+        const skipped = io.client.getSkips(rule.id);
+        if (skipped.length > 0) io.out(`  skipped: ${skipped.map(formatDayIndex).join(', ')}`);
+      }
+      return 'ok';
+    }
+    if (sub === 'edit') {
+      if (args.length < 2) {
+        return io.usage(
+          'rule edit <ruleRef> name= note= freq= interval= from= time= dur= day= mday= month= until=|null active=true|false',
+        );
+      }
+      const rule = refRule(io, args[1]);
+      if (!rule) return 'ok';
+      const parsed = parseRuleFields(args.slice(2), { mode: 'edit', freq: rule.freq, tzOffset: rule.tzOffset });
+      if (!parsed.ok) {
+        io.out(parsed.error);
+        return 'ok';
+      }
+      if (isRulePatchEmpty(parsed.fields)) {
+        io.out('empty patch');
+        return 'ok';
+      }
+      mutate(() => io.client.editBlockRule(rule.id, parsed.fields));
+      io.out('rule updated');
+      await afterCommand(io);
+      return 'ok';
+    }
+    if (sub === 'rm') {
+      if (args.length < 2) return io.usage('rule rm <ruleRef>');
+      const rule = refRule(io, args[1]);
+      if (!rule) return 'ok';
+      mutate(() => io.client.removeBlockRule(rule.id));
+      io.out('rule removed');
+      await afterCommand(io);
+      return 'ok';
+    }
+    if (sub === 'skip' || sub === 'unskip') {
+      if (args.length < 3) return io.usage(`rule ${sub} <ruleRef> <date>`);
+      const rule = refRule(io, args[1]);
+      if (!rule) return 'ok';
+      const date = parseCivilDate(args[2]);
+      if (date === null) {
+        io.out(`invalid date: ${args[2]} (use YYYY-MM-DD)`);
+        return 'ok';
+      }
+      const day = daysFromCivil(date.year, date.month, date.day);
+      if (!ruleMatchesDay(rule, day)) {
+        io.out(`"${rule.name}" has no occurrence on ${args[2]}`);
+        return 'ok';
+      }
+      const skipped = io.client.getSkips(rule.id).includes(day);
+      if (sub === 'skip') {
+        if (skipped) {
+          io.out(`"${rule.name}" is already skipped on ${args[2]}`);
+          return 'ok';
+        }
+        mutate(() => io.client.skipOccurrence(rule.id, day));
+        io.out(`skipped "${rule.name}" on ${args[2]}`);
+      } else {
+        if (!skipped) {
+          io.out(`"${rule.name}" is not skipped on ${args[2]}`);
+          return 'ok';
+        }
+        mutate(() => io.client.unskipOccurrence(rule.id, day));
+        io.out(`restored "${rule.name}" on ${args[2]}`);
+      }
+      await afterCommand(io);
+      return 'ok';
+    }
+    return io.usage('rule add|ls|edit|rm|skip|unskip ...');
+  },
+};
+
 const linkCommand: Command = {
   name: 'link',
   mutatesTree: true,
@@ -626,20 +783,29 @@ const cldCommand: Command = {
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const windowStart = today.getTime();
     const tree = io.client.getTree();
     const blocks = io.client.getBlocks();
+    // Rule occurrences are derived, so they are expanded over the window once
+    // and then bucketed into the same days as the real blocks.
+    const occurrences = io.client.expandOccurrences(windowStart, windowStart + days * DAY_MS);
     for (let i = 0; i < days; i++) {
       const dayStart = today.getTime() + i * DAY_MS;
-      const dayBlocks = blocks
-        .filter((b) => b.start >= dayStart && b.start < dayStart + DAY_MS)
-        .sort((a, b) => a.start - b.start);
-      io.out(`${formatDayHeader(dayStart)}${i === 0 ? ' *' : ''}`);
-      if (dayBlocks.length === 0) continue;
-      for (const b of dayBlocks) {
+      const dayEnd = dayStart + DAY_MS;
+      const entries: { start: number; text: string }[] = [];
+      for (const b of blocks) {
+        if (b.start < dayStart || b.start >= dayEnd) continue;
         const spanDays = Math.ceil((b.end - b.start) / DAY_MS);
         const marker = spanDays > 1 ? ` (${spanDays} days)` : '';
-        io.out(`  ${formatBlock(b, tree)}${marker}`);
+        entries.push({ start: b.start, text: `${formatBlock(b, tree)}${marker}` });
       }
+      for (const occ of occurrences) {
+        if (occ.occStart < dayStart || occ.occStart >= dayEnd) continue;
+        entries.push({ start: occ.occStart, text: formatOccurrence(occ) });
+      }
+      entries.sort((a, b) => a.start - b.start);
+      io.out(`${formatDayHeader(dayStart)}${i === 0 ? ' *' : ''}`);
+      for (const entry of entries) io.out(`  ${entry.text}`);
     }
     return 'ok';
   },
@@ -974,6 +1140,7 @@ export const COMMANDS: Command[] = [
   uncplCommand,
   reminderCommand,
   blkCommand,
+  ruleCommand,
   linkCommand,
   unlinkCommand,
   cldCommand,

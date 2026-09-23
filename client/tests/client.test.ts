@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ROOT_ID } from '@worktree/core';
+import { DAY_MS, ROOT_ID, daysFromCivil } from '@worktree/core';
 import type { Node } from '@worktree/core';
 import { ApiError } from '../src/api';
 import { WorktreeClient } from '../src/client';
@@ -324,6 +324,119 @@ describe('WorktreeClient semantic operations', () => {
         expect(addOp.createdAt).toBeUndefined();
         expect(c.getTree().children[0]?.createdAt).toBe(addOp.timestamp);
       }
+    });
+  });
+
+  describe('calendar rules', () => {
+    const weekly = (name = 'Standup') => ({
+      name,
+      freq: 'weekly' as const,
+      interval: 1,
+      startDate: { year: 2026, month: 9, day: 23 },
+      timeOfDay: { hour: 10, minute: 0 },
+      duration: 2 * 60 * 60 * 1000,
+    });
+    const day = daysFromCivil(2026, 9, 23);
+    const window: [number, number] = [daysFromCivil(2026, 9, 21) * DAY_MS, daysFromCivil(2026, 10, 5) * DAY_MS];
+    const occDays = (c: WorktreeClient): number[] => c.expandOccurrences(window[0], window[1]).map((o) => o.day);
+
+    it('addBlockRule returns an id, defaults tzOffset and queues a stamped op', () => {
+      const c = newClient();
+      const before = Date.now();
+      const id = c.addBlockRule(weekly());
+      const rule = c.getRules()[0];
+      expect(rule).toMatchObject({ id, name: 'Standup', note: '', freq: 'weekly', active: true });
+      expect(rule.tzOffset % 60000).toBe(0);
+      expect(Math.abs(rule.tzOffset)).toBeLessThan(24 * 60 * 60 * 1000);
+      const op = c.getPending()[0];
+      expect(op.kind).toBe('add');
+      if (op.kind !== 'add' || op.op.kind !== 'add_block_rule') throw new Error('expected an add_block_rule op');
+      expect(op.op.timestamp).toBeGreaterThanOrEqual(before);
+      expect(op.op.tzOffset).toBe(rule.tzOffset);
+    });
+
+    it('expands occurrences and skips a single one', () => {
+      const c = newClient();
+      const id = c.addBlockRule(weekly());
+      expect(occDays(c)).toEqual([day, day + 7]);
+      c.skipOccurrence(id, day);
+      expect(c.getSkips(id)).toEqual([day]);
+      expect(occDays(c)).toEqual([day + 7]);
+      c.unskipOccurrence(id, day);
+      expect(c.getSkips(id)).toEqual([]);
+      expect(occDays(c)).toEqual([day, day + 7]);
+    });
+
+    it('rejects rule ops that would not apply', () => {
+      const c = newClient();
+      const id = c.addBlockRule(weekly());
+      expect(() => c.addBlockRule({ ...weekly(), freq: 'daily', byDay: [1] })).toThrow(/daily rules take no selectors/);
+      expect(() => c.addBlockRule(weekly(''))).toThrow(/name must not be empty/);
+      expect(() => c.editBlockRule('missing', { name: 'x' })).toThrow(/unknown rule id/);
+      expect(() => c.editBlockRule(id, {})).toThrow(/patch is empty/);
+      expect(() => c.skipOccurrence(id, day + 1)).toThrow(/not an occurrence/);
+      expect(() => c.skipOccurrence('missing', day)).toThrow(/unknown rule id/);
+      expect(() => c.unskipOccurrence(id, day + 1)).toThrow(/not an occurrence/);
+      expect(c.getPending()).toHaveLength(1);
+    });
+
+    it('edits a rule and clears its skips when the day set changes', () => {
+      const c = newClient();
+      const id = c.addBlockRule(weekly());
+      c.skipOccurrence(id, day);
+      c.editBlockRule(id, { timeOfDay: { hour: 11, minute: 30 }, note: 'n' });
+      expect(c.getRules()[0]).toMatchObject({ timeOfDay: { hour: 11, minute: 30 }, note: 'n' });
+      expect(c.getSkips(id)).toEqual([day]);
+      c.editBlockRule(id, { interval: 2 });
+      expect(c.getSkips(id)).toEqual([]);
+      // Every other week from the anchor's week: Sep 23, Oct 7 (past the pinned window above).
+      expect(c.expandOccurrences(window[0], daysFromCivil(2026, 10, 8) * DAY_MS).map((o) => o.day)).toEqual([
+        day,
+        day + 14,
+      ]);
+      c.editBlockRule(id, { active: false });
+      expect(occDays(c)).toEqual([]);
+    });
+
+    it('removeBlockRule drops the rule and its exceptions', () => {
+      const c = newClient();
+      const id = c.addBlockRule(weekly());
+      c.skipOccurrence(id, day);
+      c.removeBlockRule(id);
+      expect(c.getRules()).toEqual([]);
+      expect(c.getSkips(id)).toEqual([]);
+      expect(occDays(c)).toEqual([]);
+    });
+
+    it('the local user appends rule ops straight into the confirmed history', () => {
+      const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'local', local: true });
+      const id = c.addBlockRule(weekly());
+      c.skipOccurrence(id, day);
+      expect(c.getPendingCount()).toBe(0);
+      expect(c.getConfirmed().map((n) => n.op.kind)).toEqual(['add_block_rule', 'skip_occurrence']);
+      expect(c.getSkips(id)).toEqual([day]);
+      expect(occDays(c)).toEqual([day + 7]);
+    });
+
+    it('undo drops a pending rule op', () => {
+      const c = newClient();
+      c.addBlockRule(weekly());
+      c.skipOccurrence(c.getRules()[0].id, day);
+      c.undo();
+      expect(c.getSkips(c.getRules()[0].id)).toEqual([]);
+      c.undo();
+      expect(c.getRules()).toEqual([]);
+    });
+
+    it('persists and restores rules with their exceptions', () => {
+      const storage = new MemoryStorage();
+      const first = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 't', storage });
+      const id = first.addBlockRule(weekly());
+      first.skipOccurrence(id, day);
+      const second = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 't', storage });
+      expect(second.getRules().map((r) => r.id)).toEqual([id]);
+      expect(second.getSkips(id)).toEqual([day]);
+      expect(occDays(second)).toEqual([day + 7]);
     });
   });
 });

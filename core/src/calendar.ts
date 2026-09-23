@@ -1,13 +1,34 @@
-import type { Block, CalendarOperation, Timestamp } from './types';
+import type { Block, BlockOccurrence, BlockRule, CalendarOperation, Timestamp } from './types';
+import { expandRule, ruleMatchesDay, validateRule } from './schedule';
 
-/** The calendar: blocks derived by replaying CalendarOperations in order. */
+/**
+ * The calendar: blocks, block rules and per-occurrence exceptions, derived by
+ * replaying CalendarOperations in order. Occurrences are expanded from rules
+ * on demand — they are never stored.
+ *
+ * Invariant: a skip set holds days only while the rule exists and the day is
+ * an occurrence of it (see apply, and docs/data_structure.md).
+ */
 export class Calendar {
   private blocks = new Map<string, Block>();
+  private rules = new Map<string, BlockRule>();
+  private skips = new Map<string, Set<number>>();
 
   /** Deep, state-equivalent copy (used by validation probes). */
   clone(): Calendar {
     const copy = new Calendar();
     for (const [id, b] of this.blocks) copy.blocks.set(id, { ...b });
+    for (const [id, r] of this.rules) {
+      copy.rules.set(id, {
+        ...r,
+        startDate: { ...r.startDate },
+        timeOfDay: { ...r.timeOfDay },
+        byDay: r.byDay?.slice(),
+        byMonthDay: r.byMonthDay?.slice(),
+        byMonth: r.byMonth?.slice(),
+      });
+    }
+    for (const [id, days] of this.skips) copy.skips.set(id, new Set(days));
     return copy;
   }
 
@@ -60,6 +81,84 @@ export class Calendar {
       case 'uncomplete_block':
         this.mustGet(op.id).status = false;
         break;
+      case 'add_block_rule': {
+        if (this.rules.has(op.id)) throw new Error(`duplicate rule id: ${op.id}`);
+        const rule: BlockRule = {
+          id: op.id,
+          name: op.name,
+          note: op.note ?? '',
+          freq: op.freq,
+          interval: op.interval,
+          startDate: op.startDate,
+          timeOfDay: op.timeOfDay,
+          duration: op.duration,
+          byDay: op.byDay,
+          byMonthDay: op.byMonthDay,
+          byMonth: op.byMonth,
+          bySetPos: op.bySetPos,
+          until: op.until,
+          tzOffset: op.tzOffset,
+          active: true,
+        };
+        validateRule(rule);
+        this.rules.set(op.id, rule);
+        break;
+      }
+      case 'edit_block_rule': {
+        if (isRulePatchEmpty(op)) throw new Error('edit_block_rule patch is empty');
+        const rule = this.mustGetRule(op.id);
+        const merged: BlockRule = {
+          ...rule,
+          name: op.name ?? rule.name,
+          note: op.note ?? rule.note,
+          freq: op.freq ?? rule.freq,
+          interval: op.interval ?? rule.interval,
+          startDate: op.startDate ?? rule.startDate,
+          timeOfDay: op.timeOfDay ?? rule.timeOfDay,
+          duration: op.duration ?? rule.duration,
+          byDay: op.byDay === undefined ? rule.byDay : op.byDay ?? undefined,
+          byMonthDay: op.byMonthDay === undefined ? rule.byMonthDay : op.byMonthDay ?? undefined,
+          byMonth: op.byMonth === undefined ? rule.byMonth : op.byMonth ?? undefined,
+          bySetPos: op.bySetPos === undefined ? rule.bySetPos : op.bySetPos ?? undefined,
+          until: op.until === undefined ? rule.until : op.until ?? undefined,
+          active: op.active ?? rule.active,
+        };
+        if (op.freq !== undefined) {
+          // Changing the frequency means re-stating the pattern: selectors the
+          // patch does not supply are dropped (a weekly `byDay` is meaningless
+          // on a monthly rule).
+          merged.byDay = op.byDay === undefined ? undefined : op.byDay ?? undefined;
+          merged.byMonthDay = op.byMonthDay === undefined ? undefined : op.byMonthDay ?? undefined;
+          merged.byMonth = op.byMonth === undefined ? undefined : op.byMonth ?? undefined;
+          merged.bySetPos = op.bySetPos === undefined ? undefined : op.bySetPos ?? undefined;
+        }
+        validateRule(merged);
+        this.rules.set(op.id, merged);
+        // A patch touching the day set can orphan the rule's skips, so they go
+        // with it; a time-only tweak keeps them (skips are day-keyed).
+        if (touchesDaySet(op)) this.skips.delete(op.id);
+        break;
+      }
+      case 'remove_block_rule':
+        // Idempotent, so concurrent removes commute; the skips go with the rule.
+        this.rules.delete(op.id);
+        this.skips.delete(op.id);
+        break;
+      case 'skip_occurrence': {
+        this.ensureOccurrence(op.ruleId, op.day);
+        const days = this.skips.get(op.ruleId) ?? new Set<number>();
+        days.add(op.day);
+        this.skips.set(op.ruleId, days);
+        break;
+      }
+      case 'unskip_occurrence':
+        this.ensureOccurrence(op.ruleId, op.day);
+        this.skips.get(op.ruleId)?.delete(op.day);
+        break;
+      default: {
+        const unknown: never = op;
+        throw new Error(`unknown calendar op kind: ${JSON.stringify(unknown)}`);
+      }
     }
   }
 
@@ -69,6 +168,32 @@ export class Calendar {
 
   blockCount(): number {
     return this.blocks.size;
+  }
+
+  getRules(): BlockRule[] {
+    return [...this.rules.values()];
+  }
+
+  ruleCount(): number {
+    return this.rules.size;
+  }
+
+  /** The rule's skipped days (occurrence keys), ascending. */
+  getSkips(ruleId: string): number[] {
+    const days = this.skips.get(ruleId);
+    return days === undefined ? [] : [...days].sort((a, b) => a - b);
+  }
+
+  /** All rules' occurrences overlapping `[from, to)`, sorted by (occStart, ruleId). */
+  expand(from: Timestamp, to: Timestamp): BlockOccurrence[] {
+    const occurrences: BlockOccurrence[] = [];
+    for (const rule of this.rules.values()) {
+      occurrences.push(...expandRule(rule, this.skips.get(rule.id), from, to));
+    }
+    occurrences.sort(
+      (a, b) => a.occStart - b.occStart || (a.ruleId < b.ruleId ? -1 : a.ruleId > b.ruleId ? 1 : 0),
+    );
+    return occurrences;
   }
 
   /** Derived status change (completion propagation). */
@@ -96,6 +221,18 @@ export class Calendar {
     return block;
   }
 
+  private mustGetRule(id: string): BlockRule {
+    const rule = this.rules.get(id);
+    if (!rule) throw new Error(`unknown rule id: ${id}`);
+    return rule;
+  }
+
+  /** Skips may only target a day the live rule actually fires on — no orphans. */
+  private ensureOccurrence(ruleId: string, day: number): void {
+    const rule = this.mustGetRule(ruleId);
+    if (!ruleMatchesDay(rule, day)) throw new Error(`day is not an occurrence: ${ruleId} ${day}`);
+  }
+
   private validateName(name: string): void {
     if (name === '') throw new Error('block name must not be empty');
   }
@@ -112,4 +249,38 @@ export class Calendar {
       }
     }
   }
+}
+
+type RulePatch = Extract<CalendarOperation, { kind: 'edit_block_rule' }>;
+
+function isRulePatchEmpty(op: RulePatch): boolean {
+  return (
+    op.name === undefined &&
+    op.note === undefined &&
+    op.freq === undefined &&
+    op.interval === undefined &&
+    op.startDate === undefined &&
+    op.timeOfDay === undefined &&
+    op.duration === undefined &&
+    op.byDay === undefined &&
+    op.byMonthDay === undefined &&
+    op.byMonth === undefined &&
+    op.bySetPos === undefined &&
+    op.until === undefined &&
+    op.active === undefined
+  );
+}
+
+/** Whether the patch changes the set of days the rule fires on. */
+function touchesDaySet(op: RulePatch): boolean {
+  return (
+    op.freq !== undefined ||
+    op.interval !== undefined ||
+    op.startDate !== undefined ||
+    op.byDay !== undefined ||
+    op.byMonthDay !== undefined ||
+    op.byMonth !== undefined ||
+    op.bySetPos !== undefined ||
+    op.until !== undefined
+  );
 }

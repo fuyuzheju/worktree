@@ -1,5 +1,14 @@
 import { HistoryChain, HistoryReplayError, PendingQueue, WorktreeState, newId, replayHistory } from '@worktree/core';
-import type { Block, HistoryNode, HistoryOperation, Node, Operation } from '@worktree/core';
+import type {
+  Block,
+  BlockOccurrence,
+  BlockRule,
+  HistoryNode,
+  HistoryOperation,
+  Node,
+  Operation,
+  Timestamp,
+} from '@worktree/core';
 import type { SavedState } from './storage';
 
 /** Client-side state: confirmed history + pending queue, rendered as a tree and calendar. */
@@ -30,6 +39,30 @@ export class ClientStore {
 
   getBlocks(): Block[] {
     return this.state.calendar.getBlocks();
+  }
+
+  getRules(): BlockRule[] {
+    return this.state.calendar.getRules();
+  }
+
+  /** The rule's skipped occurrence days (civil day indices), ascending. */
+  getSkips(ruleId: string): number[] {
+    return this.state.calendar.getSkips(ruleId);
+  }
+
+  /** Occurrences of all rules overlapping `[from, to)`, sorted by (occStart, ruleId). */
+  expandOccurrences(from: Timestamp, to: Timestamp): BlockOccurrence[] {
+    return this.state.calendar.expand(from, to);
+  }
+
+  /**
+   * Throws when the op would not apply to the current state. The same probe
+   * validates ops server-side; running it locally turns an invalid edit into
+   * a synchronous error instead of a silently dropped pending op (and, for
+   * the local user, an unreplayable history).
+   */
+  probeApply(op: Operation): void {
+    this.state.clone().apply(op);
   }
 
   getConfirmed(): HistoryNode[] {

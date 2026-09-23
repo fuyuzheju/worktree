@@ -134,6 +134,11 @@ describe('Calendar', () => {
     expect(calendar.getBlocks()[0].status).toBe(false);
   });
 
+  it('throws on an unknown op kind instead of ignoring it', () => {
+    const calendar = new Calendar();
+    expect(() => calendar.apply({ kind: 'explode' } as unknown as CalendarOperation)).toThrow(/unknown calendar op kind/);
+  });
+
   it('clone() is a deep copy isolated from mutations', () => {
     const calendar = new Calendar();
     calendar.apply(addBlock('b1'));

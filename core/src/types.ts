@@ -29,6 +29,77 @@ export interface Block {
   nodeId?: string;
 }
 
+/** Recurrence frequency of a BlockRule. */
+export type RuleFreq = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+/** A date in the proleptic Gregorian calendar (no time, no timezone). */
+export interface CivilDate {
+  year: number;
+  /** 1..12 */
+  month: number;
+  /** 1..31, must exist in the month */
+  day: number;
+}
+
+/** A time of day, in whole minutes. */
+export interface CivilTime {
+  /** 0..23 */
+  hour: number;
+  /** 0..59 */
+  minute: number;
+}
+
+/**
+ * A recurring calendar rule. Occurrences are derived by expansion
+ * (see schedule.ts) and never stored; `startDate` anchors both the interval
+ * phase and the first candidate day. `tzOffset` is the rule's fixed offset
+ * from UTC in ms (whole minutes); every civil conversion uses it, so
+ * occurrences are stable across the device's own timezone.
+ */
+export interface BlockRule {
+  id: string;
+  /** Non-empty. */
+  name: string;
+  /** Detailed description; '' when unset. */
+  note: string;
+  freq: RuleFreq;
+  /** >= 1; daily = days, weekly = weeks, monthly = months, yearly = years. */
+  interval: number;
+  startDate: CivilDate;
+  timeOfDay: CivilTime;
+  /** Occurrence length in ms; > 0. */
+  duration: Timestamp;
+  /** 0 = Sunday .. 6 = Saturday. Weekly only (default: the anchor's weekday). */
+  byDay?: number[];
+  /** 1..31 or -1 (last day of the month). Monthly only (default: the anchor's day). */
+  byMonthDay?: number[];
+  /** 1..12. Yearly only (default: the anchor's month). */
+  byMonth?: number[];
+  /** Nonzero, |n| <= 5; monthly + byDay only (nth / last such weekday of the month). */
+  bySetPos?: number;
+  /** Inclusive upper bound on the occurrence start. */
+  until?: Timestamp;
+  /** Offset of the rule's local time from UTC in ms; whole minutes, not editable. */
+  tzOffset: number;
+  /** false = the rule contributes no occurrences (it is still listed). */
+  active: boolean;
+}
+
+/** A rule occurrence, derived by expansion — never stored in the history. */
+export interface BlockOccurrence {
+  ruleId: string;
+  /** Civil day index (days since 1970-01-01) in the rule's tzOffset; the skip key. */
+  day: number;
+  /** Start of the occurrence in ms. */
+  occStart: Timestamp;
+  /** End of the occurrence in ms. */
+  occEnd: Timestamp;
+  /** Display key: `${ruleId}:${day}`. */
+  id: string;
+  name: string;
+  note: string;
+}
+
 export interface Node {
   id: string;
   /** Non-empty, must not contain '/'; unique among siblings (enforced by Tree). */
@@ -111,7 +182,10 @@ export type TreeOperation =
 /**
  * Operations applied to the calendar. All ids are client-generated UUIDs.
  * `edit_block.nodeId`: null clears the link; absent = unchanged.
- * Every op carries a client-generated `timestamp` (see TreeOperation).
+ * `edit_block_rule` patches follow the same convention (`null` = clear);
+ * `tzOffset` is not a patchable field — it fixes the rule's occurrence
+ * identities. Every op carries a client-generated `timestamp` (see
+ * TreeOperation).
  */
 export type CalendarOperation =
   | { kind: 'add_block'; id: string; name: string; start: Timestamp; end: Timestamp; note?: string; nodeId?: string; timestamp?: Timestamp }
@@ -127,7 +201,46 @@ export type CalendarOperation =
       timestamp?: Timestamp;
     }
   | { kind: 'complete_block'; id: string; timestamp?: Timestamp }
-  | { kind: 'uncomplete_block'; id: string; timestamp?: Timestamp };
+  | { kind: 'uncomplete_block'; id: string; timestamp?: Timestamp }
+  | {
+      kind: 'add_block_rule';
+      id: string;
+      name: string;
+      freq: RuleFreq;
+      interval: number;
+      startDate: CivilDate;
+      timeOfDay: CivilTime;
+      duration: Timestamp;
+      byDay?: number[];
+      byMonthDay?: number[];
+      byMonth?: number[];
+      bySetPos?: number;
+      until?: Timestamp;
+      tzOffset: number;
+      note?: string;
+      timestamp?: Timestamp;
+    }
+  | {
+      kind: 'edit_block_rule';
+      id: string;
+      name?: string;
+      note?: string;
+      freq?: RuleFreq;
+      interval?: number;
+      startDate?: CivilDate;
+      timeOfDay?: CivilTime;
+      duration?: Timestamp;
+      byDay?: number[] | null;
+      byMonthDay?: number[] | null;
+      byMonth?: number[] | null;
+      bySetPos?: number | null;
+      until?: Timestamp | null;
+      active?: boolean;
+      timestamp?: Timestamp;
+    }
+  | { kind: 'remove_block_rule'; id: string; timestamp?: Timestamp }
+  | { kind: 'skip_occurrence'; ruleId: string; day: number; timestamp?: Timestamp }
+  | { kind: 'unskip_occurrence'; ruleId: string; day: number; timestamp?: Timestamp };
 
 /** Any operation the history may hold: tree domain or calendar domain. */
 export type Operation = TreeOperation | CalendarOperation;

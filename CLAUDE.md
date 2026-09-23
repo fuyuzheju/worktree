@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 1. **No type assertions in source code** — Do not use `as`, `as any`, `as type`, or non-null assertion (`!`) in source files. Use proper type narrowing, Zod validation, or type guards instead. If you believe a type assertion is strictly necessary, explain why and get explicit confirmation before writing it. Test files are exempt: assertions there (typically `as unknown as SomeClass` when faking a class) are fine.
 2. **English in codebase** — All code, comments, commit messages, and any file contents in this repository must be written in English. Chinese is reserved for conversational communication with the user only.
 3. **Comments only when necessary** — Skip comments for obvious or self-documenting code. Only add comments in places where the logic is genuinely complex, uses a non-obvious algorithm, could be misinterpreted, contains a workaround/patch, or is error-prone. When a comment is needed, make it thorough and clear — explain the *why*, not the *what*.
+4. **Throw, don't swallow** — Do not silently tolerate errors or conflicts. Prefer throwing over guessing, clamping, skipping, or auto-fixing. If recovery is needed, it must be explicit: surface the failure, and give the caller/user a deliberate path to resolve it (see the strict-replay + explicit repair pattern in `docs/sync.md`).
 
 ## Commands
 
