@@ -28,11 +28,8 @@ export class LocalStorageClientStorage implements ClientStorage {
     }
   }
 
+  /** Throws on a failed write (quota exceeded) — see ClientStorage.save. */
   save(state: SavedState): void {
-    try {
-      localStorage.setItem(this.key, JSON.stringify(state));
-    } catch (e) {
-      console.error('failed to save state:', e);
-    }
+    localStorage.setItem(this.key, JSON.stringify(state));
   }
 }

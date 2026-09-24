@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SavedState } from '@worktree/client';
 import { LocalStorageClientStorage } from '../src/storage';
 
@@ -6,6 +6,10 @@ const KEY = 'worktree.state.test';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('LocalStorageClientStorage', () => {
@@ -44,5 +48,14 @@ describe('LocalStorageClientStorage', () => {
   it('does not leak state between keys', () => {
     new LocalStorageClientStorage('worktree.state.a').save({ confirmed: [], pending: [] });
     expect(new LocalStorageClientStorage('worktree.state.b').load()).toBeNull();
+  });
+
+  it('propagates a failed write instead of swallowing it', () => {
+    vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    });
+    expect(() => new LocalStorageClientStorage(KEY).save({ confirmed: [], pending: [] })).toThrow(
+      'quota exceeded',
+    );
   });
 });

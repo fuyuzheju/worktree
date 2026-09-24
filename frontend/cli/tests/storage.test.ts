@@ -46,6 +46,14 @@ describe('FileStorage', () => {
     expect(new FileStorage(path.join(tmpDir(), 'missing.json')).load()).toBeNull();
   });
 
+  it('propagates a failed write instead of swallowing it', () => {
+    // A file where the directory should be: the write cannot succeed.
+    const blocker = path.join(tmpDir(), 'blocker');
+    fs.writeFileSync(blocker, '');
+    const storage = new FileStorage(path.join(blocker, 'state.json'));
+    expect(() => storage.save(sampleState())).toThrow();
+  });
+
   it('preserves a corrupt file and returns null', () => {
     const dir = tmpDir();
     const file = path.join(dir, 'state.json');

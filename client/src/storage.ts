@@ -30,5 +30,10 @@ export function isSavedState(v: unknown): v is SavedState {
 export interface ClientStorage {
   /** The saved state, or null when there is none (or it is unreadable). */
   load(): SavedState | null;
+  /**
+   * Persist the state. A failed write (quota exceeded, unreadable file) must
+   * throw: the client surfaces it, so an edit that cannot be saved is never
+   * silently treated as durable.
+   */
   save(state: SavedState): void;
 }

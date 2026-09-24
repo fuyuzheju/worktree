@@ -22,7 +22,7 @@ import { ServerSocket } from './socket';
 import { ClientStore } from './store';
 import { Syncer } from './syncer';
 import type { Conflict } from './syncer';
-import type { ClientStorage } from './storage';
+import type { ClientStorage, SavedState } from './storage';
 
 /** Fields of a new calendar rule; the kernel fills id, note default and tzOffset. */
 export interface BlockRuleInput {
@@ -100,6 +100,7 @@ export class WorktreeClient {
   private resyncInFlight: Promise<void> | null = null;
   private local: boolean;
   private authFailed = false;
+  private storageFailure: Error | null = null;
 
   constructor(options: WorktreeClientOptions) {
     if (!USER_RE.test(options.user)) {
@@ -110,7 +111,7 @@ export class WorktreeClient {
       throw new Error(`token required for user "${options.user}" (register or log in first)`);
     }
     this.storage = options.storage ?? null;
-    this.store = new ClientStore((state) => this.storage?.save(state));
+    this.store = new ClientStore((state) => this.persist(state));
     const saved = this.storage?.load();
     if (saved) this.store.restore(saved.confirmed, saved.pending);
 
@@ -161,6 +162,16 @@ export class WorktreeClient {
    */
   getReplayFailure(): HistoryReplayError | null {
     return this.store.getReplayFailure();
+  }
+
+  /**
+   * The last local save failure (storage full, unreadable file), cleared by
+   * the next successful one. While set, edits still apply in memory and sync,
+   * but nothing about them survives a restart of this device — the frontend
+   * is expected to say so.
+   */
+  getStorageFailure(): Error | null {
+    return this.storageFailure;
   }
 
   /** Entries a repair would drop. Empty when the history replays fine. */
@@ -704,6 +715,26 @@ export class WorktreeClient {
     this.authFailed = true;
     this.socket.close();
     this.emit();
+  }
+
+  /**
+   * Every local mutation is persisted here — the single point where a failed
+   * save is observed. The mutation itself already happened in memory, so the
+   * failure is recorded (getStorageFailure), the listeners are notified, and
+   * only then is it rethrown: callers that can show it (a UI panel, a CLI
+   * command) see the exception, and the rest of the app still knows about it
+   * through the snapshot.
+   */
+  private persist(state: SavedState): void {
+    if (this.storage === null) return;
+    try {
+      this.storage.save(state);
+    } catch (e) {
+      this.storageFailure = e instanceof Error ? e : new Error(String(e));
+      this.emit();
+      throw e;
+    }
+    this.storageFailure = null;
   }
 
   private setOnline(online: boolean): void {

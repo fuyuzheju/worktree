@@ -13,6 +13,7 @@ export interface ClientSnapshot {
   replayFailure: HistoryReplayError | null;
   pendingCount: number;
   authFailed: boolean;
+  storageFailure: Error | null;
 }
 
 function buildSnapshot(client: WorktreeClient): ClientSnapshot {
@@ -24,6 +25,7 @@ function buildSnapshot(client: WorktreeClient): ClientSnapshot {
     replayFailure: client.getReplayFailure(),
     pendingCount: client.getPendingCount(),
     authFailed: client.isAuthFailed(),
+    storageFailure: client.getStorageFailure(),
   };
 }
 

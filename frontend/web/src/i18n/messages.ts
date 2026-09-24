@@ -50,6 +50,8 @@ export const messages: Record<string, StringMap> = {
       user: 'user: {user}',
       unauthorized: 'session expired',
       loginAgain: 'Log in again',
+      /** Prefix of the storage-failure banner; the raw cause follows it. */
+      storageFailed: 'Changes are not being saved on this device:',
     },
     auth: {
       title: 'Log in to WORKTREE',
@@ -397,6 +399,7 @@ export const messages: Record<string, StringMap> = {
       user: '用户：{user}',
       unauthorized: '登录已过期',
       loginAgain: '重新登录',
+      storageFailed: '改动无法保存到本机：',
     },
     auth: {
       title: '登录 WORKTREE',

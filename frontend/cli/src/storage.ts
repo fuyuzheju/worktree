@@ -37,15 +37,12 @@ export class FileStorage implements ClientStorage {
     }
   }
 
+  /** Throws on a failed write (full or unreadable disk) — see ClientStorage.save. */
   save(state: SavedState): void {
-    try {
-      fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-      const tmp = `${this.filePath}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
-      fs.renameSync(tmp, this.filePath);
-    } catch (e) {
-      console.error(`failed to save state to ${this.filePath}: ${e instanceof Error ? e.message : e}`);
-    }
+    fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
+    const tmp = `${this.filePath}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(state, null, 2));
+    fs.renameSync(tmp, this.filePath);
   }
 }
 

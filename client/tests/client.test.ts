@@ -25,6 +25,16 @@ class MemoryStorage implements ClientStorage {
   }
 }
 
+class FailingStorage implements ClientStorage {
+  failing = true;
+  load(): SavedState | null {
+    return null;
+  }
+  save(): void {
+    if (this.failing) throw new Error('disk full');
+  }
+}
+
 describe('WorktreeClient semantic operations', () => {
   it('addNode generates ids and appends at the end by default weight', () => {
     const c = newClient();
@@ -206,6 +216,40 @@ describe('WorktreeClient semantic operations', () => {
     c.removeNode(c.getTree().children[0].id);
     expect(storage.state?.pending).toHaveLength(2);
     expect(storage.state?.pending[1]).toMatchObject({ kind: 'add' });
+  });
+
+  it('does not write back what it just restored', () => {
+    const storage = new MemoryStorage();
+    storage.state = {
+      confirmed: [{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }],
+      pending: [],
+    };
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
+    expect(storage.saveCount).toBe(0);
+    c.addNode(ROOT_ID, 'B');
+    expect(storage.saveCount).toBe(1);
+  });
+
+  it('surfaces a failed save: the error is recorded, listeners run, the caller sees it', () => {
+    const storage = new FailingStorage();
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
+    const listener = vi.fn();
+    c.subscribe(listener);
+    expect(() => c.addNode(ROOT_ID, 'A')).toThrow('disk full');
+    expect(c.getStorageFailure()?.message).toBe('disk full');
+    // The edit did apply in memory (it still syncs) — only durability failed,
+    // and the listeners ran so the frontend can re-render with the warning.
+    expect(c.getTree().children.map((n) => n.name)).toEqual(['A']);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the storage failure once a save succeeds again', () => {
+    const storage = new FailingStorage();
+    const c = new WorktreeClient({ serverUrl: 'http://localhost:1', user: 'alice', token: 'test-token', storage });
+    expect(() => c.addNode(ROOT_ID, 'A')).toThrow('disk full');
+    storage.failing = false;
+    c.addNode(ROOT_ID, 'B');
+    expect(c.getStorageFailure()).toBeNull();
   });
 
   it('rejects invalid usernames at construction', () => {

@@ -108,6 +108,26 @@ describe('ClientStore', () => {
     expect(store.getPending()).toHaveLength(1);
   });
 
+  it('does not write back a restore', () => {
+    const saved: SavedState[] = [];
+    const store = new ClientStore((s) => saved.push(s));
+    store.restore([{ id: 'h1', op: { kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 } }], []);
+    expect(saved).toHaveLength(0);
+    store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'b', name: 'B', weight: 2 });
+    expect(saved).toHaveLength(1);
+  });
+
+  it('propagates a failed save to the caller that mutated the store', () => {
+    const store = new ClientStore(() => {
+      throw new Error('quota exceeded');
+    });
+    expect(() =>
+      store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 }),
+    ).toThrow('quota exceeded');
+    // The mutation itself went through; only the save failed.
+    expect(store.getPending()).toHaveLength(1);
+  });
+
   it('undoPendingAdd pops the newest pending add and rebuilds the tree', () => {
     const store = new ClientStore();
     store.applyLocal({ kind: 'add', parentId: ROOT_ID, id: 'a', name: 'A', weight: 1 });
@@ -212,8 +232,8 @@ describe('ClientStore', () => {
       expect(failure?.message).toContain('child "B" is not completed');
       // No half-replayed state is rendered.
       expect(store.getTree().children).toHaveLength(0);
-      // The broken history is still persisted: a repair rewrites from it.
-      expect(lastSaved(saved).confirmed).toHaveLength(3);
+      // The broken history is still installed — a repair rewrites from it.
+      expect(store.getConfirmed()).toHaveLength(3);
     });
 
     it('keeps the last good state when a later history fails to replay', () => {

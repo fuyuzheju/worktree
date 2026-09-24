@@ -25,7 +25,9 @@ export class ClientStore {
     this.confirmed.replace(confirmed);
     this.pending.clear();
     for (const p of pending) this.pending.enqueue(p);
-    this.rebuild();
+    // Nothing was mutated: the loaded state is the persisted state, so writing
+    // it back can only fail (and would fail the client's constructor).
+    this.rebuild(false);
   }
 
   getTree(): Node {
@@ -149,7 +151,9 @@ export class ClientStore {
     this.rebuild();
   }
 
-  private rebuild(): void {
+  /** `persist: false` is for restore — see there. A failed save is not caught
+   *  here: it propagates to the caller that triggered the mutation. */
+  private rebuild(persist = true): void {
     const confirmed = this.confirmed.toArray();
     const pending = this.pending.getAll();
     // Each pending undo drops the confirmed head it targets (mirroring the
@@ -178,13 +182,8 @@ export class ClientStore {
       // the failure and offers a repair (planDropRepair).
       this.replayFailure = e;
     }
-    if (this.persist) {
-      try {
-        this.persist({ confirmed: this.confirmed.toArray(), pending: this.pending.getAll() });
-      } catch (e) {
-        // Storage failures must never break the app.
-        console.error('persist failed:', e);
-      }
+    if (persist && this.persist) {
+      this.persist({ confirmed: this.confirmed.toArray(), pending: this.pending.getAll() });
     }
   }
 }

@@ -135,7 +135,7 @@ function Shell(props: {
 }) {
   const { t } = useI18n();
   const { config, tab, setTab, snap, updateConfig, clearCache, onLogout, onLoginOther } = props;
-  const { client, tree, online, pendingCount, authFailed } = snap;
+  const { client, tree, online, pendingCount, authFailed, storageFailure } = snap;
 
   // Deep link from a notification click: ?node=<id> on first load, or a
   // worktree-open-node message from the service worker while running.
@@ -174,6 +174,16 @@ function Shell(props: {
         </div>
         <Tabs active={tab} onChange={setTab} />
       </header>
+      {storageFailure !== null && (
+        <div
+          data-testid="storage-failure"
+          role="alert"
+          className="border-b border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800 md:px-6"
+        >
+          <span className="font-medium">{t('status.storageFailed')}</span>{' '}
+          <span>{storageFailure.message}</span>
+        </div>
+      )}
       <main className="py-4 md:px-6 flex-1 flex w-full min-h-0 overflow-y-auto">
         {tab === 'tree' && (
           <TreePage
