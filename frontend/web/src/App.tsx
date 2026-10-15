@@ -5,6 +5,8 @@ import type { StoredToken } from './config';
 import { useWorktreeClient } from './hooks/useWorktreeClient';
 import { I18nProvider, useI18n } from './i18n';
 import { FilterProvider } from './filter-context';
+import { captureParamText, stripCaptureParams } from './capture-params';
+import { QuickCapture } from './components/QuickCapture';
 import { StatusBar } from './components/StatusBar';
 import { Tabs } from './components/Tabs';
 import { TreePage } from './pages/TreePage';
@@ -144,6 +146,34 @@ function Shell(props: {
   );
   const [focusNode, setFocusNode] = useState<{ id: string; nonce: number } | null>(null);
 
+  // Capture entry: ?quick=1 (PWA shortcut) or the Android share target's
+  // text/title/url params open the overlay on first load; ⌘K/Ctrl+K opens it
+  // from anywhere. The link params are dropped once read, so a reload does not
+  // capture twice.
+  const [initialQuickText] = useState<string | null>(() => captureParamText(window.location.search));
+  const [quickText, setQuickText] = useState(initialQuickText ?? '');
+  const [quickOpen, setQuickOpen] = useState(initialQuickText !== null);
+  // Closing consumes the link's text: the next ⌘K opens empty.
+  const closeQuick = (): void => {
+    setQuickOpen(false);
+    setQuickText('');
+  };
+
+  useEffect(() => {
+    if (initialQuickText !== null) stripCaptureParams();
+  }, [initialQuickText]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !e.repeat && !e.isComposing) {
+        e.preventDefault();
+        setQuickOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   useEffect(() => {
     const onMessage = (event: MessageEvent): void => {
       // event.data is attacker-influenced (any page can postMessage); guard it.
@@ -217,6 +247,14 @@ function Shell(props: {
           />
         )}
       </main>
+      {quickOpen && (
+        <QuickCapture
+          client={client}
+          path={config.quickAddPath}
+          initialText={quickText}
+          onClose={closeQuick}
+        />
+      )}
     </div>
   );
 }

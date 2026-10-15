@@ -1,4 +1,4 @@
-import { ROOT_ID, USER_RE, computeStats, matchesFilter, parseCivilDate, ruleMatchesDay } from '@worktree/core';
+import { ROOT_ID, USER_RE, computeStats, matchesFilter, normalizeCapturePath, parseCivilDate, ruleMatchesDay } from '@worktree/core';
 import { daysFromCivil, civilFromTimestamp, occurrenceStart } from '@worktree/core';
 import type { Block, BlockRule, CivilDate, Node, RepairDrop } from '@worktree/core';
 import type { BlockRuleInput } from '@worktree/client';
@@ -20,8 +20,10 @@ import type { ParsedRuleFields } from './rules';
 import { DEFAULT_SERVER } from './config';
 import { defaultStatePath, deleteToken, readToken, writeToken } from './storage';
 import { loadSettings, saveSettings } from './settings';
+import type { CliSettings } from './settings';
 import { listUsers } from './users';
 import { AuthError, defaultLabel, loginOnServer, promptPassword, registerOnServer, revokeOnServer } from './auth';
+import { readClipboard, readPipedStdin } from './input';
 import { afterCommand, errMsg, mutate, parseTimeArg, printConflict } from './command';
 import type { Command, CommandIO, CommandResult } from './command';
 
@@ -216,6 +218,47 @@ const addCommand: Command = {
     }
     const id = mutate(() => io.client.addNode(parent.id, name, weight));
     io.out(`added "${name}" [${shortId(id)}]`);
+    await afterCommand(io);
+    return 'ok';
+  },
+};
+
+const captureCommand: Command = {
+  name: 'capture',
+  aliases: ['cap'],
+  summary: 'quick-capture a node under the quick-add path (default /tmp)',
+  usage: 'capture <text...>  |  capture -c  (clipboard)  |  pipe text in',
+  run: async (io, args): Promise<CommandResult> => {
+    const settings = loadSettings();
+    const clipboard = args[0] === '-c' || args[0] === '--clipboard';
+    const rest = clipboard ? args.slice(1) : args;
+    if (clipboard && rest.length > 0) {
+      io.out('capture -c reads the clipboard and takes no text');
+      return 'ok';
+    }
+    let text: string;
+    try {
+      if (clipboard) {
+        text = readClipboard();
+      } else if (rest.length > 0) {
+        // The REPL splits on whitespace (no quoting): the rest of the line is the text.
+        text = rest.join(' ');
+      } else if (!process.stdin.isTTY) {
+        text = await readPipedStdin();
+      } else {
+        return io.usage();
+      }
+    } catch (e) {
+      io.out(`error: ${errMsg(e)}`);
+      return 'ok';
+    }
+    try {
+      const result = mutate(() => io.client.quickAdd(text, { path: settings.quickAdd.path }));
+      io.out(`captured ${result.displayPath} [${shortId(result.nodeId)}]`);
+    } catch (e) {
+      io.out(`error: ${errMsg(e)}`);
+      return 'ok';
+    }
     await afterCommand(io);
     return 'ok';
   },
@@ -1115,12 +1158,11 @@ const exitCommand: Command = {
 
 const configCommand: Command = {
   name: 'config',
-  summary: 'view or change device settings (autoReminder=on|off, autoReminderPct=1..99)',
-  usage: 'config [autoReminder=on|off] [autoReminderPct=1..99]',
+  summary: 'view or change device settings (autoReminder=on|off, autoReminderPct=1..99, quickAddPath=/path)',
+  usage: 'config [autoReminder=on|off] [autoReminderPct=1..99] [quickAddPath=/path]',
   run: (io, args): CommandResult => {
     if (args.length === 0) {
-      const s = loadSettings();
-      io.out(`autoReminder: ${s.autoReminder.enabled ? 'on' : 'off'} (pct ${s.autoReminder.pct})`);
+      printSettings(io, loadSettings());
       return 'ok';
     }
     const next = loadSettings();
@@ -1145,16 +1187,29 @@ const configCommand: Command = {
           return 'ok';
         }
         next.autoReminder.pct = pct;
+      } else if (key === 'quickAddPath') {
+        try {
+          normalizeCapturePath(value);
+        } catch (e) {
+          io.out(`invalid quickAddPath: ${errMsg(e)}`);
+          return 'ok';
+        }
+        next.quickAdd.path = value;
       } else {
         io.out(`unknown setting: ${key}`);
         return 'ok';
       }
     }
     saveSettings(next);
-    io.out(`autoReminder: ${next.autoReminder.enabled ? 'on' : 'off'} (pct ${next.autoReminder.pct})`);
+    printSettings(io, next);
     return 'ok';
   },
 };
+
+function printSettings(io: CommandIO, settings: CliSettings): void {
+  io.out(`autoReminder: ${settings.autoReminder.enabled ? 'on' : 'off'} (pct ${settings.autoReminder.pct})`);
+  io.out(`quickAdd path: ${settings.quickAdd.path}`);
+}
 
 export const COMMANDS: Command[] = [
   treeCommand,
@@ -1164,6 +1219,7 @@ export const COMMANDS: Command[] = [
   cdCommand,
   pwdCommand,
   addCommand,
+  captureCommand,
   rmCommand,
   undoCommand,
   renameCommand,

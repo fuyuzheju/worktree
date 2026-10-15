@@ -23,7 +23,10 @@ describe('CLI settings', () => {
   });
 
   it('round-trips via saveSettings', () => {
-    const next = { autoReminder: { enabled: false, pct: 30 } };
+    const next = {
+      autoReminder: { enabled: false, pct: 30 },
+      quickAdd: { path: '/inbox' },
+    };
     saveSettings(next);
     expect(loadSettings()).toEqual(next);
     expect(JSON.parse(fs.readFileSync(settingsPath(), 'utf8'))).toEqual(next);
@@ -38,8 +41,11 @@ describe('CLI settings', () => {
   it('validates per field and clamps the percentage', () => {
     fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
     fs.writeFileSync(settingsPath(), JSON.stringify({ autoReminder: { enabled: 'yes', pct: 500 } }));
-    expect(loadSettings()).toEqual({ autoReminder: { enabled: true, pct: 99 } });
-    fs.writeFileSync(settingsPath(), JSON.stringify({ autoReminder: { enabled: false, pct: 0 } }));
-    expect(loadSettings()).toEqual({ autoReminder: { enabled: false, pct: 1 } });
+    expect(loadSettings()).toEqual({ autoReminder: { enabled: true, pct: 99 }, quickAdd: { path: '/tmp' } });
+    fs.writeFileSync(
+      settingsPath(),
+      JSON.stringify({ autoReminder: { enabled: false, pct: 0 }, quickAdd: { path: 'relative' } }),
+    );
+    expect(loadSettings()).toEqual({ autoReminder: { enabled: false, pct: 1 }, quickAdd: { path: '/tmp' } });
   });
 });

@@ -161,6 +161,31 @@ otherwise: toggle that user to "offline", replace their history, then back to
 
 --
 
+/api/capture
+header: Authorization: Bearer <token>
+body: {id?, text, path?}     (path defaults to /tmp)
+
+convenience endpoint for callers that cannot run the client kernel (iOS
+Shortcuts, Tasker, curl, hotkey glue). it plans the capture through the same
+core function as the clients (see "Quick capture" in data_structure.md) and
+appends the resulting ordinary add ops through the normal submit machinery —
+validation, the per-user serialization lock and the op broadcast included.
+  - id is optional: when given it is the captured node's id and the retry key
+    (a repeat with the same id is an idempotent 200; an id already used by an
+    entry that is not an add is a 409). without one the server generates the
+    id, and the call is not retry-safe
+  - when two captures race for the same name, the loser is re-planned once and
+    converges to a ` (2)` suffix instead of failing
+  - 200 {ok: true, nodeId, displayPath}; displayPath is null when the capture
+    has already been undone
+  - 400 {error} — the endpoint has no conflict concept: a malformed body, or a
+    capture the plan rejects (empty text, '/' in the name, bad path), answers
+    a plain error
+  - 409 {error, entry_id, reason} when the user's history is broken
+  - 503 while the user is offline (rewriting), 401 for invalid credentials
+
+--
+
 broken histories (replay failure):
 
 replay is strict: an entry that apply rejects — e.g. a `complete` stored before

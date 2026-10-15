@@ -7,7 +7,7 @@ import { defaultStatePath, FileStorage, readToken } from './storage';
 import { DEFAULT_SERVER, LOCAL_USER, loadCurrentUser, saveCurrentUser } from './config';
 import { completeLine } from './completion';
 import { COMMANDS } from './commands';
-import { createCommandIO, createDispatcher, errMsg, findCommand, isSuppressingUpdates, printConflict } from './command';
+import { afterCommand, createCommandIO, createDispatcher, errMsg, findCommand, isSuppressingUpdates, printConflict } from './command';
 import type { CommandContext, CommandIO, CommandResult } from './command';
 
 const dispatch = createDispatcher(COMMANDS);
@@ -266,6 +266,18 @@ async function main(): Promise<void> {
   }
   if (ran && command?.mutatesTree) {
     console.log(renderFiltered(client.getTree(), io.filter, io.filterMode));
+  }
+  // The session ends right after: wait briefly for the mutation to flush so a
+  // hotkey-driven capture lands now instead of surfacing on the next run.
+  if (!client.isLocal() && client.getPendingCount() > 0) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, 3000);
+    });
+    await Promise.race([client.syncNow(), timeout]);
+    if (timer !== undefined) clearTimeout(timer);
+    if (client.getPendingCount() === 0) console.log('(synced)');
+    else await afterCommand(io);
   }
   client.disconnect();
   if (client.getConflict()) printConflict(io);

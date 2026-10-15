@@ -5,6 +5,7 @@ export * from './schedule';
 export * from './tree';
 export * from './calendar';
 export * from './state';
+export * from './capture';
 export * from './repair';
 export * from './filter';
 export * from './history';

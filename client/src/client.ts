@@ -1,4 +1,4 @@
-import { ROOT_ID, USER_RE, newId, planDropRepair } from '@worktree/core';
+import { DEFAULT_CAPTURE_PATH, ROOT_ID, USER_RE, newId, planCapture, planDropRepair } from '@worktree/core';
 import type {
   Block,
   BlockOccurrence,
@@ -323,6 +323,32 @@ export class WorktreeClient {
     if (!this.store.applyUndo()) throw new Error('nothing to undo');
     this.emit();
     if (this.online) void this.resync();
+  }
+
+  /**
+   * Capture a node under `path` (default '/tmp'): the first line of `text`
+   * becomes the name, the rest its note; missing path segments are created,
+   * a sibling name collision gets a ` (2)` suffix and the node lands on top.
+   * The semantics live in core's planCapture; the entries it returns are
+   * ordinary add ops, so offline they queue and undo treats them like any add.
+   */
+  quickAdd(text: string, opts?: { path?: string }): { nodeId: string; name: string; displayPath: string } {
+    this.assertNotBroken();
+    const plan = planCapture(this.store.planningState(), {
+      id: newId(),
+      text,
+      path: opts?.path ?? DEFAULT_CAPTURE_PATH,
+      timestamp: Date.now(),
+      createId: newId,
+    });
+    if (this.local) {
+      this.store.appendConfirmedEntries(plan.entries);
+    } else {
+      this.store.enqueueEntries(plan.entries);
+    }
+    this.emit();
+    if (!this.local && this.online) void this.resync();
+    return { nodeId: plan.nodeId, name: plan.name, displayPath: plan.displayPath };
   }
 
   renameNode(id: string, name: string): void {
@@ -674,6 +700,15 @@ export class WorktreeClient {
       if (e instanceof ApiError && e.status === 401) this.failAuth();
     }
     return false;
+  }
+
+  /**
+   * Await one resync (catch-up, flush the pending queue, catch up again),
+   * sharing any in-flight run. Never rejects: callers that need to know
+   * whether the flush landed check getPendingCount() afterwards.
+   */
+  async syncNow(): Promise<void> {
+    await this.resync();
   }
 
   /** After a conflict: keep the server's history, or force-rewrite it with ours. */

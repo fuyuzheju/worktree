@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { normalizeCapturePath } from '@worktree/core';
 import type { Node } from '@worktree/core';
 import type { WorktreeClient } from '@worktree/client';
 import { LOCAL_USER, listLoggedInUsers, loadToken } from '../config';
@@ -42,6 +43,22 @@ export function SettingsPage(props: {
     setServerError(null);
     setServerDraft(value);
     updateConfig({ serverUrl: value });
+  };
+
+  const [quickDraft, setQuickDraft] = useState(config.quickAddPath);
+  const [quickError, setQuickError] = useState<string | null>(null);
+
+  const applyQuickPath = (): void => {
+    const value = quickDraft.trim();
+    try {
+      normalizeCapturePath(value);
+    } catch {
+      setQuickError(t('settings.invalidQuickPath'));
+      return;
+    }
+    setQuickError(null);
+    setQuickDraft(value);
+    updateConfig({ quickAddPath: value });
   };
 
   const clearCache = (): void => {
@@ -236,6 +253,28 @@ export function SettingsPage(props: {
         </div>
         <p className="mt-1 text-xs text-gray-500">{t('settings.serverNote')}</p>
         {serverError !== null && <p className="mt-1 text-xs text-red-700">{serverError}</p>}
+      </section>
+
+      <section className="rounded border border-gray-300 bg-white p-4">
+        <h2 className="font-semibold">{t('settings.capture')}</h2>
+        <div className="mt-2 flex gap-2">
+          <input
+            value={quickDraft}
+            onChange={(e) => setQuickDraft(e.target.value)}
+            data-testid="settings-quick-path-input"
+            className="w-full rounded border border-gray-300 px-2 py-1 font-mono"
+          />
+          <button
+            type="button"
+            onClick={applyQuickPath}
+            data-testid="settings-apply-quick-path"
+            className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+          >
+            {t('settings.apply')}
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-gray-500">{t('settings.captureNote')}</p>
+        {quickError !== null && <p className="mt-1 text-xs text-red-700">{quickError}</p>}
       </section>
 
       <section className="rounded border border-gray-300 bg-white p-4">

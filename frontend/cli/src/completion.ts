@@ -27,7 +27,7 @@ const FILTER_KEYS = [
   'mode=',
 ];
 const EDIT_KEYS = ['name=', 'weight=', 'status=', 'note=', 'deadline='];
-const CONFIG_KEYS = ['autoReminder=', 'autoReminderPct='];
+const CONFIG_KEYS = ['autoReminder=', 'autoReminderPct=', 'quickAddPath='];
 
 /**
  * Complete a fixed option list: single match gets a trailing space.

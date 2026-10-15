@@ -1,4 +1,4 @@
-import { USER_RE, isRecord } from '@worktree/core';
+import { DEFAULT_CAPTURE_PATH, USER_RE, isRecord, normalizeCapturePath } from '@worktree/core';
 import type { NodeFilter } from '@worktree/core';
 import { DEFAULT_AUTO_REMINDER_PCT, clampAutoReminderPct } from '@worktree/client';
 
@@ -31,6 +31,8 @@ export interface AppConfig {
   /** Day columns shown in the calendar grid (3–9). */
   calendarDays: number;
   autoReminder: AutoReminderSetting;
+  /** Where the capture overlay (⌘K / ?quick=1) adds nodes. */
+  quickAddPath: string;
 }
 
 const CONFIG_KEY = 'worktree.config';
@@ -43,6 +45,7 @@ const defaultConfig: AppConfig = {
   lang: 'en',
   calendarDays: 7,
   autoReminder: { enabled: true, pct: DEFAULT_AUTO_REMINDER_PCT },
+  quickAddPath: DEFAULT_CAPTURE_PATH,
 };
 
 function parseAutoReminder(raw: unknown): AutoReminderSetting {
@@ -96,10 +99,22 @@ export function loadConfig(): AppConfig {
       lang: typeof parsed.lang === 'string' ? parsed.lang : defaultConfig.lang,
       calendarDays: typeof parsed.calendarDays === 'number' ? parsed.calendarDays : defaultConfig.calendarDays,
       autoReminder: parseAutoReminder(parsed.autoReminder),
+      quickAddPath: parseCapturePath(parsed.quickAddPath),
     };
   } catch {
     return defaultConfig;
   }
+}
+
+/** The stored capture path when it is well-formed, the default otherwise. */
+function parseCapturePath(raw: unknown): string {
+  if (typeof raw !== 'string') return defaultConfig.quickAddPath;
+  try {
+    normalizeCapturePath(raw);
+  } catch {
+    return defaultConfig.quickAddPath;
+  }
+  return raw;
 }
 
 export function saveConfig(config: AppConfig): void {

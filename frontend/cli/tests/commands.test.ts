@@ -235,14 +235,17 @@ describe('command dispatcher', () => {
     try {
       const { io, lines } = newIO();
       await run(io, 'config');
-      expect(lines).toEqual(['autoReminder: on (pct 15)']);
-      await run(io, 'config autoReminder=off autoReminderPct=30');
-      expect(lines.at(-1)).toBe('autoReminder: off (pct 30)');
+      expect(lines).toEqual(['autoReminder: on (pct 15)', 'quickAdd path: /tmp']);
+      await run(io, 'config autoReminder=off autoReminderPct=30 quickAddPath=/inbox');
+      expect(lines.slice(-2)).toEqual(['autoReminder: off (pct 30)', 'quickAdd path: /inbox']);
       expect(JSON.parse(fs.readFileSync(path.join(home, '.worktree', 'config.json'), 'utf8'))).toEqual({
         autoReminder: { enabled: false, pct: 30 },
+        quickAdd: { path: '/inbox' },
       });
       await run(io, 'config autoReminderPct=500');
       expect(lines.at(-1)).toBe('invalid autoReminderPct: use an integer 1..99');
+      await run(io, 'config quickAddPath=inbox');
+      expect(lines.at(-1)).toContain('invalid quickAddPath');
       await run(io, 'config nope=1');
       expect(lines.at(-1)).toBe('unknown setting: nope');
     } finally {

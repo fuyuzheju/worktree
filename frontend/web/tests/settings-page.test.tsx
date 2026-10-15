@@ -20,6 +20,7 @@ function makeConfig(calendarDays: number): AppConfig {
     lang: 'en',
     calendarDays,
     autoReminder: { enabled: true, pct: 15 },
+    quickAddPath: '/tmp',
   };
 }
 
@@ -55,6 +56,23 @@ describe('SettingsPage calendar', () => {
     const { updateConfig } = renderSettings(7);
     fireEvent.change(screen.getByTestId('settings-calendar-days'), { target: { value: '6' } });
     expect(updateConfig).toHaveBeenCalledWith({ calendarDays: 6 });
+  });
+});
+
+describe('SettingsPage quick capture path', () => {
+  it('applies a valid path', () => {
+    const { updateConfig } = renderSettings(7);
+    fireEvent.change(screen.getByTestId('settings-quick-path-input'), { target: { value: '/inbox' } });
+    fireEvent.click(screen.getByTestId('settings-apply-quick-path'));
+    expect(updateConfig).toHaveBeenCalledWith({ quickAddPath: '/inbox' });
+  });
+
+  it('rejects a path without a leading slash and keeps the old one', () => {
+    const { updateConfig } = renderSettings(7);
+    fireEvent.change(screen.getByTestId('settings-quick-path-input'), { target: { value: 'inbox' } });
+    fireEvent.click(screen.getByTestId('settings-apply-quick-path'));
+    expect(updateConfig).not.toHaveBeenCalled();
+    expect(screen.getByText(/Invalid path/)).toBeTruthy();
   });
 });
 

@@ -3,6 +3,7 @@ import type {
   Block,
   BlockOccurrence,
   BlockRule,
+  CaptureEntry,
   HistoryNode,
   HistoryOperation,
   Node,
@@ -108,6 +109,26 @@ export class ClientStore {
   /** Offline-only edit (local user): go straight into the confirmed chain. */
   applyLocalConfirmed(op: Operation): void {
     this.confirmed.append(newId(), op);
+    this.rebuild();
+  }
+
+  /**
+   * The rendered state (confirmed + pending applied) for planning, as a
+   * clone: planners like planCapture dry-run without touching the live state.
+   */
+  planningState(): WorktreeState {
+    return this.state.clone();
+  }
+
+  /** Queue pre-planned 'add' entries in order; one rebuild per batch. */
+  enqueueEntries(entries: CaptureEntry[]): void {
+    for (const entry of entries) this.pending.enqueue(entry);
+    this.rebuild();
+  }
+
+  /** Append pre-planned entries straight into the confirmed chain (local user). */
+  appendConfirmedEntries(entries: CaptureEntry[]): void {
+    for (const entry of entries) this.confirmed.append(entry.id, entry.op);
     this.rebuild();
   }
 

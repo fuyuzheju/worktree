@@ -1,7 +1,7 @@
 /* App-shell cache, network-first. Bump CACHE when the shell's caching policy
    changes; old caches are deleted on activate. /api/* is never touched — sync
    data freshness is managed by the client kernel's own localStorage state. */
-const CACHE = 'worktree-shell-v1';
+const CACHE = 'worktree-shell-v2';
 const MAX_ENTRIES = 100;
 
 self.addEventListener('install', () => {
@@ -18,11 +18,16 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+/* Capture links carry user text in the query — never write them to the cache. */
+function isCaptureRequest(url) {
+  return url.searchParams.has('quick') || url.searchParams.has('text');
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && !isCaptureRequest(new URL(request.url))) {
       try {
         const keys = await cache.keys();
         if (keys.length >= MAX_ENTRIES) {

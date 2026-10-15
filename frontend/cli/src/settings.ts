@@ -1,19 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_AUTO_REMINDER_PCT, clampAutoReminderPct } from '@worktree/client';
-import { isRecord } from '@worktree/core';
+import { DEFAULT_CAPTURE_PATH, isRecord, normalizeCapturePath } from '@worktree/core';
 import { worktreeHome } from './storage';
 
 /**
  * Device-global CLI settings, stored at `~/.worktree/config.json`.
- * Only the auto-reminder preference exists today.
+ * Only the auto-reminder preference and the capture path exist today.
  */
 export interface CliSettings {
   autoReminder: { enabled: boolean; pct: number };
+  quickAdd: { path: string };
 }
 
 export const DEFAULT_CLI_SETTINGS: CliSettings = {
   autoReminder: { enabled: true, pct: DEFAULT_AUTO_REMINDER_PCT },
+  quickAdd: { path: DEFAULT_CAPTURE_PATH },
 };
 
 export function settingsPath(): string {
@@ -43,10 +45,23 @@ export function loadSettings(): CliSettings {
             ? clampAutoReminderPct(autoReminder.pct)
             : DEFAULT_CLI_SETTINGS.autoReminder.pct,
       },
+      quickAdd: { path: parseCapturePath(parsed.quickAdd) },
     };
   } catch {
     return DEFAULT_CLI_SETTINGS;
   }
+}
+
+/** The stored capture path when it is well-formed, the default otherwise. */
+function parseCapturePath(raw: unknown): string {
+  const value = isRecord(raw) ? raw.path : undefined;
+  if (typeof value !== 'string') return DEFAULT_CAPTURE_PATH;
+  try {
+    normalizeCapturePath(value);
+  } catch {
+    return DEFAULT_CAPTURE_PATH;
+  }
+  return value;
 }
 
 /** Atomic save (tmp + rename), mirroring FileStorage.save. */

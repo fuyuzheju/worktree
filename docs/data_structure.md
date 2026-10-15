@@ -45,6 +45,22 @@ Reminder notifications (server-side, Web Push):
   to be open. Occurrences are deduped server-side, so restarts cannot
   double-fire.
 
+Quick capture (a client-side convenience, not a server feature): every
+frontend offers a fast path for jotting a node under a configured path
+(quickAddPath, default /tmp). It produces ordinary add ops, so the server only
+ever sees add ops and the replay stays deterministic. All entries — the CLI
+command, the web overlay / `?quick=1` link, and POST /api/capture — plan
+through the same core function (capture.ts, planCapture):
+- Text: trimmed; the first line becomes the node's name (empty, or containing
+  '/', is an error); the remaining lines become its note.
+- Path: sibling names from the root; '' and '.' segments are dropped and '..'
+  is rejected. Missing segments are auto-created as plain add ops (appended
+  after their siblings) in the same batch, before the captured node.
+- Name: a sibling name collision is resolved with a ` (2)`, ` (3)` suffix (the
+  copy-name convention); the captured node itself lands on top of its new
+  siblings (weight = lowest sibling weight - 1; ties and negative weights are
+  legal, the sort stays deterministic).
+
 Node:
 id: string,
 name: string, (non-empty, must not contain '/')

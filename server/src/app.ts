@@ -7,6 +7,7 @@ import { offlineGuard } from './state';
 import type { HistoryStore } from './store';
 import type { WsHub } from './ws';
 import { submitRouter } from './routes/submit';
+import { captureRouter } from './routes/capture';
 import { historyRouter } from './routes/history';
 import { rewriteRouter } from './routes/rewrite';
 import { authedAuthRouter, publicAuthRouter } from './routes/auth';
@@ -37,6 +38,7 @@ export function createApp(ctx: AppContext): express.Express {
   app.use(offlineGuard);
   app.use('/api', authedAuthRouter());
   app.use('/api/submit', submitRouter(ctx.store, ctx.hub));
+  app.use('/api/capture', captureRouter(ctx.store, ctx.hub));
   app.use('/api/history', historyRouter(ctx.store));
 
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
